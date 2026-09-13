@@ -236,7 +236,16 @@ function syncLogoCasesToneFromLayout() {
   // boundary it switches exactly when the Cases bottom crosses logo centre.
   const logoCenter = logoBox.top + logoBox.height / 2
   isOverCases.value = caseBox.top <= logoBox.bottom && caseBox.bottom >= logoCenter
-  mobileMarkOverCases.value = caseBox.top < window.innerHeight && caseBox.bottom > 0
+  const mobileMarkBox = document
+    .querySelector<HTMLElement>('.mobile-scroll-mark')
+    ?.getBoundingClientRect() ?? fabEl.value?.getBoundingClientRect()
+  const mobileMarkCenter = mobileMarkBox
+    ? mobileMarkBox.top + mobileMarkBox.height / 2
+    : window.innerHeight
+  mobileMarkOverCases.value = (
+    caseBox.top <= mobileMarkCenter
+    && caseBox.bottom >= mobileMarkCenter
+  )
 }
 
 async function setupLogoCasesTrigger() {
@@ -295,8 +304,14 @@ async function setupLogoCasesTrigger() {
   })
   mobileMarkCasesSt = stMod.create({
     trigger: cases,
-    start: 'top bottom',
-    end: 'bottom top',
+    start: () => {
+      const r = fabEl.value?.getBoundingClientRect()
+      return `top ${Math.round(r ? r.top + r.height / 2 : window.innerHeight)}px`
+    },
+    end: () => {
+      const r = fabEl.value?.getBoundingClientRect()
+      return `bottom ${Math.round(r ? r.top + r.height / 2 : window.innerHeight)}px`
+    },
     invalidateOnRefresh: true,
     onToggle: (self) => {
       mobileMarkOverCases.value = self.isActive

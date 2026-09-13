@@ -2007,9 +2007,14 @@ function paintMobileScrollCorridor(
     return
   }
   if (heroRevealFramePinned()) {
-    // Release only at the fixed morph boundary. `unpinFrame` preserves the
-    // viewport box through Teleport; repaint after Vue has restored the shell.
+    // Native scroll can cross the morph boundary by many pixels in one frame.
+    // Release the DOM-owned Hero, then paint the current scrub pose immediately
+    // while the frame is still `position: fixed`. Waiting for Teleport's
+    // nextTick exposed the already-scrolled Hero pose for one or two frames.
     unpinFrame(0)
+    paintMobileScrollCorridor(scrollY)
+    // Reconcile once more after Vue has physically restored the frame to the
+    // fixed shell; `unpinFrame` keeps the newer liveBox through that move.
     void nextTick(() => paintMobileScrollCorridor(window.scrollY))
     return
   }
@@ -2053,9 +2058,6 @@ function paintMobileScrollCorridor(
   const formatsAtEnd = mobileFormatsSettledBox(
     poseAtScrollY(bounds.formatsDoc, bounds.formatsEnd),
   )
-  const aboutAtEnd = poseAtScrollY(bounds.aboutDoc, bounds.aboutEnd)
-  const aboutAtContactStart = poseAtScrollY(bounds.aboutDoc, bounds.contactStart)
-  const contactAtEnd = poseAtScrollY(bounds.contactDoc, bounds.contactEnd)
 
   // Holds stay in the fixed shell and follow the current document box. Moving
   // the frame into a proxy/Teleport here creates a second coordinate system.
@@ -2285,6 +2287,13 @@ function paintMobileScrollCorridor(
   if (segmentId === 'formats-about') {
     // The gap between formatsEnd and aboutStart is an intentional hold: the
     // corridor resolves this segment at t=0 until Biography actually begins.
+    // Projects' collapsing tail can still shift Biography after the corridor
+    // was captured. Rebase the endpoint from the live slot so the last flight
+    // frame is identical to the pose used by the following DOM-owned hold.
+    const aboutAtEnd = poseAtScrollY(
+      readDocBox(props.aboutSurfaceEl) ?? bounds.aboutDoc,
+      bounds.aboutEnd,
+    )
     const box = lerpBox(formatsAtEnd, aboutAtEnd, t)
     const toneProgress = smoothUnit(t / MOBILE_ABOUT_TONE_END_P)
     const titleLightProgress = smoothUnit((toneProgress - 0.35) / 0.45)
@@ -2305,6 +2314,17 @@ function paintMobileScrollCorridor(
     return
   }
 
+  // The final two sections can move with late content/layout settlement too.
+  // Resolve both boundary poses from their current document boxes; otherwise
+  // the fixed flight ends at stale coordinates and Teleport visibly corrects it.
+  const aboutAtContactStart = poseAtScrollY(
+    readDocBox(props.aboutSurfaceEl) ?? bounds.aboutDoc,
+    bounds.contactStart,
+  )
+  const contactAtEnd = poseAtScrollY(
+    readDocBox(props.contactSurfaceEl) ?? bounds.contactDoc,
+    bounds.contactEnd,
+  )
   const box = lerpBox(aboutAtContactStart, contactAtEnd, t)
   const contactReveal = smoothUnit((t - 0.55) / 0.32)
   mobileStage = 'word'
@@ -2591,7 +2611,9 @@ function unpinFrame(morph = 1) {
   void nextTick(() => {
     if (!frame.value || pinTo.value) return
     frame.value.style.position = 'absolute'
-    applyBox(frame.value, box)
+    // Scroll may already have painted a newer free-flight pose while Teleport
+    // was moving the frame back into the shell. Do not restore the stale pin.
+    applyBox(frame.value, liveBox ?? box)
   })
 }
 
