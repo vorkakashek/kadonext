@@ -20,12 +20,11 @@ const SCENE_LIVE_OPACITY = 0.08
 /** Desktop 3D fade — keyed to min(h,v) arrive progress. */
 const SCENE_FADE_START = 0.3
 const SCENE_FADE_END = 0.7
-/** Fallback mobile 3D fade while the stone geometry is not measurable. */
-const SCENE_FADE_START_MOBILE = 0.92
-const SCENE_FADE_END_MOBILE = 1
-/** Fade scene + slogan as the Surface bottom travels through the stone. */
-const MOBILE_HERO_FADE_STONE_START = 0.45
-const MOBILE_HERO_FADE_STONE_END = 0.6
+/** Mobile Hero visuals switch at one spatial threshold instead of scrub-fading. */
+const MOBILE_HERO_VISIBILITY_STONE_P = 0.525
+const MOBILE_HERO_VISIBILITY_HYSTERESIS_P = 0.015
+const MOBILE_HERO_VISIBILITY_FALLBACK_MORPH = 0.96
+const MOBILE_SCENE_FADE_MS = 320
 /**
  * Swarm/media bleed past the stage box (px).
  * Desktop: cover stacked roam+hover outward (~2× dent + bow).
@@ -39,8 +38,8 @@ const SCENE_BLEED_X_LITE = 56
 const SLOGAN_START_TOP_DESKTOP = 0.6
 const SLOGAN_END_TOP_DESKTOP = 0.2
 const SLOGAN_FADE_IN_END_DESKTOP = 0.22
-/** Mobile: settle from transparent to opaque over the first 15% of the route. */
-const SLOGAN_FADE_IN_END_MOBILE = 0.15
+/** Mobile slogan appears at one route threshold instead of a scrubbed range. */
+const SLOGAN_REVEAL_AT_MOBILE = 0.075
 /** Desktop: fade the slogan through 64–82% of the scroll route. */
 const SLOGAN_FADE_OUT_START_DESKTOP = 0.64
 const SLOGAN_FADE_OUT_END_DESKTOP = 0.82
@@ -253,10 +252,12 @@ watch(heroGlPrewarm, () => {
 const copyOpacity = ref(0)
 /** 3D / media opacity — separate corridor on mobile. */
 const sceneOpacity = ref(1)
+let mobileHeroVisualsVisible = true
 let ctx: { revert: () => void } | null = null
 let gsapRef: typeof import('gsap').default | null = null
 let stRef: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
 let mediaFadeTween: { kill: () => void } | null = null
+let sceneReleaseTimer = 0
 let parallaxRaf = 0
 /** Locked vh for slogan parallax — ignore mobile chrome show/hide (innerHeight jumps). */
 let copyParallaxVh = 0
@@ -300,7 +301,7 @@ function opacityInRange(m: number, start: number, end: number) {
 
 function sceneOpacityForMorph(m: number) {
   if (mobileLite.value) {
-    return opacityInRange(m, SCENE_FADE_START_MOBILE, SCENE_FADE_END_MOBILE)
+    return m < MOBILE_HERO_VISIBILITY_FALLBACK_MORPH ? 1 : 0
   }
   return opacityInRange(m, SCENE_FADE_START, SCENE_FADE_END)
 }
@@ -316,9 +317,37 @@ function mobileHeroExitOpacity() {
   if (stoneBox.height <= 1) return sceneOpacityForMorph(mask.morph)
 
   const surfaceBottom = mask.top + mask.height
-  const fadeStart = stoneBox.top + stoneBox.height * MOBILE_HERO_FADE_STONE_START
-  const fadeEnd = stoneBox.top + stoneBox.height * MOBILE_HERO_FADE_STONE_END
-  return opacityInRange(surfaceBottom, fadeStart, fadeEnd)
+  const progress = (surfaceBottom - stoneBox.top) / stoneBox.height
+  const threshold = MOBILE_HERO_VISIBILITY_STONE_P
+    + (mobileHeroVisualsVisible
+      ? MOBILE_HERO_VISIBILITY_HYSTERESIS_P
+      : -MOBILE_HERO_VISIBILITY_HYSTERESIS_P)
+  mobileHeroVisualsVisible = progress < threshold
+  return mobileHeroVisualsVisible ? 1 : 0
+}
+
+function paintSceneVisibility(opacity: number) {
+  if (sceneReleaseTimer) {
+    window.clearTimeout(sceneReleaseTimer)
+    sceneReleaseTimer = 0
+  }
+
+  if (!mobileLite.value) {
+    sceneOpacity.value = opacity
+    sceneLive.value = opacity > SCENE_LIVE_OPACITY
+    return
+  }
+
+  // On reveal, wake WebGL before the opacity transition starts. On exit, keep
+  // it alive through the complete fade so the canvas cannot disappear early.
+  if (opacity > SCENE_LIVE_OPACITY) sceneLive.value = true
+  sceneOpacity.value = opacity
+  if (opacity <= SCENE_LIVE_OPACITY) {
+    sceneReleaseTimer = window.setTimeout(() => {
+      sceneReleaseTimer = 0
+      if (sceneOpacity.value <= SCENE_LIVE_OPACITY) sceneLive.value = false
+    }, MOBILE_SCENE_FADE_MS + 40)
+  }
 }
 
 /**
@@ -359,11 +388,15 @@ function updateSloganMotion(scrollY?: number) {
       : routeStart + (props.sectionEl?.offsetHeight ?? vh)
   }
   const routeProgress = Math.min(1, scrolled / Math.max(1, routeEnd - routeStart))
-  const fadeInEnd = mobileLite.value
-    ? SLOGAN_FADE_IN_END_MOBILE
-    : SLOGAN_FADE_IN_END_DESKTOP
-  const fadeInProgress = Math.min(1, routeProgress / fadeInEnd)
-  const revealOpacity = fadeInProgress * fadeInProgress * (3 - 2 * fadeInProgress)
+  const revealOpacity = mobileLite.value
+    ? (routeProgress >= SLOGAN_REVEAL_AT_MOBILE ? 1 : 0)
+    : (() => {
+        const fadeInProgress = Math.min(
+          1,
+          routeProgress / SLOGAN_FADE_IN_END_DESKTOP,
+        )
+        return fadeInProgress * fadeInProgress * (3 - 2 * fadeInProgress)
+      })()
   const exitOpacity = mobileLite.value
     ? mobileHeroExitOpacity()
     : (() => {
@@ -421,14 +454,11 @@ watch(
     const sceneOp = mobileLite.value
       ? mobileHeroExitOpacity()
       : sceneOpacityForMorph(m)
-    sceneOpacity.value = sceneOp
+    paintSceneVisibility(sceneOp)
     updateSloganMotion()
     // Freeze only mid-morph — at hero rest edges stay live + cursor dent.
     setFrozen(m > 0.02 && m < 0.98)
 
-    // Morph-scrubbed both ways — keep GL alive while the fade is visible.
-    // (Desktop used to kill at morph 0.3 → hard pop via hero-swarm--cold.)
-    sceneLive.value = sceneOp > SCENE_LIVE_OPACITY
   },
   { immediate: true, flush: 'sync' },
 )
@@ -1017,6 +1047,8 @@ onUnmounted(() => {
   finishHeroRevealQuiet()
   setFrozen(false)
   mediaFadeTween?.kill()
+  if (sceneReleaseTimer) window.clearTimeout(sceneReleaseTimer)
+  sceneReleaseTimer = 0
   ctx?.revert()
   if (parallaxRaf) cancelAnimationFrame(parallaxRaf)
   removeLenisScrollFrame?.()
@@ -1223,6 +1255,11 @@ onUnmounted(() => {
 
 /* Mobile keeps the same enlarged scale in the portrait scene. */
 @media (max-width: 767px) {
+  .hero-scene-scroll-shell {
+    transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity;
+  }
+
   .hero-slogan {
     font-size: calc(var(--type-slogan) * 1.4);
     text-align: center;
@@ -1230,6 +1267,10 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .hero-scene-scroll-shell {
+    transition: none;
+  }
+
   .hero-slogan {
     transform: none !important;
   }

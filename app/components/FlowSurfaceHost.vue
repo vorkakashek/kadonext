@@ -120,12 +120,9 @@ const MOBILE_CASE_DIRECTION_REVERSAL_PX = 10
 const CASE_PIN_P = 0.999
 /** Ignore reverse hop triggers right after a forward hop (scroll bounce). */
 const STAGE_FORWARD_LOCK_MS = HOP_DURATION * 1000 + 120
-/** Mobile hero→stone scrub keeps only a tiny smoothing tail. */
-const MOBILE_SCRUB_LAG = 0.018
-const MOBILE_SCRUB_MAX_VELOCITY = 10
-/** Short release from a pinned Kado waypoint back into the live scrub corridor. */
-const MOBILE_SCRUB_BRIDGE_LAG = 0.045
-const MOBILE_SCRUB_BRIDGE_MAX_VELOCITY = 4.5
+/** Keep the routed Surface close to the live DOM while still sweeping every segment. */
+const MOBILE_SURFACE_LAG = 0.025
+const MOBILE_SURFACE_MAX_VELOCITY = 6
 const MOBILE_KADO_MORPH_SPAN_VH = 0.18
 const MOBILE_KADO_HOLD_VH = 0.18
 const MOBILE_WORD_MORPH_SPAN_VH = 0.24
@@ -403,6 +400,7 @@ type MobileScrollBounds = {
   contactDoc: SurfaceBox
 }
 let mobileScrollBounds: MobileScrollBounds | null = null
+let mobileCorridorTargetS = 0
 let mobileCorridorS = 0
 let mobileCorridorLastY: number | null = null
 let mobileCorridorDirection: 'forward' | 'reverse' = 'forward'
@@ -1839,8 +1837,14 @@ function scrubProgressAt(scrollY: number) {
   return Math.min(1, Math.max(0, (scrollY - scrubStartY) / span))
 }
 
-function paintScrubAt(p: number) {
-  if (!heroPose || !stonePose) {
+function paintScrubAt(
+  p: number,
+  mobileFrom: SurfaceBox | null = null,
+  mobileTo: SurfaceBox | null = null,
+) {
+  const from = mobileFrom ?? heroPose
+  const to = mobileTo ?? stonePose
+  if (!from || !to) {
     ensureHeroRestPlaceholder()
     return
   }
@@ -1851,12 +1855,12 @@ function paintScrubAt(p: number) {
     // linear clock for position, size, silhouette, GL and copy. Splitting this
     // into eased cover/morph phases caused a direction change and a visible
     // hesitation around the title.
-    paintBox(lerpBox(heroPose, stonePose, t), t)
+    paintBox(lerpBox(from, to, t), t)
     return
   }
 
   // Desktop keeps box and morph on the same clock.
-  paintBox(lerpBox(heroPose, stonePose, t), t)
+  paintBox(lerpBox(from, to, t), t)
 }
 
 function paintHeroRest() {
@@ -1980,12 +1984,56 @@ function parkMobileAboutWaypoint(box: SurfaceBox) {
   clearAboutTitleContrast()
 }
 
-/** Paint the ordered mobile corridor directly from native scroll position. */
+/** Linear for now; kept as one hook so the complete corridor shares one ease. */
+function mobileSurfaceEase(progress: number) {
+  return progress
+}
+
+function mobileCorridorSettledAt(segment: number) {
+  return Math.abs(mobileCorridorTargetS - segment) < SURFACE_MORPH_EPSILON
+    && Math.abs(mobileCorridorS - segment) < SURFACE_MORPH_EPSILON
+}
+
+/** Paint the ordered mobile corridor through one lightly lagged clock. */
 function paintMobileScrollCorridor(
   scrollY = window.scrollY,
+  dt = 0,
 ) {
   if (!mobileActive || !frame.value) return
-  if (scrollY < scrubStartY) {
+  if (mobileScrollBounds) {
+    if (mobileCorridorLastY !== null) {
+      const delta = scrollY - mobileCorridorLastY
+      if (delta > 0.5) mobileCorridorDirection = 'forward'
+      else if (delta < -0.5) mobileCorridorDirection = 'reverse'
+    }
+    mobileCorridorLastY = scrollY
+    mobileCorridorTargetS = mobileCorridorTargetAt(scrollY)
+    if (systemReducedMotion()) {
+      mobileCorridorS = mobileCorridorTargetS
+    } else if (dt > 0) {
+      mobileCorridorS = updateContinuousProgress(
+        mobileCorridorS,
+        mobileCorridorTargetS,
+        dt,
+        {
+          lag: MOBILE_SURFACE_LAG,
+          maxVelocity: MOBILE_SURFACE_MAX_VELOCITY,
+          epsilon: SURFACE_MORPH_EPSILON,
+        },
+      )
+    }
+    if (
+      Math.abs(mobileCorridorTargetS - mobileCorridorS)
+        >= SURFACE_MORPH_EPSILON
+    ) {
+      ensureTick()
+    }
+  }
+
+  if (
+    scrollY < scrubStartY
+    && mobileCorridorSettledAt(0)
+  ) {
     mobileStage = 'scrub'
     mobileCaseProgress = 0
     mobileCaseArrived = false
@@ -2021,15 +2069,6 @@ function paintMobileScrollCorridor(
     return
   }
   const bounds = mobileScrollBounds!
-  if (mobileCorridorLastY !== null) {
-    const delta = scrollY - mobileCorridorLastY
-    if (delta > 0.5) mobileCorridorDirection = 'forward'
-    else if (delta < -0.5) mobileCorridorDirection = 'reverse'
-  }
-  mobileCorridorLastY = scrollY
-  // Touch scrolling is the sole mobile clock. A second lagged clock makes the
-  // fixed Surface disagree with the real document, then snap back on settle.
-  mobileCorridorS = mobileCorridorTargetAt(scrollY)
 
   const ranges = mobileCorridorRanges(bounds)
   const liveS = Math.max(0, Math.min(ranges.length, mobileCorridorS))
@@ -2038,29 +2077,31 @@ function paintMobileScrollCorridor(
     ranges.length,
   )
   const segmentId = ranges[segmentIndex]!.id
-  // Hero is a direct continuation of the user's finger: easing this first
-  // segment made the Surface slow down near both ends even though its box was
-  // otherwise interpolated linearly. Later waypoint-to-waypoint morphs retain
-  // their softer easing.
-  const t = segmentId === 'hero-stone' ? localT : smoothUnit(localT)
+  const t = mobileSurfaceEase(localT)
   const exits = mobileCaseExitBounds(bounds)
-  const wordCasesRange = ranges[3]!
-  const casesFormatsRange = ranges[4]!
-  const stoneAtTermStart = poseAtScrollY(bounds.stoneDoc, bounds.termStart)
-  const termAtTermEnd = poseAtScrollY(bounds.termDoc, bounds.termEnd)
-  const termAtWordStart = poseAtScrollY(bounds.termDoc, bounds.wordStart)
-  const wordAtWordEnd = poseAtScrollY(bounds.wordDoc, bounds.wordEnd)
-  const wordAtCaseStart = poseAtScrollY(bounds.wordDoc, wordCasesRange.start)
-  const caseAtCaseEnd = poseAtScrollY(bounds.caseDoc, wordCasesRange.end)
-  const caseAtFormatsStart = poseAtScrollY(bounds.caseDoc, casesFormatsRange.start)
-  const formatsAtEnd = mobileFormatsSettledBox(
-    poseAtScrollY(bounds.formatsDoc, bounds.formatsEnd),
+  // Every adjacent segment shares the same live waypoint box. Previously each
+  // side used a snapshot captured at a different scrollY; continuous inertia
+  // then exposed a jump at every collapsed hold and made the Surface chase a
+  // position that the document element had already left behind.
+  const heroNow = heroLivePose() ?? heroPose
+  const stoneNow = kadoLivePose() ?? docToViewport(bounds.stoneDoc)
+  const termNow = docToViewport(bounds.termDoc)
+  const wordNow = wordPose() ?? docToViewport(bounds.wordDoc)
+  const caseNow = caseMediaPose() ?? docToViewport(bounds.caseDoc)
+  const formatsNow = mobileFormatsSettledBox(
+    docToViewport(bounds.formatsDoc),
   )
+  const aboutNow = aboutSurfacePose() ?? docToViewport(bounds.aboutDoc)
+  const contactNow = contactSurfacePose() ?? docToViewport(bounds.contactDoc)
 
   // Holds stay in the fixed shell and follow the current document box. Moving
   // the frame into a proxy/Teleport here creates a second coordinate system.
   {
-    if (scrollY >= bounds.termEnd && scrollY < bounds.wordStart) {
+    if (
+      mobileCorridorSettledAt(2)
+      && scrollY >= bounds.termEnd
+      && scrollY < bounds.wordStart
+    ) {
       mobileStage = 'term'
       mobileCaseProgress = 0
       mobileCaseArrived = false
@@ -2078,7 +2119,11 @@ function paintMobileScrollCorridor(
       parkMobileKadoWaypoint('term', docToViewport(bounds.termDoc))
       return
     }
-    if (scrollY >= bounds.wordEnd && scrollY < bounds.caseStart) {
+    if (
+      mobileCorridorSettledAt(3)
+      && scrollY >= bounds.wordEnd
+      && scrollY < bounds.caseStart
+    ) {
       mobileStage = 'word'
       mobileCaseProgress = 0
       mobileCaseArrived = false
@@ -2096,7 +2141,11 @@ function paintMobileScrollCorridor(
       parkMobileKadoWaypoint('word', docToViewport(bounds.wordDoc))
       return
     }
-    if (scrollY >= exits.caseEnd && scrollY < exits.formatsStart) {
+    if (
+      mobileCorridorSettledAt(4)
+      && scrollY >= exits.caseEnd
+      && scrollY < exits.formatsStart
+    ) {
       const leavingTowardKado = mobileCorridorDirection === 'reverse'
         && scrollY < exits.caseMediaEnd
       const leavingTowardFormats = mobileCorridorDirection === 'forward'
@@ -2121,11 +2170,14 @@ function paintMobileScrollCorridor(
     }
     const contactPinned = contactFramePinned()
     if (
-      scrollY >= bounds.contactEnd
-      || (
-        contactPinned
-        && mobileCorridorDirection !== 'reverse'
-        && scrollY >= bounds.contactEnd - MOBILE_TAIL_TRIGGER_HYSTERESIS_PX
+      mobileCorridorSettledAt(7)
+      && (
+        scrollY >= bounds.contactEnd
+        || (
+          contactPinned
+          && mobileCorridorDirection !== 'reverse'
+          && scrollY >= bounds.contactEnd - MOBILE_TAIL_TRIGGER_HYSTERESIS_PX
+        )
       )
     ) {
       mobileCaseProgress = 1
@@ -2149,15 +2201,18 @@ function paintMobileScrollCorridor(
     const aboutProxyParked = proxyKind === 'about'
       && proxyHost === props.aboutSurfaceEl
     if (
-      (
-        scrollY >= bounds.aboutEnd
-        && scrollY < bounds.contactStart
-      )
-      || (
-        aboutProxyParked
-        && mobileCorridorDirection !== 'reverse'
-        && scrollY >= bounds.aboutEnd - MOBILE_TAIL_TRIGGER_HYSTERESIS_PX
-        && scrollY < bounds.contactStart
+      mobileCorridorSettledAt(6)
+      && (
+        (
+          scrollY >= bounds.aboutEnd
+          && scrollY < bounds.contactStart
+        )
+        || (
+          aboutProxyParked
+          && mobileCorridorDirection !== 'reverse'
+          && scrollY >= bounds.aboutEnd - MOBILE_TAIL_TRIGGER_HYSTERESIS_PX
+          && scrollY < bounds.contactStart
+        )
       )
     ) {
       mobileCaseProgress = 1
@@ -2202,7 +2257,7 @@ function paintMobileScrollCorridor(
     clearCaseMediaFlight()
     clearAboutTitleContrast()
     paintAboutSurfaceTone(0)
-    paintScrubAt(t)
+    paintScrubAt(t, heroNow, stoneNow)
     return
   }
 
@@ -2221,7 +2276,7 @@ function paintMobileScrollCorridor(
     // Leave the Hero green on the stone, then resolve to the standard neutral
     // Surface while travelling toward “Кадо — путь…”.
     paintKadoToCaseSurfaceTone(t)
-    paintBox(lerpBox(stoneAtTermStart, termAtTermEnd, t), 1)
+    paintBox(lerpBox(stoneNow, termNow, t), 1)
     return
   }
 
@@ -2238,7 +2293,7 @@ function paintMobileScrollCorridor(
     clearCaseMediaFlight()
     clearAboutTitleContrast()
     paintCaseSurfaceTone()
-    paintBox(lerpBox(termAtWordStart, wordAtWordEnd, t), 1)
+    paintBox(lerpBox(termNow, wordNow, t), 1)
     return
   }
 
@@ -2255,7 +2310,7 @@ function paintMobileScrollCorridor(
     clearCaseMediaFlight()
     clearAboutTitleContrast()
     paintSurfaceUnderCaseMedia(
-      lerpBox(wordAtCaseStart, caseAtCaseEnd, t),
+      lerpBox(wordNow, caseNow, t),
       caseMediaApproachOpacity(t),
       1,
     )
@@ -2272,7 +2327,7 @@ function paintMobileScrollCorridor(
     caseMediaActive = false
     clearAboutTitleContrast()
     paintAboutSurfaceTone(0)
-    const box = lerpBox(caseAtFormatsStart, formatsAtEnd, t)
+    const box = lerpBox(caseNow, formatsNow, t)
     // Media has already completed its own exit in the preceding hold zone.
     // From this boundary onward only the Surface geometry is allowed to move.
     setCaseMediaVisible(false)
@@ -2288,11 +2343,7 @@ function paintMobileScrollCorridor(
     // Projects' collapsing tail can still shift Biography after the corridor
     // was captured. Rebase the endpoint from the live slot so the last flight
     // frame is identical to the pose used by the following DOM-owned hold.
-    const aboutAtEnd = poseAtScrollY(
-      readDocBox(props.aboutSurfaceEl) ?? bounds.aboutDoc,
-      bounds.aboutEnd,
-    )
-    const box = lerpBox(formatsAtEnd, aboutAtEnd, t)
+    const box = lerpBox(formatsNow, aboutNow, t)
     const toneProgress = smoothUnit(t / MOBILE_ABOUT_TONE_END_P)
     const titleLightProgress = smoothUnit((toneProgress - 0.35) / 0.45)
     mobileStage = 'word'
@@ -2312,18 +2363,7 @@ function paintMobileScrollCorridor(
     return
   }
 
-  // The final two sections can move with late content/layout settlement too.
-  // Resolve both boundary poses from their current document boxes; otherwise
-  // the fixed flight ends at stale coordinates and Teleport visibly corrects it.
-  const aboutAtContactStart = poseAtScrollY(
-    readDocBox(props.aboutSurfaceEl) ?? bounds.aboutDoc,
-    bounds.contactStart,
-  )
-  const contactAtEnd = poseAtScrollY(
-    readDocBox(props.contactSurfaceEl) ?? bounds.contactDoc,
-    bounds.contactEnd,
-  )
-  const box = lerpBox(aboutAtContactStart, contactAtEnd, t)
+  const box = lerpBox(aboutNow, contactNow, t)
   const contactReveal = smoothUnit((t - 0.55) / 0.32)
   mobileStage = 'word'
   mobileCaseProgress = 1
@@ -3009,9 +3049,10 @@ function tick(now: number) {
   const dt = Math.min(0.064, Math.max(0, (now - lastTs) / 1000))
   lastTs = now
 
-  // Mobile: native scroll is the only clock; no post-touch catch-up loop.
+  // Mobile keeps scroll as its target while one bounded clock smooths gaps
+  // between sparse native scroll frames and continues briefly after release.
   if (mobileActive) {
-    paintMobileScrollCorridor(window.scrollY)
+    paintMobileScrollCorridor(window.scrollY, dt)
     return
   }
 
@@ -3049,7 +3090,10 @@ function tick(now: number) {
 function ensureTick() {
   if (!keepAliveActive) return
   if (!raf) {
-    lastTs = 0
+    // Seed the clock at scheduling time. Resetting it to zero here made every
+    // self-scheduled mobile follow frame compute dt=0, so the shared corridor
+    // stayed frozen at its initial segment while the document kept scrolling.
+    lastTs = performance.now()
     raf = requestAnimationFrame(tick)
   }
 }
@@ -3101,6 +3145,7 @@ function killMorph() {
   mobileAboutArrived = false
   setContactStageProgress(0)
   mobileScrollBounds = null
+  mobileCorridorTargetS = 0
   mobileCorridorS = 0
   mobileCorridorLastY = null
   mobileCorridorDirection = 'forward'
@@ -3188,10 +3233,11 @@ function buildMobileMorph(ScrollTrigger: typeof import('gsap/ScrollTrigger').Scr
   // refresh is what hard-froze the tab on logo→home navigations.
   suppressStageCallbacks = true
 
-  // ScrollTrigger only invalidates measurements and forwards native scroll.
-  // The current scroll position owns every mobile transition and side effect.
+  // ScrollTrigger invalidates measurements and forwards the latest scroll
+  // target. The shared mobile clock follows it with a small bounded lag.
   captureMobileScrollBounds()
-  mobileCorridorS = mobileCorridorTargetAt(window.scrollY)
+  mobileCorridorTargetS = mobileCorridorTargetAt(window.scrollY)
+  mobileCorridorS = mobileCorridorTargetS
   mobileCorridorLastY = window.scrollY
   const corridorEnd = props.contactSectionEl
     ?? props.aboutSectionEl

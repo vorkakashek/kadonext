@@ -246,6 +246,16 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
   background: var(--palette-stone);
 }
 
+@media (min-width: 768px) {
+  .home-contact__surface {
+    /* The footer photo is fixed and becomes active slightly before its spacer
+       reaches the viewport. Mask only the contact gutters at this height so it
+       cannot show beside the live Surface. */
+    box-shadow: 0 0 0 100vmax var(--palette-sand);
+    clip-path: inset(0 -100vmax);
+  }
+}
+
 .home-contact__surface.is-surface-ready {
   background: transparent;
 }

@@ -160,7 +160,15 @@ let caseSwipeStart: { x: number; y: number; pointerId: number } | null = null
 /** Prevent the synthetic link click that follows a completed horizontal swipe. */
 let suppressCaseLinkClick = false
 let suppressCaseLinkClickTimer = 0
-const CASE_SWIPE_MIN_PX = 44
+const CASE_SWIPE_MIN_PX = 52
+const CASE_SWIPE_HORIZONTAL_RATIO = 1.75
+
+function isIntentionalHorizontalCaseSwipe(dx: number, dy: number) {
+  const horizontal = Math.abs(dx)
+  const vertical = Math.abs(dy)
+  return horizontal >= CASE_SWIPE_MIN_PX
+    && horizontal >= vertical * CASE_SWIPE_HORIZONTAL_RATIO
+}
 
 let caseGestureStart: { x: number; y: number; pointerId: number } | null = null
 
@@ -191,8 +199,7 @@ function onCaseGesturePointerUp(e: PointerEvent) {
 
   const dx = e.clientX - start.x
   const dy = e.clientY - start.y
-  const horizontalSwipe =
-    Math.abs(dx) >= CASE_SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy)
+  const horizontalSwipe = isIntentionalHorizontalCaseSwipe(dx, dy)
   if (horizontalSwipe) {
     e.preventDefault()
     dismissCaseGestureHint()
@@ -225,7 +232,7 @@ function onCaseStagePointerUp(e: PointerEvent) {
 
   const dx = e.clientX - start.x
   const dy = e.clientY - start.y
-  if (Math.abs(dx) < CASE_SWIPE_MIN_PX || Math.abs(dx) <= Math.abs(dy)) return
+  if (!isIntentionalHorizontalCaseSwipe(dx, dy)) return
   // Browsers dispatch a click after pointerup, including when the gesture began
   // on a link. Suppress that one click so the swipe does not open the case.
   e.preventDefault()
