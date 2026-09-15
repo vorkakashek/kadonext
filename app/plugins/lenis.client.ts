@@ -3,13 +3,27 @@ import {
   setLenisScrollFrameConnected,
 } from '~/utils/lenisScrollFrame'
 
-const SMOOTH_SCROLL_ENABLED =
+const SMOOTH_WHEEL_ENABLED =
   '(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)'
+
+const CONTROLLED_TOUCH_ENABLED =
+  '(prefers-reduced-motion: no-preference) and (pointer: coarse)'
+
+const NARROW_TOUCH_ENABLED =
+  '(prefers-reduced-motion: no-preference) and (max-width: 767.98px)'
 
 // Lenis completes `lerp` scrolling by rounding to the final pixel. Staying too
 // far below its normal follow factor leaves a visible stepped tail before that
 // final frame, especially with notched mouse wheels.
 const WHEEL_LERP = 0.1
+
+/**
+ * Touch stays 1:1 while the finger is down. Only the release inertia is eased,
+ * with its initial rendered velocity capped in viewport-heights per second.
+ */
+const TOUCH_INERTIA_LERP = 0.06
+const TOUCH_INERTIA_EXPONENT = 1.7
+const TOUCH_MAX_VELOCITY_VH_PER_SEC = 1.85
 
 const SCROLL_LOCKS = [
   'preload-lock',
@@ -18,8 +32,9 @@ const SCROLL_LOCKS = [
 ] as const
 
 /**
- * Smooth stepped wheel input on desktop. Touch scrolling stays fully native so
- * the page remains locked 1:1 to the user's finger on mobile.
+ * Smooth stepped wheel input on desktop. On touch-first mobile devices Lenis
+ * owns the gesture: direct dragging remains 1:1, while release inertia is
+ * bounded so one flick cannot cross the whole home-page story.
  *
  * Lenis shares GSAP's ticker with ScrollTrigger and joins it only while a
  * smooth scroll is active. That keeps idle pages from running another
@@ -39,7 +54,39 @@ export default defineNuxtPlugin((nuxtApp) => {
     typeof import('gsap/ScrollTrigger'),
   ]> | null = null
 
-  const enabledQuery = window.matchMedia(SMOOTH_SCROLL_ENABLED)
+  const wheelQuery = window.matchMedia(SMOOTH_WHEEL_ENABLED)
+  const touchQuery = window.matchMedia(CONTROLLED_TOUCH_ENABLED)
+  const narrowQuery = window.matchMedia(NARROW_TOUCH_ENABLED)
+
+  function controlledTouchEnabled() {
+    if (touchQuery.matches) return true
+    return narrowQuery.matches && navigator.maxTouchPoints > 0
+  }
+
+  function runtimeEnabled() {
+    return wheelQuery.matches || controlledTouchEnabled()
+  }
+
+  function limitTouchReleaseVelocity(data: {
+    event: WheelEvent | TouchEvent
+  }) {
+    if (!lenis || !controlledTouchEnabled() || data.event.type !== 'touchend') return
+
+    // Lenis derives the inertia target as velocity ** exponent, then approaches
+    // it exponentially. Limiting that target distance also limits the peak
+    // rendered velocity while remaining stable across refresh rates.
+    const viewportHeight = Math.max(
+      1,
+      window.visualViewport?.height ?? window.innerHeight,
+    )
+    const maxRenderedVelocity = viewportHeight * TOUCH_MAX_VELOCITY_VH_PER_SEC
+    const maxInertiaDistance = maxRenderedVelocity / (TOUCH_INERTIA_LERP * 60)
+    const sourceVelocityLimit = maxInertiaDistance ** (1 / TOUCH_INERTIA_EXPONENT)
+    lenis.velocity = Math.max(
+      -sourceVelocityLimit,
+      Math.min(sourceVelocityLimit, lenis.velocity),
+    )
+  }
 
   function removeTicker() {
     if (!tickerAttached) return
@@ -50,7 +97,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   function update(time: number) {
     if (!lenis) return
     lenis.raf(time * 1000)
-    if (lenis.isScrolling === false) removeTicker()
+    // Keep one shared RAF alive throughout an active touch. Direct touch frames
+    // complete immediately (`lerp: 1`), so checking only `isScrolling` would
+    // detach and reattach GSAP's ticker on every touchmove.
+    if (lenis.isScrolling === false && !lenis.isTouching) removeTicker()
   }
 
   function requestTicker() {
@@ -101,12 +151,13 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   async function create() {
-    if (lenis || !enabledQuery.matches) return
+    if (lenis || !runtimeEnabled()) return
     const generation = ++createGeneration
     const [lenisModule, gsapModule, scrollTriggerModule] = await loadRuntime()
-    if (generation !== createGeneration || !enabledQuery.matches || lenis) return
+    if (generation !== createGeneration || !runtimeEnabled() || lenis) return
 
     const Lenis = lenisModule.default
+    const controlledTouch = controlledTouchEnabled()
     gsap = gsapModule.default
     ScrollTrigger = scrollTriggerModule.ScrollTrigger
     gsap.registerPlugin(ScrollTrigger)
@@ -116,8 +167,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     ScrollTrigger.config({ ignoreMobileResize: true })
     lenis = new Lenis({
       autoRaf: false,
-      smoothWheel: true,
-      syncTouch: false,
+      smoothWheel: wheelQuery.matches,
+      syncTouch: controlledTouch,
+      syncTouchLerp: TOUCH_INERTIA_LERP,
+      touchInertiaExponent: TOUCH_INERTIA_EXPONENT,
+      virtualScroll: limitTouchReleaseVelocity,
       // Keep individual wheel notches blended, but let the final pixels settle
       // promptly instead of exposing a long, stepped inertial tail.
       lerp: WHEEL_LERP,
@@ -127,9 +181,12 @@ export default defineNuxtPlugin((nuxtApp) => {
     })
 
     lenis.on('virtual-scroll', ({ event }) => {
-      // Touch events are observed by Lenis even with syncTouch disabled. Do not
-      // attach its animation ticker for them: native scrolling needs no Lenis RAF.
-      if (event.type.includes('wheel')) requestTicker()
+      if (
+        event.type.includes('wheel')
+        || (controlledTouch && event.type.includes('touch'))
+      ) {
+        requestTicker()
+      }
     })
     lenis.on('scroll', ({ scroll }) => {
       ScrollTrigger?.update()
@@ -149,12 +206,12 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   function syncInputMode() {
     destroy()
-    if (enabledQuery.matches) void create()
+    if (runtimeEnabled()) void create()
   }
 
   nuxtApp.hook('app:mounted', () => {
     const activate = () => void create()
-    if (enabledQuery.matches) {
+    if (runtimeEnabled()) {
       // Fetch and evaluate the small smooth-scroll runtime immediately after
       // the first paint. If the user wheels before the idle constructor runs,
       // that gesture no longer pays for three cold dynamic imports.
@@ -167,8 +224,11 @@ export default defineNuxtPlugin((nuxtApp) => {
         window.setTimeout(activate, 350)
       }
       window.addEventListener('wheel', activate, { once: true, passive: true })
+      window.addEventListener('touchstart', activate, { once: true, passive: true })
     }
-    enabledQuery.addEventListener('change', syncInputMode)
+    wheelQuery.addEventListener('change', syncInputMode)
+    touchQuery.addEventListener('change', syncInputMode)
+    narrowQuery.addEventListener('change', syncInputMode)
     document.addEventListener('visibilitychange', syncRunState)
   })
 
@@ -177,7 +237,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (idleId !== null && 'cancelIdleCallback' in window) {
         window.cancelIdleCallback(idleId)
       }
-      enabledQuery.removeEventListener('change', syncInputMode)
+      wheelQuery.removeEventListener('change', syncInputMode)
+      touchQuery.removeEventListener('change', syncInputMode)
+      narrowQuery.removeEventListener('change', syncInputMode)
       document.removeEventListener('visibilitychange', syncRunState)
       destroy()
     })
