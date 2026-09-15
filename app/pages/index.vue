@@ -80,7 +80,7 @@ onMounted(() => {
       <HomeFormats ref="formats" :surface-ready="surfaceReady" />
       <HomeAbout ref="about" :surface-ready="surfaceReady" />
       <HomeContact ref="contact" :surface-ready="surfaceReady" />
-      <section class="home-scroll-tail" aria-hidden="true" />
+      <HomeFooter />
     </main>
   </div>
 </template>
@@ -90,7 +90,4 @@ onMounted(() => {
   text-transform: lowercase;
 }
 
-.home-scroll-tail {
-  min-height: 50svh;
-}
 </style>

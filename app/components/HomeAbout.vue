@@ -3,16 +3,17 @@ import {
   IconBrandBehance,
   IconBrandLinkedin,
   IconBrandTelegram,
-  IconBrandThreads,
 } from '@tabler/icons-vue'
+import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 defineProps<{ surfaceReady?: boolean }>()
 
 const socialLinks = [
-  { label: 'Telegram', icon: IconBrandTelegram },
-  { label: 'Threads', icon: IconBrandThreads },
-  { label: 'Behance', icon: IconBrandBehance },
-  { label: 'LinkedIn', icon: IconBrandLinkedin },
+  { label: 'Telegram', content: 'icon', icon: IconBrandTelegram },
+  { label: 'Behance', content: 'icon', icon: IconBrandBehance },
+  { label: 'LinkedIn', content: 'icon', icon: IconBrandLinkedin },
+  { label: 'Instagram', content: 'text', text: 'Instagram*' },
+  { label: 'Threads', content: 'text', text: 'Threads*' },
 ] as const
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -304,11 +305,23 @@ onUnmounted(() => {
             :key="social.label"
             href="#"
             class="home-about__social-link"
+            :class="{ 'home-about__social-link--text': social.content === 'text' }"
             :aria-label="social.label"
             :title="social.label"
+            @mouseenter="onNavWaveEnter"
+            @mouseleave="onNavWaveLeave"
+            @focus="onNavWaveEnter"
+            @blur="onNavWaveLeave"
             @click.prevent
           >
-            <component :is="social.icon" aria-hidden="true" />
+            <span
+              v-if="social.content === 'text'"
+              class="home-about__social-label"
+            >
+              {{ social.text }}
+              <TextLinkWave />
+            </span>
+            <component v-else :is="social.icon" aria-hidden="true" />
           </a>
         </nav>
       </div>
@@ -477,7 +490,9 @@ onUnmounted(() => {
 .home-about__socials {
   display: flex;
   margin-top: clamp(2rem, 3vw, 3.25rem);
+  padding-top: clamp(1rem, 1.4vw, 1.5rem);
   align-items: center;
+  border-top: 1px solid color-mix(in srgb, currentColor 24%, transparent);
   gap: clamp(1rem, 1.4vw, 1.5rem);
 }
 
@@ -490,10 +505,29 @@ onUnmounted(() => {
   transition: color 0.28s var(--motion-ease, ease);
 }
 
-.home-about__social-link :deep(svg) {
+.home-about__social-link :deep(.tabler-icon) {
   width: 100%;
   height: 100%;
   stroke-width: 1.55;
+}
+
+.home-about__social-link--text {
+  display: flex;
+  width: auto;
+  height: auto;
+  align-items: center;
+  font-size: var(--type-lead);
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.home-about__social-label {
+  position: relative;
+  display: inline-block;
+}
+
+.home-about__social-label :deep(.text-link-wave) {
+  bottom: -0.18em;
 }
 
 .home-about__social-link:hover,

@@ -23,6 +23,18 @@ export const imageRecipes = [
     outputStem: 'public/home/rock',
     widths: [320, 480, 640, 854, 1088],
   },
+  {
+    source: 'public/home/kira-photo.png',
+    outputStem: 'public/home/kira-photo',
+    widths: [480, 960, 1440, 1920, 2760, 3840],
+    fallback: 'webp',
+  },
+  {
+    source: 'public/home/kira-photo-vertical.png',
+    outputStem: 'public/home/kira-photo-vertical',
+    widths: [480, 960, 1200],
+    fallback: 'webp',
+  },
   ...[1, 2, 3, 4].map(number => ({
     source: `public/home/work/${String(number).padStart(3, '0')}.png`,
     outputStem: `public/home/work/${String(number).padStart(3, '0')}`,

@@ -30,6 +30,7 @@ const {
   requestHeroGlPrewarm,
   resolveHeroGlPrewarm,
   closeCanvas,
+  toggleCanvas,
   restoreFabLabel,
   fabLabelOn,
   irisLive,
@@ -1184,10 +1185,10 @@ async function goToFrame(frame: SiteNavFrame) {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
-  if (!open.value || busy.value) return
+  if (busy.value) return
   e.preventDefault()
   e.stopPropagation()
-  closeCanvas()
+  toggleCanvas()
 }
 
 watch(open, async (isOpen, wasOpen) => {

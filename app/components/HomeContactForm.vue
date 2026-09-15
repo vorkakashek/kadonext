@@ -26,7 +26,6 @@ const stage = useState('home-contact-stage', () => '')
 const deadline = useState('home-contact-deadline', () => '')
 const budget = useState('home-contact-budget', () => '')
 const materials = useState('home-contact-materials', () => '')
-const policyOpen = ref(false)
 
 function encodeMailBody() {
   const lines = [
@@ -118,15 +117,9 @@ function submitForm() {
             <span class="contact-form__checkbox" aria-hidden="true" />
             <span>
               Согласен(-на) на обработку персональных данных для рассмотрения обращения и ответа на него.
-              <button type="button" @click="policyOpen = !policyOpen">
-                Условия обработки персональных данных
-              </button>
+              <NuxtLink to="/privacy">Политика обработки персональных данных</NuxtLink>
             </span>
           </label>
-          <p v-if="policyOpen" class="contact-form__policy">
-            Контакт и сведения о проекте используются только для ответа на обращение и не передаются третьим лицам без законного основания. Удалить данные можно по запросу на
-            <a href="mailto:hello@kadonext.com">hello@kadonext.com</a>.
-          </p>
         </div>
       </div>
 
@@ -299,8 +292,7 @@ function submitForm() {
   outline-offset: 3px;
 }
 
-.contact-form__consent button,
-.contact-form__policy a,
+.contact-form__consent a,
 .contact-form__actions a {
   border: 0;
   padding: 0;
@@ -311,14 +303,6 @@ function submitForm() {
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.16em;
-}
-
-.contact-form__policy {
-  max-width: 62ch;
-  margin: 0.9rem 0 0 2.25rem;
-  color: var(--palette-moss);
-  font-size: 0.86rem;
-  line-height: 1.35;
 }
 
 .contact-form__details {

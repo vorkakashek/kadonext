@@ -2129,28 +2129,26 @@ async function bootScene() {
       aria-hidden="true"
     />
 
-    <Teleport to="body">
-      <button
-        v-if="isAndroidClient && !motionIntroVisible && props.active"
-        type="button"
-        class="motion-control motion-control--haptic motion-control--haptic-fixed"
-        :class="{ 'motion-control--active': androidHapticEnabled }"
-        :aria-label="androidHapticEnabled ? t('accessibility.disableVibration') : t('accessibility.enableVibration')"
-        :aria-pressed="androidHapticEnabled"
-        @click="onHapticControlTap"
-      >
-        <SiteIcon
-          name="device-mobile-vibration"
-          class="motion-control__icon motion-control__icon--haptic"
-        />
-      </button>
-    </Teleport>
-
     <Teleport to="#hero-motion-controls">
       <div
         class="hero-swarm-controls size-full"
         :style="motionOverlayStyle"
       >
+        <button
+          v-if="isAndroidClient && !motionIntroVisible && props.active"
+          type="button"
+          class="motion-control motion-control--haptic"
+          :class="{ 'motion-control--active': androidHapticEnabled }"
+          :aria-label="androidHapticEnabled ? t('accessibility.disableVibration') : t('accessibility.enableVibration')"
+          :aria-pressed="androidHapticEnabled"
+          @click="onHapticControlTap"
+        >
+          <SiteIcon
+            name="device-mobile-vibration"
+            class="motion-control__icon motion-control__icon--haptic"
+          />
+        </button>
+
         <button
           v-if="isDesktopMotionClient"
           type="button"
@@ -2353,7 +2351,11 @@ async function bootScene() {
 
 @media (max-width: 767.98px), (pointer: coarse) {
   .motion-control {
-    top: auto;
+    top: calc(
+      var(--motion-scene-inset-y, 0px)
+      + var(--layout-margin)
+      + var(--safe-top, 0px)
+    );
     right: calc(
       var(--motion-scene-inset-x, 0px)
       + var(--layout-margin)
@@ -2368,20 +2370,8 @@ async function bootScene() {
     box-shadow: none;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    bottom: calc(
-      var(--motion-scene-inset-y, 0px)
-      + var(--layout-margin)
-      + var(--safe-bottom, 0px)
-    );
+    bottom: auto;
     left: auto;
-  }
-
-  .motion-control--haptic-fixed {
-    position: fixed;
-    z-index: 114;
-    right: auto;
-    bottom: calc(2 * var(--layout-margin) + var(--safe-bottom, 0px));
-    left: calc(2 * var(--layout-margin) + var(--safe-left, 0px));
   }
 
   .motion-control__icon {

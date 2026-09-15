@@ -85,10 +85,8 @@ const ABOUT_SCRUB_END = 'top 25%'
 /** Begin as Biography leaves; settle only after the form surface is well in view. */
 const CONTACT_SCRUB_START = 'bottom bottom+=72px'
 const CONTACT_SCRUB_END = 'top 18%'
-/** Let the dark Biography tone clear 20% faster than the surface geometry. */
-const CONTACT_TONE_SPEED = 1.2
-/** Mobile Biography → Contact: clear the dark tone in the opening 13% of travel. */
-const MOBILE_CONTACT_TONE_END_P = 0.13
+/** Biography → Contact: clear the dark tone in the opening 13% of travel. */
+const CONTACT_TONE_END_P = 0.13
 /** Global scroll-driven surface limit, in normalized morph segments/sec. */
 const SURFACE_MORPH_MAX_VELOCITY = 1.55
 const SURFACE_MORPH_EPSILON = 0.0008
@@ -1484,7 +1482,7 @@ function paintAboutToContactSegment(t: number) {
     ? lerpBox(from, to, t)
     : (to ?? from)!
   const contactReveal = smoothUnit((t - 0.58) / 0.3)
-  paintAboutSurfaceTone(1 - clampUnit(t * CONTACT_TONE_SPEED))
+  paintAboutSurfaceTone(1 - clampUnit(t / CONTACT_TONE_END_P))
   paintBox(box, 1)
   paintAboutTitleContrast(box, 1 - smoothUnit(t / 0.55))
   setContactStageProgress(contactReveal)
@@ -2340,7 +2338,7 @@ function paintMobileScrollCorridor(
   clearCaseMediaFlight()
   // Use raw distance rather than the eased geometry clock, so the colour starts
   // responding on the first scroll pixels and reaches Contact tone by 13%.
-  paintAboutSurfaceTone(1 - clampUnit(localT / MOBILE_CONTACT_TONE_END_P))
+  paintAboutSurfaceTone(1 - clampUnit(localT / CONTACT_TONE_END_P))
   paintBox(box, 1)
   paintAboutTitleContrast(box, 1 - smoothUnit(t / 0.55))
   setContactStageProgress(contactReveal)

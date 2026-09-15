@@ -100,7 +100,7 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
 <style scoped>
 .home-contact {
   padding: calc(var(--space-section) * 0.5) var(--layout-margin-content)
-    var(--space-section);
+    0;
 }
 
 .home-contact__lead {
@@ -253,7 +253,7 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
 @media (max-width: 767.98px) {
   .home-contact {
     padding: calc(var(--space-section) * 1.125) var(--layout-margin-content)
-      var(--space-section);
+      0;
   }
 
   .home-contact__lead {
