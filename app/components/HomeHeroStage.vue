@@ -9,9 +9,9 @@ import { useBrandPreload } from '~/composables/useBrandPreload'
 import { preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
 import { isCoarsePointer, isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
-  isLenisScrollFrameConnected,
-  subscribeLenisScrollFrame,
-} from '~/utils/lenisScrollFrame'
+  subscribeAppliedScrollFrame,
+  type AppliedScrollFrame,
+} from '~/utils/appliedScrollFrame'
 
 const { t } = useI18n()
 
@@ -72,7 +72,10 @@ const sloganY = ref(0)
 /** Cold entry: the complete green scene rises before the Surface crop is restored. */
 const sceneEntryArmed = ref(false)
 const sceneEntryRunning = ref(false)
-let sceneEntryTween: { kill: () => void } | null = null
+let sceneEntryTween: {
+  kill: () => void
+  progress: (value: number) => unknown
+} | null = null
 const titleEl = computed(() =>
   props.sectionEl?.querySelector<HTMLElement>('[data-hero-title-block]') ?? null,
 )
@@ -258,12 +261,11 @@ let gsapRef: typeof import('gsap').default | null = null
 let stRef: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
 let mediaFadeTween: { kill: () => void } | null = null
 let sceneReleaseTimer = 0
-let parallaxRaf = 0
 /** Locked vh for slogan parallax — ignore mobile chrome show/hide (innerHeight jumps). */
 let copyParallaxVh = 0
 let copyParallaxWidth = 0
 let copyParallaxSectionTop: number | null = null
-let removeLenisScrollFrame: (() => void) | null = null
+let removeAppliedScrollFrame: (() => void) | null = null
 
 function setFrozen(on: boolean) {
   flowSurfaceMask.freezeSilhouette = on
@@ -427,23 +429,15 @@ function updateSloganMotion(scrollY?: number) {
   if (copyEl.value) copyEl.value.style.opacity = opacity.toFixed(4)
 }
 
-function onParallaxScroll() {
-  // Desktop Lenis republishes every scroll source, not only smoothed wheel
-  // input. Native rAF remains solely for mobile and reduced-motion fallback.
-  if (isLenisScrollFrameConnected()) return
-  if (parallaxRaf) return
-  parallaxRaf = requestAnimationFrame(() => {
-    parallaxRaf = 0
-    updateSloganMotion()
-  })
-}
-
-function onLenisParallaxFrame(scrollY: number) {
-  if (parallaxRaf) {
-    cancelAnimationFrame(parallaxRaf)
-    parallaxRaf = 0
-  }
-  updateSloganMotion(scrollY)
+function onAppliedParallaxFrame(frame: AppliedScrollFrame) {
+  // The entrance temporarily opens the outer Surface crop so the complete
+  // scene can rise into view. Once scroll starts moving the Surface geometry,
+  // keeping that crop open exposes the rest-width stage beyond a narrowing
+  // frame (anchored at its left edge, so the overflow appears on the right).
+  // Commit the shared entrance to its final state before this scroll frame is
+  // painted; Surface and scene then resume under their normal live crop.
+  if (sceneEntryArmed.value && Math.abs(frame.delta) > 0.5) finishSceneEntryOnScroll()
+  updateSloganMotion(frame.y)
 }
 
 watch(
@@ -788,6 +782,30 @@ function finishSceneEntryReveal() {
   emit('sceneEntryChange', false)
 }
 
+/** Resolve the temporary open-crop state before scroll takes geometry ownership. */
+function finishSceneEntryOnScroll() {
+  if (!sceneEntryArmed.value) return
+  if (sceneEntryTween) {
+    // Reuse the tween's normal completion path, including transform cleanup.
+    sceneEntryTween.progress(1)
+    return
+  }
+
+  // Scroll can arrive during the two-frame GL warm-up, before the tween exists.
+  // Leave the safety cover available, but commit both media and crop contracts
+  // so the later lit frame does not restart an entrance at scrolled geometry.
+  const scene = sceneEntryEl.value
+  if (scene) {
+    scene.style.removeProperty('transform')
+    scene.style.setProperty('--hero-scene-entry-opacity', '1')
+  }
+  if (mediaEl.value) {
+    mediaEl.value.style.opacity = '1'
+    mediaEl.value.style.visibility = 'visible'
+  }
+  finishSceneEntryReveal()
+}
+
 async function startSceneEntryReveal() {
   if (!sceneEntryArmed.value || sceneEntryRunning.value || stageUnmounted) return
   sceneEntryRunning.value = true
@@ -867,8 +885,7 @@ onMounted(() => {
   setFrozen(false)
   updateSloganMotion()
   syncSwarmInteractive()
-  removeLenisScrollFrame = subscribeLenisScrollFrame(onLenisParallaxFrame)
-  window.addEventListener('scroll', onParallaxScroll, { passive: true })
+  removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedParallaxFrame)
   window.addEventListener('resize', onCopyParallaxResize, { passive: true })
 
   const fromNav = skipHeroIntro.value
@@ -1050,10 +1067,8 @@ onUnmounted(() => {
   if (sceneReleaseTimer) window.clearTimeout(sceneReleaseTimer)
   sceneReleaseTimer = 0
   ctx?.revert()
-  if (parallaxRaf) cancelAnimationFrame(parallaxRaf)
-  removeLenisScrollFrame?.()
-  removeLenisScrollFrame = null
-  window.removeEventListener('scroll', onParallaxScroll)
+  removeAppliedScrollFrame?.()
+  removeAppliedScrollFrame = null
   window.removeEventListener('resize', onCopyParallaxResize)
 })
 </script>

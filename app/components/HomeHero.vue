@@ -5,9 +5,9 @@
  */
 import { isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
-  isLenisScrollFrameConnected,
-  subscribeLenisScrollFrame,
-} from '~/utils/lenisScrollFrame'
+  subscribeAppliedScrollFrame,
+  type AppliedScrollFrame,
+} from '~/utils/appliedScrollFrame'
 
 const { locale, tm } = useI18n()
 const heroTitleLines = computed(() => {
@@ -37,11 +37,10 @@ const COPY_FADE_END_VH = 0.72
 /** Clear the already-covered copy as the full-width Hero field starts docking. */
 const MOBILE_COPY_COVER_START = 0
 const MOBILE_COPY_COVER_END = 0.04
-let copyMotionRaf = 0
 let copyMotionVh = 0
 let copyMotionWidth = 0
 let copyMotionSectionTop: number | null = null
-let removeLenisScrollFrame: (() => void) | null = null
+let removeAppliedScrollFrame: (() => void) | null = null
 
 function copyMotionBaseVh() {
   if (typeof window === 'undefined') return 1
@@ -105,23 +104,8 @@ function updateCopyExit(scrollY?: number) {
   paintCopyExit(target.y, target.opacity)
 }
 
-function onCopyScroll() {
-  // Desktop Lenis also republishes native scrollbar, keyboard and programmatic
-  // scrolls. Keep this listener only as the mobile / reduced-motion fallback.
-  if (isLenisScrollFrameConnected()) return
-  if (copyMotionRaf) return
-  copyMotionRaf = requestAnimationFrame(() => {
-    copyMotionRaf = 0
-    updateCopyExit()
-  })
-}
-
-function onLenisCopyFrame(scrollY: number) {
-  if (copyMotionRaf) {
-    cancelAnimationFrame(copyMotionRaf)
-    copyMotionRaf = 0
-  }
-  updateCopyExit(scrollY)
+function onAppliedCopyFrame(frame: AppliedScrollFrame) {
+  updateCopyExit(frame.y)
 }
 
 function onCopyResize() {
@@ -135,8 +119,7 @@ function onCopyResize() {
 
 onMounted(() => {
   updateCopyExit()
-  removeLenisScrollFrame = subscribeLenisScrollFrame(onLenisCopyFrame)
-  window.addEventListener('scroll', onCopyScroll, { passive: true })
+  removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedCopyFrame)
   window.addEventListener('resize', onCopyResize, { passive: true })
 })
 
@@ -149,10 +132,8 @@ watch(
 )
 
 onUnmounted(() => {
-  if (copyMotionRaf) cancelAnimationFrame(copyMotionRaf)
-  removeLenisScrollFrame?.()
-  removeLenisScrollFrame = null
-  window.removeEventListener('scroll', onCopyScroll)
+  removeAppliedScrollFrame?.()
+  removeAppliedScrollFrame = null
   window.removeEventListener('resize', onCopyResize)
 })
 

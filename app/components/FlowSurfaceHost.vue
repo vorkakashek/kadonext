@@ -49,6 +49,10 @@ import {
   isCoarsePointer,
   isNarrowViewport,
 } from '~/utils/mobileViewport'
+import {
+  subscribeAppliedScrollFrame,
+  type AppliedScrollFrame,
+} from '~/utils/appliedScrollFrame'
 
 /** The site's minimal mode keeps the core Surface choreography intact. */
 function systemReducedMotion() {
@@ -120,9 +124,6 @@ const MOBILE_CASE_DIRECTION_REVERSAL_PX = 10
 const CASE_PIN_P = 0.999
 /** Ignore reverse hop triggers right after a forward hop (scroll bounce). */
 const STAGE_FORWARD_LOCK_MS = HOP_DURATION * 1000 + 120
-/** Keep the routed Surface close to the live DOM while still sweeping every segment. */
-const MOBILE_SURFACE_LAG = 0.025
-const MOBILE_SURFACE_MAX_VELOCITY = 6
 const MOBILE_KADO_MORPH_SPAN_VH = 0.18
 const MOBILE_KADO_HOLD_VH = 0.18
 const MOBILE_WORD_MORPH_SPAN_VH = 0.24
@@ -286,6 +287,7 @@ let motionBootPromise: Promise<void> | null = null
 let motionBootTimer = 0
 let motionIdleId: number | null = null
 let removeMotionIntent: (() => void) | null = null
+let removeAppliedScrollFrame: (() => void) | null = null
 let hostUnmounted = false
 let keepAliveActive = true
 const initialCasesHashEntry = ref(false)
@@ -400,7 +402,6 @@ type MobileScrollBounds = {
   contactDoc: SurfaceBox
 }
 let mobileScrollBounds: MobileScrollBounds | null = null
-let mobileCorridorTargetS = 0
 let mobileCorridorS = 0
 let mobileCorridorLastY: number | null = null
 let mobileCorridorDirection: 'forward' | 'reverse' = 'forward'
@@ -1990,14 +1991,12 @@ function mobileSurfaceEase(progress: number) {
 }
 
 function mobileCorridorSettledAt(segment: number) {
-  return Math.abs(mobileCorridorTargetS - segment) < SURFACE_MORPH_EPSILON
-    && Math.abs(mobileCorridorS - segment) < SURFACE_MORPH_EPSILON
+  return Math.abs(mobileCorridorS - segment) < SURFACE_MORPH_EPSILON
 }
 
-/** Paint the ordered mobile corridor through one lightly lagged clock. */
+/** Paint the ordered mobile corridor from the authoritative applied-scroll frame. */
 function paintMobileScrollCorridor(
   scrollY = window.scrollY,
-  dt = 0,
 ) {
   if (!mobileActive || !frame.value) return
   if (mobileScrollBounds) {
@@ -2007,27 +2006,11 @@ function paintMobileScrollCorridor(
       else if (delta < -0.5) mobileCorridorDirection = 'reverse'
     }
     mobileCorridorLastY = scrollY
-    mobileCorridorTargetS = mobileCorridorTargetAt(scrollY)
-    if (systemReducedMotion()) {
-      mobileCorridorS = mobileCorridorTargetS
-    } else if (dt > 0) {
-      mobileCorridorS = updateContinuousProgress(
-        mobileCorridorS,
-        mobileCorridorTargetS,
-        dt,
-        {
-          lag: MOBILE_SURFACE_LAG,
-          maxVelocity: MOBILE_SURFACE_MAX_VELOCITY,
-          epsilon: SURFACE_MORPH_EPSILON,
-        },
-      )
-    }
-    if (
-      Math.abs(mobileCorridorTargetS - mobileCorridorS)
-        >= SURFACE_MORPH_EPSILON
-    ) {
-      ensureTick()
-    }
+    // The applied scroll frame is already paced by Lenis (or by the browser in
+    // native fallback mode). Geometry must use that same clock. Lagging this
+    // value again while reading endpoints at the current scrollY creates the
+    // characteristic up-then-back correction after Hero is released to fixed.
+    mobileCorridorS = mobileCorridorTargetAt(scrollY)
   }
 
   if (
@@ -3049,10 +3032,10 @@ function tick(now: number) {
   const dt = Math.min(0.064, Math.max(0, (now - lastTs) / 1000))
   lastTs = now
 
-  // Mobile keeps scroll as its target while one bounded clock smooths gaps
-  // between sparse native scroll frames and continues briefly after release.
+  // Mobile is event-painted from the authoritative applied-scroll contract.
+  // A queued tick may still survive a mode switch; reconcile once and stop.
   if (mobileActive) {
-    paintMobileScrollCorridor(window.scrollY, dt)
+    paintMobileScrollCorridor(window.scrollY)
     return
   }
 
@@ -3145,7 +3128,6 @@ function killMorph() {
   mobileAboutArrived = false
   setContactStageProgress(0)
   mobileScrollBounds = null
-  mobileCorridorTargetS = 0
   mobileCorridorS = 0
   mobileCorridorLastY = null
   mobileCorridorDirection = 'forward'
@@ -3233,11 +3215,10 @@ function buildMobileMorph(ScrollTrigger: typeof import('gsap/ScrollTrigger').Scr
   // refresh is what hard-froze the tab on logo→home navigations.
   suppressStageCallbacks = true
 
-  // ScrollTrigger invalidates measurements and forwards the latest scroll
-  // target. The shared mobile clock follows it with a small bounded lag.
+  // ScrollTrigger owns range measurement only. Applied-scroll publication owns
+  // paint order, so an ST callback cannot race the same frame with another box.
   captureMobileScrollBounds()
-  mobileCorridorTargetS = mobileCorridorTargetAt(window.scrollY)
-  mobileCorridorS = mobileCorridorTargetS
+  mobileCorridorS = mobileCorridorTargetAt(window.scrollY)
   mobileCorridorLastY = window.scrollY
   const corridorEnd = props.contactSectionEl
     ?? props.aboutSectionEl
@@ -3251,9 +3232,6 @@ function buildMobileMorph(ScrollTrigger: typeof import('gsap/ScrollTrigger').Scr
       start: 'top top',
       end: 'bottom top',
       invalidateOnRefresh: true,
-      onUpdate: () => {
-        if (!morphBooting) paintMobileScrollCorridor()
-      },
       onRefresh: () => {
         if (morphBooting) return
         if (mobileViewportHeightOnlyChange()) {
@@ -3527,10 +3505,10 @@ function onResize() {
   ensureTick()
 }
 
-function onCaseMediaScroll() {
+function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
   if (!keepAliveActive) return
   if (mobileActive) {
-    paintMobileScrollCorridor()
+    paintMobileScrollCorridor(scrollFrame.y)
     return
   }
   if (caseFramePinned()) {
@@ -3558,12 +3536,12 @@ onMounted(async () => {
   registerFlowSurfaceLiveBoxNudge((deltaY) => {
     if (liveBox) liveBox = { ...liveBox, top: liveBox.top + deltaY }
   })
+  removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedSurfaceFrame)
   // Paint the real Hero surface and copy before loading the scroll engine.
   // This hands off the SSR primer without putting GSAP on the LCP path.
   ensureHeroRestPlaceholder()
   surfaceViewportWidth = window.innerWidth
   window.addEventListener('resize', onResize, { passive: true })
-  window.addEventListener('scroll', onCaseMediaScroll, { passive: true })
   if (coldDirectEntry && !useMobileCorridor()) scheduleColdMotionBoot()
   else void bootMotionEngine()
 })
@@ -3600,9 +3578,10 @@ onUnmounted(() => {
   clearLayoutResync()
   registerFlowSurfaceClipPathEl(null)
   registerFlowSurfaceLiveBoxNudge(null)
+  removeAppliedScrollFrame?.()
+  removeAppliedScrollFrame = null
   killMorph()
   window.removeEventListener('resize', onResize)
-  window.removeEventListener('scroll', onCaseMediaScroll)
 })
 
 onDeactivated(() => {
