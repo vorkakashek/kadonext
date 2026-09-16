@@ -1261,8 +1261,8 @@ async function bootScene() {
 
   /**
    * Bend the moving seats around a rounded central field reserved for the
-   * slogan. Physical knocks may enter it briefly, then ease back out instead
-   * of hitting a hard invisible wall.
+   * slogan. Mobile physics can cross this field freely; only its orbit seats
+   * are bent around it. Desktop knocks ease back out of the field.
    */
   const moveOutsideFocus = (
     point: Vector3,
@@ -1859,9 +1859,6 @@ async function bootScene() {
             .addScaledVector(camUp, ny)
         }
         ball.position.addScaledVector(ball.velocity, 1)
-        if (moveOutsideFocus(ball.position, ball.radius, 0.18)) {
-          ball.velocity.multiplyScalar(0.92)
-        }
 
         {
           const rel = push.copy(ball.position).sub(anchor)

@@ -21,11 +21,11 @@ const wantMobile = !flags.has('--desktop')
 const base = (args[0] || 'http://localhost:3000').replace(/\/+$/, '')
 
 const pages = [
-  { id: 'home', path: '/' },
-  { id: 'projects', path: '/projects' },
-  { id: 'services', path: '/services' },
-  { id: 'about', path: '/#about' },
-  { id: 'contact', path: '/contact' },
+  { id: 'home', path: '/', selector: '.hero-swarm canvas' },
+  { id: 'projects', path: '/projects', selector: '.projects-catalog__title' },
+  { id: 'services', path: '/#services', selector: '#services' },
+  { id: 'about', path: '/#about', selector: '#about' },
+  { id: 'contact', path: '/#contact', selector: '#contact' },
 ]
 
 const DESK = { width: 1440, height: 900, suffix: '', mobile: false }
@@ -90,12 +90,14 @@ async function capturePass(spec) {
     hasTouch: spec.mobile,
     userAgent: spec.mobile ? IPHONE_UA : undefined,
   })
-  const page = await context.newPage()
-  await page.addInitScript(() => {
+  await context.addInitScript(() => {
     localStorage.setItem('kadonext-preload-seen', '1')
   })
 
   for (const item of pages) {
+    // Grayscale baking replaces the document. Start each route in a new tab
+    // so another home hash cannot navigate within that temporary image page.
+    const page = await context.newPage()
     const url = `${base}${item.path}`
     console.log(`capturing ${item.id}${spec.suffix} ← ${url} (${spec.width}×${spec.height})`)
     await page.goto(url, { waitUntil: 'load', timeout: 60_000 })
@@ -113,21 +115,28 @@ async function capturePass(spec) {
         null,
         { timeout: 20_000 },
       )
-      .catch(() => {})
-    if (item.id === 'home') {
-      await page
-        .waitForSelector('.hero-swarm canvas, .hero-title', { timeout: 12_000 })
-        .catch(() => {})
-      await page.waitForTimeout(1800)
-    } else {
-      await page.waitForSelector('.page-stub__title', { timeout: 12_000 }).catch(() => {})
-      await page.waitForTimeout(400)
+    await page.waitForSelector(item.selector, { timeout: 20_000 })
+    await page.evaluate(() => document.fonts.ready)
+    // Let route alignment, Surface boot and entrance motion finish naturally.
+    await page.waitForTimeout(4500)
+    if (item.path.includes('#')) {
+      await page.waitForFunction((selector) => {
+        const rect = document.querySelector(selector)?.getBoundingClientRect()
+        return rect && rect.top < window.innerHeight && rect.bottom > 0
+      }, item.selector, { timeout: 20_000 })
     }
+    await page.waitForFunction(() => [...document.images].every((image) => {
+      const rect = image.getBoundingClientRect()
+      const visible = rect.width > 0 && rect.height > 0
+        && rect.bottom > 0 && rect.top < window.innerHeight
+      return !visible || (image.complete && image.naturalWidth > 0)
+    }), null, { timeout: 20_000 })
     const buf = await page.screenshot({ type: 'jpeg', quality: 84, fullPage: false })
     const colorFile = path.join(outDir, colorName(item.id, spec.suffix))
     await writeFile(colorFile, buf)
     console.log(`  wrote ${path.relative(root, colorFile)} (${buf.length} bytes)`)
     await writeBwFromColor(page, item.id, buf, spec, spec.suffix)
+    await page.close()
   }
 
   await context.close()
