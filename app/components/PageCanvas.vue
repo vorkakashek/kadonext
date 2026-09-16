@@ -1092,6 +1092,25 @@ async function playClose() {
 async function goToFrame(frame: SiteNavFrame) {
   if (!open.value) return
 
+  // Home anchors should travel through the page after restoring the menu's
+  // saved scroll position, rather than jump to the section under the iris.
+  if (route.path === '/' && (frame.id === 'services' || frame.id === 'contact')) {
+    navFromCanvas = true
+    navHopActive.value = true
+    try {
+      open.value = false
+      await playClose()
+      if (open.value || surfaceOn.value) return
+      lastFocus?.focus({ preventScroll: true })
+      lastFocus = null
+      await router.push(frame.to)
+    } finally {
+      navFromCanvas = false
+      navHopActive.value = false
+    }
+    return
+  }
+
   if (frameIsCurrent(frame)) {
     closeCanvas()
     return

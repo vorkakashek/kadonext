@@ -354,6 +354,9 @@ onMounted(() => {
       // in sequence for the same navigation.
       && !surfaceOn.value
       && to.path === '/'
+      // Section links keep their destination instead of returning to the
+      // case's recorded origin (home Cases or the project catalog).
+      && (!to.hash || to.hash === '#cases')
       && !!detailId
       && !homeTopRequested
 

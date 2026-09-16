@@ -545,8 +545,15 @@ onMounted(async () => {
   // enhancement. Start it before Hero/idle-gated text work so a fast visitor
   // never sees the stone begin floating halfway through the Kado section.
   void setupStoneLevitation()
-  await waitForHeroIntro()
-  await waitForEnhancementIdle()
+  // Hash entries need the mobile word waypoint before the Surface's first
+  // frame, rather than after an offscreen Hero entrance and idle delay.
+  const sectionEntry = !!window.location.hash
+  if (sectionEntry) {
+    await setupLineFill(true)
+  } else {
+    await waitForHeroIntro()
+    await waitForEnhancementIdle()
+  }
   if (componentUnmounted) return
   await ensureLineFill()
   if (componentUnmounted) return

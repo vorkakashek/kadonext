@@ -273,13 +273,19 @@ const contactStageProgress = ref(0)
 /** True while lagged case progress is parked on the mockup. */
 let caseMediaActive = false
 let surfaceReadyEmitted = false
+/** A mobile hash entry must never expose the incomplete Hero/Kado fallback. */
+const mobileSectionBootPending = ref(false)
 
 /** Keep the SSR primer for one committed live frame, then hand paint ownership over. */
 function announceSurfaceReady() {
   if (surfaceReadyEmitted || !frame.value) return
+  if (mobileSectionBootPending.value && !mobileScrollBounds) return
   surfaceReadyEmitted = true
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => emit('ready'))
+    requestAnimationFrame(() => {
+      mobileSectionBootPending.value = false
+      emit('ready')
+    })
   })
 }
 
@@ -597,7 +603,8 @@ function captureMobilePoses() {
   fromPose = heroPose
   toPose = stonePose
   syncStageRest(heroPose)
-  captureMobileScrollBounds()
+  const corridorReady = captureMobileScrollBounds()
+  if (mobileSectionBootPending.value && !corridorReady) return false
   return true
 }
 
@@ -2924,6 +2931,19 @@ let removeLayoutResync: (() => void) | null = null
 /** fonts.ready is already resolved after first load — re-then() must not loop. */
 let fontsResyncBound = false
 let captureFailCount = 0
+let poseResizeObserver: ResizeObserver | null = null
+let poseResyncRaf = 0
+let removeStoneLoadResync: (() => void) | null = null
+
+/** Offscreen/lazy waypoints can settle after the bounded startup retries. */
+function schedulePoseResync() {
+  if (poseResyncRaf || hostUnmounted || !keepAliveActive) return
+  poseResyncRaf = requestAnimationFrame(() => {
+    poseResyncRaf = 0
+    if (hostUnmounted || !keepAliveActive) return
+    resyncAfterLayout()
+  })
+}
 
 function clearLayoutResync() {
   for (const id of layoutResyncTimers) window.clearTimeout(id)
@@ -3508,12 +3528,16 @@ function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
 onMounted(async () => {
   resetFlowSurfaceMaskSession()
   hostUnmounted = false
+  mobileSectionBootPending.value = useMobileCorridor()
+    && !!window.location.hash
+    && !systemReducedMotion()
+    && !returningHomeFromCaseDetail()
   initialCasesHashEntry.value = window.location.hash === '#cases'
     && !preload.revealed.value
     && !returningHomeFromCaseDetail()
   const coldDirectEntry = !preload.revealed.value
     && !returningHomeFromCaseDetail()
-    && !initialCasesHashEntry.value
+    && !window.location.hash
   await nextTick()
   // Let the route/page DOM settle before ST — avoids refresh↔pin softlock on SPA entry.
   await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
@@ -3525,6 +3549,7 @@ onMounted(async () => {
   removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedSurfaceFrame)
   // Paint the real Hero surface and copy before loading the scroll engine.
   // This hands off the SSR primer without putting GSAP on the LCP path.
+  bootAlignHeroVisibility()
   ensureHeroRestPlaceholder()
   surfaceViewportWidth = window.innerWidth
   window.addEventListener('resize', onResize, { passive: true })
@@ -3534,6 +3559,12 @@ onMounted(async () => {
 
 onUnmounted(() => {
   hostUnmounted = true
+  poseResizeObserver?.disconnect()
+  poseResizeObserver = null
+  removeStoneLoadResync?.()
+  removeStoneLoadResync = null
+  if (poseResyncRaf) cancelAnimationFrame(poseResyncRaf)
+  poseResyncRaf = 0
   if (motionBootTimer) window.clearTimeout(motionBootTimer)
   motionBootTimer = 0
   if (motionIdleId !== null && 'cancelIdleCallback' in window) {
@@ -3590,6 +3621,30 @@ onActivated(() => {
 
 watch(clipPathEl, (el) => {
   registerFlowSurfaceClipPathEl(el)
+})
+
+watch(
+  [() => props.fromEl, () => props.toEl, () => props.stoneEl],
+  ([from, to, stone]) => {
+    poseResizeObserver?.disconnect()
+    removeStoneLoadResync?.()
+    removeStoneLoadResync = null
+    poseResizeObserver = new ResizeObserver(schedulePoseResync)
+    if (from) poseResizeObserver.observe(from)
+    if (to) poseResizeObserver.observe(to)
+    if (stone instanceof HTMLImageElement) {
+      stone.addEventListener('load', schedulePoseResync)
+      removeStoneLoadResync = () => stone.removeEventListener('load', schedulePoseResync)
+      // This image sizes the Kado waypoint even when a hash starts below it.
+      // Do not let native lazy loading postpone the whole Surface corridor.
+      if (window.location.hash) stone.loading = 'eager'
+    }
+  },
+  { immediate: true, flush: 'post' },
+)
+
+watch(() => preload.revealed.value, (revealed) => {
+  if (revealed) schedulePoseResync()
 })
 
 watch(
@@ -3657,6 +3712,12 @@ watch(
     const doc = readDocBox(el)
     if (doc) lastWordDoc = doc
     mobileCaseHandoffY = null
+    if (el && !trigger && mobileTriggers.length === 0) {
+      // The mobile word is created after the Hero intro gate. A cold hash
+      // must still start a corridor if its earlier geometry capture failed.
+      schedulePoseResync()
+      return
+    }
     if (el && mobileActive) {
       captureMobileScrollBounds()
       paintMobileScrollCorridor()
@@ -3729,6 +3790,7 @@ watch(
         :class="{
           'flow-surface-frame--case-hidden': caseSurfaceReady,
           'flow-surface-frame--proxy-hidden': proxyParked,
+          'flow-surface-frame--boot-pending': mobileSectionBootPending,
         }"
         style="top: var(--layout-surface-top); left: var(--layout-margin); width: calc(100% - var(--layout-margin) * 2); height: calc(100% - var(--layout-surface-top) - var(--layout-margin));"
       >
@@ -3764,7 +3826,8 @@ watch(
 
 <style>
 .flow-surface-frame--case-hidden,
-.flow-surface-frame--proxy-hidden {
+.flow-surface-frame--proxy-hidden,
+.flow-surface-frame--boot-pending {
   opacity: 0;
 }
 

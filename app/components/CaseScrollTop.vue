@@ -56,19 +56,18 @@ function scrollToTop() {
   height: 42px;
   margin: 0;
   padding: 0;
-  border: 1px solid currentColor;
+  border: 0;
   border-radius: 999px;
   place-items: center;
   appearance: none;
   color: inherit;
-  background-color: color-mix(in srgb, currentColor 20%, transparent);
+  background: transparent;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transform: translateY(12px) scale(0.92);
   visibility: hidden;
   transition:
-    background-color 260ms ease,
     opacity 220ms ease,
     transform 260ms var(--motion-ease, ease),
     visibility 220ms;
@@ -79,12 +78,6 @@ function scrollToTop() {
   pointer-events: auto;
   transform: translateY(0) scale(1);
   visibility: visible;
-}
-
-.case-scroll-top--visible:hover,
-.case-scroll-top--visible:focus-visible {
-  background-color: color-mix(in srgb, currentColor 42%, transparent);
-  transform: translateY(-2px) scale(1);
 }
 
 .case-scroll-top:focus-visible {

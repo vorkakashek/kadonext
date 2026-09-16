@@ -3,6 +3,11 @@ import {
   setAppliedScrollDriverConnected,
 } from '~/utils/appliedScrollFrame'
 import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
+import {
+  CASE_RAIL_TOUCH_EVENT,
+  createCaseRailTouchAxis,
+  type CaseRailTouchFrame,
+} from '~/utils/caseRailTouch'
 
 const SMOOTH_WHEEL_ENABLED =
   '(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)'
@@ -68,6 +73,34 @@ export default defineNuxtPlugin((nuxtApp) => {
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   let ownsTouchScroll = createTouchScrollOwnership()
   let nativeTouchActive = false
+  let touchRail: HTMLElement | null = null
+  const railTouchAxis = createCaseRailTouchAxis()
+
+  function publishRailTouch(type: string, deltaX: number, timeStamp: number) {
+    touchRail?.dispatchEvent(new CustomEvent<CaseRailTouchFrame>(CASE_RAIL_TOUCH_EVENT, {
+      detail: { type, deltaX, timeStamp },
+    }))
+  }
+
+  function cancelRailTouch() {
+    publishRailTouch('touchcancel', 0, performance.now())
+    touchRail = null
+    railTouchAxis('touchcancel', 0, 0)
+  }
+
+  function onTouchCancel() {
+    cancelRailTouch()
+    ownsTouchScroll = createTouchScrollOwnership()
+    nativeTouchActive = false
+    touchSampleY = null
+    touchSampleAt = 0
+    touchVelocityPxPerSec = 0
+    if (lenis && !lenis.isStopped && !lenis.isLocked) {
+      lenis.stop()
+      lenis.start()
+      removeTicker()
+    }
+  }
 
   function controlledTouchEnabled() {
     if (isIOS) return false
@@ -87,6 +120,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (!lenis || !controlledTouchEnabled() || !(data.event instanceof TouchEvent)) return true
 
     const event = data.event
+    if (event.type === 'touchstart' && event.touches.length === 1) {
+      touchRail = (event.composedPath().find(node =>
+        node instanceof HTMLElement && node.hasAttribute('data-lenis-horizontal-rail'),
+      ) as HTMLElement | undefined) ?? null
+    }
     // Match Lenis's explicit nested-scroll escape hatches. A horizontal rail
     // can keep native horizontal scrolling without leaking a diagonal gesture
     // back into Lenis halfway through the same touch sequence.
@@ -103,6 +141,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       ),
     )
     if (!lenis.isStopped && !lenis.isLocked && !ownsTouchScroll(event, bypass)) {
+      publishRailTouch('touchcancel', 0, event.timeStamp)
+      touchRail = null
       // Once scrolling is non-cancelable, JS must stop writing against the
       // browser. Keep this entire gesture native, including its release.
       if (!nativeTouchActive) {
@@ -117,6 +157,21 @@ export default defineNuxtPlugin((nuxtApp) => {
       return false
     }
     nativeTouchActive = false
+    const railGesture = touchRail !== null
+    if (railGesture) {
+      const delta = railTouchAxis(event.type, data.deltaX, data.deltaY)
+      data.deltaX = delta.deltaX
+      data.deltaY = delta.deltaY
+    }
+    // Only the axis chosen by the first move receives deltas for this gesture:
+    // horizontal goes to the rail, vertical goes to Lenis.
+    if (!lenis.isStopped && !lenis.isLocked) {
+      publishRailTouch(event.type, data.deltaX, event.timeStamp)
+    } else {
+      publishRailTouch('touchcancel', 0, event.timeStamp)
+      touchRail = null
+    }
+    if (event.type === 'touchend' || event.type === 'touchcancel') touchRail = null
     if (event.type === 'touchstart') {
       const touch = event.targetTouches[0]
       touchSampleY = touch?.clientY ?? null
@@ -130,11 +185,15 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (!touch) return true
       if (touchSampleY !== null && touchSampleAt > 0) {
         const dt = Math.max(1, event.timeStamp - touchSampleAt)
-        const velocity = (touchSampleY - touch.clientY) * 1000 / dt
-        touchVelocityPxPerSec = touchVelocityPxPerSec
-          ? touchVelocityPxPerSec * (1 - TOUCH_VELOCITY_SAMPLE_BLEND)
-            + velocity * TOUCH_VELOCITY_SAMPLE_BLEND
-          : velocity
+        const velocity = (railGesture ? data.deltaY : touchSampleY - touch.clientY) * 1000 / dt
+        if (railGesture && data.deltaY === 0) {
+          touchVelocityPxPerSec = 0
+        } else {
+          touchVelocityPxPerSec = touchVelocityPxPerSec
+            ? touchVelocityPxPerSec * (1 - TOUCH_VELOCITY_SAMPLE_BLEND)
+              + velocity * TOUCH_VELOCITY_SAMPLE_BLEND
+            : velocity
+        }
       }
       touchSampleY = touch.clientY
       touchSampleAt = event.timeStamp
@@ -205,6 +264,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   function syncRunState() {
     if (!lenis) return
     if (document.hidden || pageIsLocked()) {
+      cancelRailTouch()
       lenis.stop()
       removeTicker()
     } else {
@@ -213,6 +273,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   function destroy() {
+    cancelRailTouch()
     createGeneration += 1
     removeTicker()
     setAppliedScrollDriverConnected(false)
@@ -295,6 +356,21 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (runtimeEnabled()) void create()
   }
 
+  function scrollToSection(target: HTMLElement) {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (lenis) {
+      // Replace wheel/release inertia and explicitly wake the otherwise idle RAF.
+      lenis.resize()
+      lenis.scrollTo(target, { duration: 3, immediate: reducedMotion })
+      requestTicker()
+    } else {
+      target.scrollIntoView({
+        block: 'start',
+        behavior: reducedMotion ? 'instant' : 'smooth',
+      })
+    }
+  }
+
   nuxtApp.hook('app:mounted', () => {
     const activate = () => void create()
     if (controlledTouchEnabled()) {
@@ -320,6 +396,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     touchQuery.addEventListener('change', syncInputMode)
     narrowQuery.addEventListener('change', syncInputMode)
     document.addEventListener('visibilitychange', syncRunState)
+    window.addEventListener('touchcancel', onTouchCancel, { passive: true })
   })
 
   if (import.meta.hot) {
@@ -331,7 +408,10 @@ export default defineNuxtPlugin((nuxtApp) => {
       touchQuery.removeEventListener('change', syncInputMode)
       narrowQuery.removeEventListener('change', syncInputMode)
       document.removeEventListener('visibilitychange', syncRunState)
+      window.removeEventListener('touchcancel', onTouchCancel)
       destroy()
     })
   }
+
+  return { provide: { scrollToSection } }
 })

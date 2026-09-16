@@ -113,6 +113,8 @@ const FAB_LABEL_DIR_PX = 8
 /** After menu close, ignore the scroll restoration jump so the word stays visible. */
 let fabLabelHoldUntil = 0
 let lastMobileLogoScrollY: number | null = null
+/** Startup hash/layout corrections are not a reader's scroll direction. */
+let mobileLogoDirectionArmed = !(import.meta.client && window.location.hash)
 let lastDesktopLogoScrollY: number | null = null
 let desktopLogoCollapsePending = false
 let desktopLogoWantsCompact = false
@@ -800,6 +802,16 @@ function syncDesktopScrollMark() {
 }
 
 /** Home keeps the top logo until the viewport reaches the stone photo. */
+function armMobileLogoDirection(event: Event) {
+  if (mobileLogoDirectionArmed || !mobileHeader.value || canvasLocksScroll()) return
+  if (
+    event instanceof KeyboardEvent
+    && !['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)
+  ) return
+  lastMobileLogoScrollY = Math.max(0, window.scrollY || 0)
+  mobileLogoDirectionArmed = true
+}
+
 function syncMobileScrollMark() {
   if (!mobileHeader.value) {
     mobileScrollMarkOn.value = false
@@ -809,6 +821,10 @@ function syncMobileScrollMark() {
   if (canvasLocksScroll()) return
 
   const y = Math.max(0, window.scrollY || 0)
+  if (!mobileLogoDirectionArmed) {
+    lastMobileLogoScrollY = y
+    return
+  }
   if (!canUseLogoScrollDirection(y)) {
     mobileScrollMarkOn.value = false
     lastMobileLogoScrollY = y
@@ -1001,6 +1017,10 @@ onMounted(() => {
     scheduleLogoCasesToneSync(true)
   })
   window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('touchstart', armMobileLogoDirection, { passive: true })
+  window.addEventListener('pointerdown', armMobileLogoDirection, { passive: true })
+  window.addEventListener('wheel', armMobileLogoDirection, { passive: true })
+  window.addEventListener('keydown', armMobileLogoDirection)
   window.addEventListener('pageshow', onPageShow)
   window.addEventListener('resize', onResize, { passive: true })
   window.addEventListener('resize', syncThumbNav, { passive: true })
@@ -1174,6 +1194,10 @@ onUnmounted(() => {
   logoMorphTl?.kill()
   logoMorphTl = null
   window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('touchstart', armMobileLogoDirection)
+  window.removeEventListener('pointerdown', armMobileLogoDirection)
+  window.removeEventListener('wheel', armMobileLogoDirection)
+  window.removeEventListener('keydown', armMobileLogoDirection)
   window.removeEventListener('pageshow', onPageShow)
   window.removeEventListener('resize', onResize)
   window.removeEventListener('resize', syncThumbNav)
@@ -1498,11 +1522,7 @@ onUnmounted(() => {
 /* Mobile case return mirrors the thumb-zone menu: an icon-only companion on
    its left, with the same viewport-safe lower inset. */
 .case-mobile-back {
-  --header-chip-bg: color-mix(
-    in srgb,
-    var(--palette-ink, #171915) 82%,
-    var(--palette-ash, #666a61)
-  );
+  --header-chip-bg: var(--semantic-bg-control);
   position: fixed;
   right: calc(
     2 * var(--layout-margin) + var(--safe-right, 0px)
@@ -1513,7 +1533,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* A small optical lift keeps the circular control equal to the menu pill. */
+  box-sizing: border-box;
   width: 42px;
   height: 42px;
   margin: 0;
@@ -1769,11 +1789,7 @@ html.page-canvas-lock .menu-btn--float {
 
 .header-chip,
 .menu-fab {
-  --header-chip-bg: color-mix(
-    in srgb,
-    var(--palette-ink, #171915) 82%,
-    var(--palette-ash, #666a61)
-  );
+  --header-chip-bg: var(--semantic-bg-control);
 }
 
 .header-chip {
@@ -2008,11 +2024,7 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
 .header-nav .chip-scale-bg__fill,
 .menu-btn--float .chip-scale-bg__fill,
 .menu-fab .chip-scale-bg__fill {
-  background-color: color-mix(
-    in srgb,
-    var(--palette-ink, #171915) 86%,
-    var(--palette-milk, #f5f1e8)
-  );
+  background-color: var(--semantic-bg-control-hover);
 }
 
 /* The link group stays a light editorial surface; only its active hover inverts. */

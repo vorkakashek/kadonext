@@ -390,6 +390,15 @@ function updateSloganMotion(scrollY?: number) {
       : routeStart + (props.sectionEl?.offsetHeight ?? vh)
   }
   const routeProgress = Math.min(1, scrolled / Math.max(1, routeEnd - routeStart))
+  // A cold hash entry can arrive below Hero before the Surface engine has
+  // painted its first morph. Keep scene visibility tied to the real route too.
+  const pastHeroRoute = currentScrollY >= routeEnd + (mobileLite.value ? vh : 0)
+  const sceneOp = pastHeroRoute
+    ? 0
+    : mobileLite.value
+      ? mobileHeroExitOpacity()
+      : sceneOpacityForMorph(mask.morph)
+  if (sceneOpacity.value !== sceneOp) paintSceneVisibility(sceneOp)
   const revealOpacity = mobileLite.value
     ? (routeProgress >= SLOGAN_REVEAL_AT_MOBILE ? 1 : 0)
     : (() => {
@@ -400,7 +409,7 @@ function updateSloganMotion(scrollY?: number) {
         return fadeInProgress * fadeInProgress * (3 - 2 * fadeInProgress)
       })()
   const exitOpacity = mobileLite.value
-    ? mobileHeroExitOpacity()
+    ? sceneOp
     : (() => {
         const fadeOutProgress = Math.min(
           1,
@@ -445,10 +454,6 @@ watch(
   (m) => {
     // Page Canvas freezes the live page — don't dismiss/restore mid-flight.
     if (pageCanvasOpen.value) return
-    const sceneOp = mobileLite.value
-      ? mobileHeroExitOpacity()
-      : sceneOpacityForMorph(m)
-    paintSceneVisibility(sceneOp)
     updateSloganMotion()
     // Freeze only mid-morph — at hero rest edges stay live + cursor dent.
     setFrozen(m > 0.02 && m < 0.98)
@@ -891,6 +896,7 @@ onMounted(() => {
   const fromNav = skipHeroIntro.value
   if (fromNav) skipHeroIntro.value = false
   const animateSceneEntry = !fromNav
+    && sceneOpacity.value > SCENE_LIVE_OPACITY
     && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   sceneEntryArmed.value = animateSceneEntry
   sceneEntryRunning.value = false

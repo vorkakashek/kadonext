@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { CASE_RAIL_TOUCH_EVENT, type CaseRailTouchFrame } from '~/utils/caseRailTouch'
+
 const props = withDefaults(defineProps<{
   desktopGrabSpeed?: number
 }>(), {
@@ -25,8 +27,39 @@ let viewportDragLastTime = 0
 let viewportDragVelocity = 0
 let inertiaFrame = 0
 let initialPositionLocked = true
-let touchStartX = 0
-let touchStartY = 0
+let touchDragging = false
+let touchLastTime = 0
+
+function onRailTouch(event: Event) {
+  const frame = (event as CustomEvent<CaseRailTouchFrame>).detail
+  if (frame.type === 'touchstart') {
+    unlockInitialPosition()
+    stopViewportInertia()
+    touchDragging = true
+    touchLastTime = frame.timeStamp
+    return
+  }
+  if (frame.type === 'touchcancel') {
+    touchDragging = false
+    stopViewportInertia()
+    return
+  }
+  if (!touchDragging) return
+  if (frame.type === 'touchend') {
+    touchDragging = false
+    // A finger held still before release must not revive old horizontal speed.
+    if (frame.timeStamp - touchLastTime > 110) viewportDragVelocity = 0
+    startViewportInertia()
+    return
+  }
+  const viewport = viewportEl.value
+  if (frame.type !== 'touchmove' || !viewport) return
+  const previous = viewport.scrollLeft
+  viewport.scrollLeft += frame.deltaX
+  const elapsed = Math.max(1, frame.timeStamp - touchLastTime)
+  viewportDragVelocity = (viewport.scrollLeft - previous) / elapsed
+  touchLastTime = frame.timeStamp
+}
 
 function unlockInitialPosition() {
   initialPositionLocked = false
@@ -164,8 +197,10 @@ function onKeydown(event: KeyboardEvent) {
 
 function onViewportPointerDown(event: PointerEvent) {
   if (event.pointerType !== 'mouse') {
-    touchStartX = event.clientX
-    touchStartY = event.clientY
+    // Native scrolling can cancel pointer events before a move is delivered.
+    // Release the lazy-media position guard before the browser takes over.
+    unlockInitialPosition()
+    stopViewportInertia()
     return
   }
   if (event.button !== 0) return
@@ -185,9 +220,6 @@ function onViewportPointerDown(event: PointerEvent) {
 
 function onViewportPointerMove(event: PointerEvent) {
   if (event.pointerType !== 'mouse') {
-    const deltaX = Math.abs(event.clientX - touchStartX)
-    const deltaY = Math.abs(event.clientY - touchStartY)
-    if (deltaX > 6 && deltaX > deltaY) unlockInitialPosition()
     return
   }
   if (!viewportDragging) return
@@ -205,7 +237,11 @@ function onViewportPointerMove(event: PointerEvent) {
 }
 
 function onViewportWheel(event: WheelEvent) {
-  if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) unlockInitialPosition()
+  if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+    unlockInitialPosition()
+    // Horizontal wheel input stays native; touch selects one axis per gesture.
+    event.stopPropagation()
+  }
 }
 
 function onViewportPointerUp(event: PointerEvent) {
@@ -221,6 +257,7 @@ function onViewportPointerUp(event: PointerEvent) {
 }
 
 onMounted(() => {
+  viewportEl.value?.addEventListener(CASE_RAIL_TOUCH_EVENT, onRailTouch)
   resizeObserver = new ResizeObserver(sync)
   if (viewportEl.value) viewportEl.value.scrollLeft = 0
   if (viewportEl.value) resizeObserver.observe(viewportEl.value)
@@ -230,6 +267,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  viewportEl.value?.removeEventListener(CASE_RAIL_TOUCH_EVENT, onRailTouch)
   resizeObserver?.disconnect()
   stopViewportInertia()
 })
@@ -240,6 +278,7 @@ onUnmounted(() => {
     <div
       ref="viewportEl"
       class="case-horizontal-rail__viewport"
+      data-lenis-horizontal-rail
       tabindex="0"
       :aria-label="t('projects.detail.horizontalGallery')"
       @scroll="sync"

@@ -19,4 +19,6 @@
   --semantic-text-primary: var(--palette-ink);
   --semantic-text-secondary: var(--palette-ash);
   --semantic-text-inverse: var(--palette-milk);
+  --semantic-bg-control: var(--palette-ink);
+  --semantic-bg-control-hover: color-mix(in srgb, var(--palette-ink) 86%, var(--palette-milk));
 }
