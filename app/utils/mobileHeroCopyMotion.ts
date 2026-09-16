@@ -20,7 +20,10 @@ function layoutTopWithin(element: HTMLElement, ancestor: HTMLElement) {
   let top = 0
   let current: HTMLElement | null = element
   while (current && current !== ancestor) {
-    top += current.offsetTop
+    // The copy is the section's first in-flow block (natural inset: 0).
+    // Sticky offsetTop includes its current scroll compensation on iOS; omit
+    // that offset so a late host mount/recapture cannot shift the Surface route.
+    if (!current.hasAttribute('data-hero-copy-native-anchor')) top += current.offsetTop
     current = current.offsetParent as HTMLElement | null
   }
   return current === ancestor ? top : null

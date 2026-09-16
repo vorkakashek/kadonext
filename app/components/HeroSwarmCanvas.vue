@@ -45,6 +45,7 @@ import {
   swarmHapticReset,
 } from '~/utils/swarmHaptics'
 import { useBrandPreload } from '~/composables/useBrandPreload'
+import { flowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 
 const { t } = useI18n()
 
@@ -143,7 +144,8 @@ const ENTRY_SCATTER_RATIO_MOBILE = 1.55
 const REBOOT_MS = 320
 const MOTION_INTRO_COOKIE = 'kado_motion_intro'
 const MOTION_INTRO_MAX_AGE = 60 * 60 * 24 * 7
-const MOTION_INTRO_DURATION_MS = 6000
+const MOTION_INTRO_DURATION_MS = 10000
+const MOTION_INTRO_HIDE_MORPH = 0.15
 const DESKTOP_MOTION_EASE_MS = 520
 const DESKTOP_ICON_MORPH_S = 0.38
 // Tabler player-pause/player-play (MIT); combined paths retain the existing morph.
@@ -243,18 +245,62 @@ const motionEnabled = ref(false)
 const motionIntroVisible = ref(false)
 /** The intro is hero-local even though its control layer is teleported. */
 const motionIntroInHero = ref(false)
+const motionIntroSceneBottomSeen = ref(false)
+const motionIntroViewportTop = ref(0)
+const motionIntroViewportBottom = ref(0)
 const motionIntroPageVisible = ref(true)
 const motionIntroComponentActive = ref(true)
 const motionIntroPreload = useBrandPreload()
 const motionIntroShown = computed(() =>
   motionIntroVisible.value
   && motionIntroInHero.value
+  && motionIntroSceneBottomSeen.value
+  && flowSurfaceMask.morph < MOTION_INTRO_HIDE_MORPH
   && motionIntroPageVisible.value
   && motionIntroComponentActive.value
   && props.active
   && props.controlsReady
   && motionIntroPreload.revealed.value,
 )
+const motionIntroTimerEl = ref<HTMLElement | null>(null)
+let motionIntroElapsedMs = 0
+let motionIntroTimerStartedAt: number | null = null
+let motionIntroTimerRaf = 0
+
+function motionIntroElapsedAt(now: number) {
+  return Math.min(MOTION_INTRO_DURATION_MS, motionIntroElapsedMs
+    + (motionIntroTimerStartedAt === null ? 0 : Math.max(0, now - motionIntroTimerStartedAt)))
+}
+
+function paintMotionIntroTimer(now: number) {
+  motionIntroTimerRaf = 0
+  const elapsed = motionIntroElapsedAt(now)
+  if (motionIntroTimerEl.value) {
+    motionIntroTimerEl.value.style.transform = `scaleX(${elapsed / MOTION_INTRO_DURATION_MS})`
+  }
+  if (elapsed >= MOTION_INTRO_DURATION_MS) {
+    onMotionIntroTimerEnd()
+    return
+  }
+  if (motionIntroShown.value) {
+    motionIntroTimerRaf = requestAnimationFrame(paintMotionIntroTimer)
+  }
+}
+
+function pauseMotionIntroTimer() {
+  motionIntroElapsedMs = motionIntroElapsedAt(performance.now())
+  motionIntroTimerStartedAt = null
+  cancelAnimationFrame(motionIntroTimerRaf)
+  motionIntroTimerRaf = 0
+}
+
+watch(motionIntroShown, (shown) => {
+  if (!import.meta.client) return
+  pauseMotionIntroTimer()
+  if (!shown) return
+  motionIntroTimerStartedAt = performance.now()
+  paintMotionIntroTimer(motionIntroTimerStartedAt)
+}, { flush: 'sync' })
 const gyroPermissionReady = ref(false)
 const androidHapticEnabled = ref(false)
 const desktopSceneEnabled = ref(true)
@@ -266,9 +312,33 @@ const motionIntroText = computed(() =>
     ? t('accessibility.enableGyroscopeAndVibrationHint')
     : t('accessibility.enableGyroscopeHint'),
 )
+
+watch(
+  () => !motionIntroSceneBottomSeen.value
+    && motionIntroVisible.value
+    && flowSurfaceMask.morph < MOTION_INTRO_HIDE_MORPH
+    && props.active
+    && props.controlsReady
+    && motionIntroPreload.revealed.value
+    && flowSurfaceMask.height > 2
+    && flowSurfaceMask.top + flowSurfaceMask.height > motionIntroViewportTop.value
+    && flowSurfaceMask.top + flowSurfaceMask.height <= motionIntroViewportBottom.value,
+  (visible) => {
+    // Latch the first visible lower edge so later morph/chrome changes do not
+    // toggle the hint or restart its countdown. The host owns the clipped box.
+    if (visible) motionIntroSceneBottomSeen.value = true
+  },
+  { immediate: true },
+)
+
+function syncMotionIntroViewport() {
+  const viewport = window.visualViewport
+  motionIntroViewportTop.value = viewport?.offsetTop ?? 0
+  motionIntroViewportBottom.value = motionIntroViewportTop.value
+    + (viewport?.height ?? window.innerHeight)
+}
 let gyroUnlockFn: (() => void) | null = null
 let motionIntroHeroObserver: IntersectionObserver | null = null
-let motionIntroPointerUpAt = 0
 let desktopMotionNoticeTimer = 0
 let desktopIconMorph: { kill: () => void } | null = null
 let desktopIconMorphGen = 0
@@ -328,6 +398,7 @@ function syncMotionIntroPageVisibility() {
 }
 
 function onMotionIntroTap() {
+  if (!motionIntroShown.value) return
   motionEnabled.value = true
   swarmHapticReset()
   // iOS can reject or delay its system permission sheet (notably outside HTTPS).
@@ -337,19 +408,6 @@ function onMotionIntroTap() {
     androidHapticEnabled.value = swarmHapticConfirm()
   }
   gyroUnlockFn?.()
-}
-
-/** Pointer-up keeps the iOS permission request inside a real user gesture. */
-function onMotionIntroPointerUp(event: PointerEvent) {
-  if (!event.isPrimary) return
-  motionIntroPointerUpAt = performance.now()
-  onMotionIntroTap()
-}
-
-/** Keyboard activation and browsers without Pointer Events still use click. */
-function onMotionIntroClick() {
-  if (performance.now() - motionIntroPointerUpAt < 450) return
-  onMotionIntroTap()
 }
 
 function onHapticControlTap() {
@@ -510,6 +568,10 @@ function readAppScreenPx(): number {
 }
 
 onMounted(() => {
+  syncMotionIntroViewport()
+  window.addEventListener('resize', syncMotionIntroViewport, { passive: true })
+  window.visualViewport?.addEventListener('resize', syncMotionIntroViewport, { passive: true })
+  window.visualViewport?.addEventListener('scroll', syncMotionIntroViewport, { passive: true })
   syncMotionIntroPageVisibility()
   document.addEventListener('visibilitychange', syncMotionIntroPageVisibility)
   isIosClient.value = isAppleTouchDevice()
@@ -548,6 +610,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  pauseMotionIntroTimer()
+  window.removeEventListener('resize', syncMotionIntroViewport)
+  window.visualViewport?.removeEventListener('resize', syncMotionIntroViewport)
+  window.visualViewport?.removeEventListener('scroll', syncMotionIntroViewport)
   document.removeEventListener('visibilitychange', syncMotionIntroPageVisibility)
   bootGen += 1
   desktopIconMorphGen += 1
@@ -568,6 +634,7 @@ onDeactivated(() => {
 })
 
 onActivated(() => {
+  syncMotionIntroViewport()
   motionIntroComponentActive.value = true
   keepAliveActive = true
   if (!props.active || document.visibilityState === 'hidden') return
@@ -2158,10 +2225,13 @@ async function bootScene() {
         :style="motionOverlayStyle"
       >
         <button
-          v-if="isAndroidClient && !motionIntroVisible && props.active"
+          v-if="isAndroidClient && props.active"
           type="button"
           class="motion-control motion-control--haptic"
-          :class="{ 'motion-control--active': androidHapticEnabled }"
+          :class="{
+            'motion-control--active': androidHapticEnabled,
+            'motion-control--entry-hidden': !props.controlsReady,
+          }"
           :aria-label="androidHapticEnabled ? t('accessibility.disableVibration') : t('accessibility.enableVibration')"
           :aria-pressed="androidHapticEnabled"
           @click="onHapticControlTap"
@@ -2210,20 +2280,18 @@ async function bootScene() {
         <Transition name="motion-intro">
           <button
             v-if="motionIntroVisible"
-            v-show="motionIntroShown"
             type="button"
             class="motion-intro"
-            @pointerup="onMotionIntroPointerUp"
-            @click="onMotionIntroClick"
+            :class="{ 'motion-intro--hidden': !motionIntroShown }"
+            :inert="!motionIntroShown"
+            :aria-hidden="!motionIntroShown"
+            :style="{ '--motion-intro-control-space': isAndroidClient ? '50.5px' : '0px' }"
+            @click="onMotionIntroTap"
           >
             <span
+              ref="motionIntroTimerEl"
               class="motion-intro__timer"
               aria-hidden="true"
-              :style="{
-                animationDuration: `${MOTION_INTRO_DURATION_MS}ms`,
-                animationPlayState: motionIntroShown ? 'running' : 'paused',
-              }"
-              @animationend="onMotionIntroTimerEnd"
             />
             <span class="motion-intro__content">
               <img
@@ -2427,6 +2495,13 @@ async function bootScene() {
     transition: opacity 0.28s ease;
   }
 
+  .motion-control--haptic {
+    top: auto;
+    right: auto;
+    left: calc(var(--motion-scene-inset-x, 0px) + var(--layout-margin) + var(--safe-left, 0px));
+    bottom: calc(var(--motion-scene-inset-y, 0px) + var(--layout-margin) + var(--safe-bottom, 0px));
+  }
+
   .motion-control--active .motion-control__icon--haptic {
     opacity: 1;
     transform: none;
@@ -2465,11 +2540,11 @@ async function bootScene() {
 
 .motion-intro {
   position: absolute;
-  left: calc(var(--motion-scene-inset-x, 0px) + var(--layout-margin) + var(--safe-left, 0px));
+  left: calc(var(--motion-scene-inset-x, 0px) + var(--layout-margin) + var(--safe-left, 0px) + var(--motion-intro-control-space, 0px));
   bottom: calc(var(--motion-scene-inset-y, 0px) + var(--layout-margin) + var(--safe-bottom, 0px));
   z-index: 7;
   width: max-content;
-  max-width: min(19rem, calc(100% - 2 * var(--motion-scene-inset-x, 0px) - 2 * var(--layout-margin) - var(--safe-left, 0px) - var(--safe-right, 0px)));
+  max-width: min(19rem, calc(100% - 2 * var(--motion-scene-inset-x, 0px) - 2 * var(--layout-margin) - var(--safe-left, 0px) - var(--safe-right, 0px) - var(--motion-intro-control-space, 0px)));
   overflow: hidden;
   padding: 0.75rem 0.875rem;
   border: 0;
@@ -2480,6 +2555,13 @@ async function bootScene() {
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s ease;
+}
+
+/* Hiding the hint leaves its elapsed time and painted fill intact. */
+.motion-intro--hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .motion-intro__timer {
@@ -2488,12 +2570,7 @@ async function bootScene() {
   background: color-mix(in srgb, var(--palette-ink) 90%, #fff);
   transform: scaleX(0);
   transform-origin: left center;
-  animation: motion-intro-fill linear forwards;
   pointer-events: none;
-}
-
-@keyframes motion-intro-fill {
-  to { transform: scaleX(1); }
 }
 
 .motion-intro-enter-active,
@@ -2534,6 +2611,7 @@ async function bootScene() {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .motion-intro,
   .motion-intro-enter-active,
   .motion-intro-leave-active {
     transition: none;

@@ -3,7 +3,7 @@
  * Hero scroll section — in-flow title/description + the morph pose target.
  * Only the swarm and slogan live inside FlowSurfaceHost's clipped window.
  */
-import { isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
+import { isAppleTouchDevice, isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
   subscribeAppliedScrollFrame,
   type AppliedScrollFrame,
@@ -36,6 +36,9 @@ const flowSurfaceMask = useFlowSurfaceMask()
 const section = ref<HTMLElement | null>(null)
 const surfaceSlot = ref<HTMLElement | null>(null)
 const titleBlock = ref<HTMLElement | null>(null)
+// Native sticky owns the full scroll compensation on iOS. JS only paints the
+// small authored drift, so asynchronous scrolling cannot race a 1:1 transform.
+const nativeCopyAnchor = ref(false)
 
 /** Scroll compensation leaves a small visible downward drift before the copy is covered. */
 const COPY_DESCENT_RATE = 0.22
@@ -70,8 +73,11 @@ function copyExitTarget(scrollY: number) {
       )
     }
     const layout = flowSurfaceMask.heroCopyLayout ?? initialMobileCopyLayout
+    const nativeCompensation = nativeCopyAnchor.value && layout
+      ? Math.max(0, scrollY - layout.sectionTop)
+      : 0
     return {
-      y: layout ? mobileHeroCopyTranslation(scrollY, layout) : 0,
+      y: layout ? mobileHeroCopyTranslation(scrollY, layout) - nativeCompensation : 0,
       opacity: layout ? mobileHeroCopyOpacity(scrollY, layout) : 1,
       scale: layout ? mobileHeroCopyScale(scrollY, layout) : 1,
     }
@@ -125,7 +131,10 @@ function onCopyResize() {
 }
 
 onMounted(() => {
-  updateCopyExit()
+  nativeCopyAnchor.value = isAppleTouchDevice()
+  // Commit sticky before measuring/painting, including restored scroll on SPA
+  // returns. Keep the initial markup identical to SSR during hydration.
+  nextTick(updateCopyExit)
   removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedCopyFrame)
   window.addEventListener('resize', onCopyResize, { passive: true })
 })
@@ -158,7 +167,11 @@ defineExpose({ section, surfaceSlot })
   >
     <div
       class="home-hero__copy mx-auto grid shrink-0 text-ink"
-      :class="{ 'home-hero__copy--intro-hidden': heroIntroPending }"
+      :class="{
+        'home-hero__copy--intro-hidden': heroIntroPending,
+        'home-hero__copy--native-anchor': nativeCopyAnchor,
+      }"
+      :data-hero-copy-native-anchor="nativeCopyAnchor ? '' : undefined"
       :style="{
         maxWidth: 'var(--layout-content-max)',
         gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
@@ -358,6 +371,11 @@ defineExpose({ section, surfaceSlot })
   .home-hero__copy {
     position: relative;
     z-index: 1;
+  }
+
+  .home-hero__copy--native-anchor {
+    position: sticky;
+    top: 0;
   }
 
   .home-hero__title {

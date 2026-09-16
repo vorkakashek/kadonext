@@ -22,7 +22,7 @@ const WHEEL_LERP = 0.1
  * Touch stays 1:1 while the finger is down. Only the release inertia is eased,
  * with its initial rendered velocity capped in viewport-heights per second.
  */
-const TOUCH_INERTIA_LERP = 0.04
+const TOUCH_INERTIA_LERP = 0.075
 const TOUCH_INERTIA_EXPONENT = 1.7
 const TOUCH_MAX_VELOCITY_VH_PER_SEC = 4.2
 const TOUCH_VELOCITY_SAMPLE_BLEND = 0.72
@@ -35,7 +35,8 @@ const SCROLL_LOCKS = [
 ] as const
 
 /**
- * Smooth stepped wheel input on desktop. On touch-first mobile devices Lenis
+ * iOS keeps native scrolling and release inertia, including iPadOS desktop mode.
+ * Smooth stepped wheel input on desktop. On other touch-first devices Lenis
  * owns the gesture: direct dragging remains 1:1, while release inertia is
  * bounded so one flick cannot cross the whole home-page story.
  *
@@ -63,16 +64,19 @@ export default defineNuxtPlugin((nuxtApp) => {
   const wheelQuery = window.matchMedia(SMOOTH_WHEEL_ENABLED)
   const touchQuery = window.matchMedia(CONTROLLED_TOUCH_ENABLED)
   const narrowQuery = window.matchMedia(NARROW_TOUCH_ENABLED)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   let ownsTouchScroll = createTouchScrollOwnership()
   let nativeTouchActive = false
 
   function controlledTouchEnabled() {
+    if (isIOS) return false
     if (touchQuery.matches) return true
     return narrowQuery.matches && navigator.maxTouchPoints > 0
   }
 
   function runtimeEnabled() {
-    return wheelQuery.matches || controlledTouchEnabled()
+    return !isIOS && (wheelQuery.matches || controlledTouchEnabled())
   }
 
   function normalizeTouchReleaseVelocity(data: {
