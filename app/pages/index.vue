@@ -30,6 +30,7 @@ const aboutTitleEl = computed(() => about.value?.titleEl ?? null)
 const aboutEndEl = computed(() => about.value?.contentEndEl ?? null)
 const contactSectionEl = computed(() => contact.value?.rootEl ?? null)
 const contactSurfaceEl = computed(() => contact.value?.surfaceEl ?? null)
+const contactFieldsEl = computed(() => contact.value?.fieldsEl ?? null)
 
 /**
  * Yield one frame so router paint commits, then mount the surface.
@@ -70,6 +71,7 @@ onMounted(() => {
       :about-end-el="aboutEndEl"
       :contact-section-el="contactSectionEl"
       :contact-surface-el="contactSurfaceEl"
+      :contact-fields-el="contactFieldsEl"
       :plan="heroToKadoPlan"
       @ready="surfaceReady = true"
     />

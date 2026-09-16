@@ -90,9 +90,10 @@ const FORMATS_SCRUB_END = 'top 35%'
 /** Work formats → author block: the stone surface settles into its dark panel. */
 const ABOUT_SCRUB_START = 'top 92%'
 const ABOUT_SCRUB_END = 'top 25%'
-/** Begin as Biography leaves; settle only after the form surface is well in view. */
+/** Begin as Biography leaves; settle before the contact anchor stops scrolling. */
 const CONTACT_SCRUB_START = 'bottom bottom+=72px'
-const CONTACT_SCRUB_END = 'top 18%'
+const CONTACT_SETTLE_VIEWPORT_P = 0.18
+const CONTACT_ANCHOR_SETTLE_LEAD_PX = 72
 /** Biography → Contact: clear the dark tone in the opening 13% of travel. */
 const CONTACT_TONE_END_P = 0.13
 /** Global scroll-driven surface limit, in normalized morph segments/sec. */
@@ -144,8 +145,6 @@ const MOBILE_CASE_TO_FORMATS_HOLD_PX = 200
 const MOBILE_FORMATS_SCROLL_SPAN_VH = 0.62
 const MOBILE_ABOUT_SCROLL_SPAN_VH = 0.3
 const MOBILE_CONTACT_ENTRY_LEAD_PX = 32
-/** Keep the Biography → form flight on-screen long enough to expose the form through the mask. */
-const MOBILE_CONTACT_SETTLE_VIEWPORT_P = 0.18
 /** Stretch Formats ↔ Biography equally at both ends of the reversible range. */
 const MOBILE_ABOUT_ENTRY_LEAD_PX = 80
 const MOBILE_ABOUT_EXIT_RUNWAY_PX = 80
@@ -185,6 +184,8 @@ const props = withDefaults(
     contactSectionEl?: HTMLElement | null
     /** Form field destination; the live Surface also clips the form UI. */
     contactSurfaceEl?: HTMLElement | null
+    /** Stable layout slot for the fields inside the growing contact surface. */
+    contactFieldsEl?: HTMLElement | null
     plan?: SurfaceMorphPlan
     toneClass?: string
   }>(),
@@ -205,6 +206,7 @@ const props = withDefaults(
     aboutEndEl: null,
     contactSectionEl: null,
     contactSurfaceEl: null,
+    contactFieldsEl: null,
     plan: () => heroToKadoPlan,
     toneClass: 'bg-stone',
   },
@@ -256,7 +258,7 @@ let trigger: { kill: () => void; progress: number } | null = null
 let caseTrigger: { kill: () => void; progress: number } | null = null
 let formatsTrigger: { kill: () => void; progress: number } | null = null
 let aboutTrigger: { kill: () => void; progress: number } | null = null
-let contactTrigger: { kill: () => void; progress: number } | null = null
+let contactTrigger: { kill: () => void; refresh: () => void; progress: number } | null = null
 let mobileTriggers: { kill: () => void }[] = []
 let hopTween: { kill: () => void } | null = null
 let target = { h: 0, v: 0 }
@@ -728,7 +730,7 @@ function captureMobileScrollBounds() {
   )
   const contactEnd = Math.max(
     contactStart + 1,
-    contactDoc.top - viewportHeight * MOBILE_CONTACT_SETTLE_VIEWPORT_P,
+    contactSettleScrollY(contactDoc.top, viewportHeight, collapsingTailHeight),
   )
 
   mobileScrollBounds = {
@@ -1193,6 +1195,18 @@ function aboutSurfacePose(): SurfaceBox | null {
 
 function contactSurfacePose(): SurfaceBox | null {
   return readBox(props.contactSurfaceEl)
+}
+
+function contactSettleScrollY(surfaceDocTop: number, viewportHeight: number, anchorShift = 0) {
+  const naturalEnd = surfaceDocTop - viewportHeight * CONTACT_SETTLE_VIEWPORT_P
+  const mobile = useMobileCorridor()
+  const anchor = mobile
+    ? document.getElementById('contact')
+    : document.querySelector<HTMLElement>('[data-contact-photo-boundary]')
+  if (!anchor) return naturalEnd
+  const anchorStopY = window.scrollY + anchor.getBoundingClientRect().top
+    - anchorShift - (mobile ? 0 : window.innerHeight)
+  return Math.min(naturalEnd, anchorStopY - CONTACT_ANCHOR_SETTLE_LEAD_PX)
 }
 
 function setContactStageProgress(progress: number) {
@@ -2932,6 +2946,7 @@ let removeLayoutResync: (() => void) | null = null
 let fontsResyncBound = false
 let captureFailCount = 0
 let poseResizeObserver: ResizeObserver | null = null
+let contactResizeTimer = 0
 let poseResyncRaf = 0
 let removeStoneLoadResync: (() => void) | null = null
 
@@ -3441,7 +3456,12 @@ function buildMorph() {
         trigger: props.aboutEndEl,
         endTrigger: props.contactSurfaceEl,
         start: CONTACT_SCRUB_START,
-        end: CONTACT_SCRUB_END,
+        end: () => {
+          const box = contactSurfacePose()
+          return box
+            ? contactSettleScrollY(window.scrollY + box.top, window.innerHeight)
+            : 'top 18%'
+        },
         invalidateOnRefresh: true,
         onUpdate: () => {
           ensureTick()
@@ -3561,6 +3581,8 @@ onUnmounted(() => {
   hostUnmounted = true
   poseResizeObserver?.disconnect()
   poseResizeObserver = null
+  if (contactResizeTimer) window.clearTimeout(contactResizeTimer)
+  contactResizeTimer = 0
   removeStoneLoadResync?.()
   removeStoneLoadResync = null
   if (poseResyncRaf) cancelAnimationFrame(poseResyncRaf)
@@ -3624,14 +3646,28 @@ watch(clipPathEl, (el) => {
 })
 
 watch(
-  [() => props.fromEl, () => props.toEl, () => props.stoneEl],
-  ([from, to, stone]) => {
+  [() => props.fromEl, () => props.toEl, () => props.stoneEl, () => props.contactSurfaceEl],
+  ([from, to, stone, contact]) => {
     poseResizeObserver?.disconnect()
+    if (contactResizeTimer) window.clearTimeout(contactResizeTimer)
+    contactResizeTimer = 0
     removeStoneLoadResync?.()
     removeStoneLoadResync = null
-    poseResizeObserver = new ResizeObserver(schedulePoseResync)
+    poseResizeObserver = new ResizeObserver((entries) => {
+      if (entries.some((entry) => entry.target !== contact)) schedulePoseResync()
+      if (!entries.some((entry) => entry.target === contact)) return
+      // The pinned mask follows each resize; recapture the full corridor only
+      // after the form expansion settles, avoiding global layout reads per frame.
+      if (contactResizeTimer) window.clearTimeout(contactResizeTimer)
+      contactResizeTimer = window.setTimeout(() => {
+        contactResizeTimer = 0
+        if (!morphBooting && keepAliveActive) contactTrigger?.refresh()
+        schedulePoseResync()
+      }, 100)
+    })
     if (from) poseResizeObserver.observe(from)
     if (to) poseResizeObserver.observe(to)
+    if (contact) poseResizeObserver.observe(contact)
     if (stone instanceof HTMLImageElement) {
       stone.addEventListener('load', schedulePoseResync)
       removeStoneLoadResync = () => stone.removeEventListener('load', schedulePoseResync)
@@ -3816,7 +3852,7 @@ watch(
           />
           <HomeContactStage
             :progress="contactStageProgress"
-            :target-el="contactSurfaceEl"
+            :target-el="contactFieldsEl"
           />
         </FlowSurface>
       </div>

@@ -11,11 +11,13 @@ const projectTypes = [
 
 const rootEl = ref<HTMLElement | null>(null)
 const surfaceEl = ref<HTMLElement | null>(null)
+const fieldsEl = ref<HTMLElement | null>(null)
 const taskInputEl = ref<HTMLInputElement | null>(null)
 const projectType = useState('home-contact-project-type', () => '')
 const projectTypeError = useState('home-contact-project-type-error', () => false)
 
 const taskIsRaised = computed(() => projectType.value.length > 0)
+const hasProjectType = computed(() => projectType.value.trim().length > 0)
 
 function appendProjectType(type: string) {
   const current = projectType.value.trimEnd()
@@ -28,7 +30,7 @@ function appendProjectType(type: string) {
   void nextTick(() => taskInputEl.value?.focus())
 }
 
-defineExpose({ rootEl, surfaceEl, taskInputEl })
+defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 </script>
 
 <template>
@@ -88,22 +90,34 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
     </div>
 
     <div
+      class="home-contact__reveal"
+      :class="{ 'is-expanded': hasProjectType }"
+      :inert="!hasProjectType"
+    >
+      <div class="home-contact__clip">
+        <div ref="fieldsEl" class="home-contact__fields">
+          <HomeContactForm v-if="!surfaceReady" class="relative z-[1]" form-id="contact-fallback" />
+        </div>
+      </div>
+    </div>
+
+    <div
       ref="surfaceEl"
       class="home-contact__surface"
       :class="{ 'is-surface-ready': surfaceReady }"
-    >
-      <HomeContactForm v-if="!surfaceReady" form-id="contact-fallback" />
-    </div>
+    />
   </section>
 </template>
 
 <style scoped>
 .home-contact {
   padding: calc(var(--space-section) * 0.5) var(--layout-margin-content)
-    0;
+    clamp(1.5rem, 2vw, 2.5rem);
 }
 
 .home-contact__lead {
+  position: relative;
+  z-index: 1;
   display: grid;
   width: 100%;
   max-width: var(--layout-content-max);
@@ -236,24 +250,35 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
   font-size: 0.88rem;
 }
 
-.home-contact__surface {
+.home-contact__reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.65s var(--motion-ease, ease);
+}
+
+.home-contact__reveal.is-expanded {
+  grid-template-rows: 1fr;
+}
+
+.home-contact__clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-contact__fields {
   position: relative;
   width: 100%;
   min-height: max(52rem, calc(var(--app-screen) - var(--layout-margin-content) * 2));
   margin-top: clamp(1.25rem, 2vw, 2.5rem);
+}
+
+.home-contact__surface {
+  /* The same docking box frames both the first input and the expanded form. */
+  position: absolute;
+  inset: 0 var(--layout-margin-content);
   overflow: hidden;
   border-radius: var(--flow-surface-radius, 24px);
   background: var(--palette-stone);
-}
-
-@media (min-width: 768px) {
-  .home-contact__surface {
-    /* The footer photo is fixed and becomes active slightly before its spacer
-       reaches the viewport. Mask only the contact gutters at this height so it
-       cannot show beside the live Surface. */
-    box-shadow: 0 0 0 100vmax var(--palette-sand);
-    clip-path: inset(0 -100vmax);
-  }
 }
 
 .home-contact__surface.is-surface-ready {
@@ -263,7 +288,7 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
 @media (max-width: 767.98px) {
   .home-contact {
     padding: calc(var(--space-section) * 1.125) var(--layout-margin-content)
-      0;
+      1.5rem;
   }
 
   .home-contact__lead {
@@ -289,20 +314,28 @@ defineExpose({ rootEl, surfaceEl, taskInputEl })
   }
 
   .home-contact__surface {
+    inset-inline: 0;
+  }
+
+  .home-contact__reveal {
+    margin-inline: calc(-1 * var(--layout-margin-content));
+  }
+
+  .home-contact__fields {
     width: auto;
     min-height: 69rem;
     margin-top: 1.5rem;
-    margin-inline: calc(-1 * var(--layout-margin-content));
   }
 }
 
 @media (max-width: 389.98px) {
-  .home-contact__surface {
+  .home-contact__fields {
     min-height: 74rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-contact__reveal,
   .home-contact__task label,
   .home-contact__suggestions button {
     transition: none;

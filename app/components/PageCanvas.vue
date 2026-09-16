@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { canvasFrames, matchFramePath, type SiteNavFrame } from '~/utils/siteNav'
+import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
 import { isNarrowViewport, isThumbNav } from '~/utils/mobileViewport'
 import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 import {
@@ -322,7 +323,7 @@ async function scrollToHomeAnchor(to: string) {
   await waitFrames(2)
   const target = document.getElementById(id)
   if (!target) return
-  const top = window.scrollY + target.getBoundingClientRect().top
+  const top = homeSectionScrollTop(target)
   window.scrollTo({ top, left: 0, behavior: 'auto' })
 }
 

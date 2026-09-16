@@ -33,7 +33,6 @@ let pendingFabExpandAfterCaseTransition = false
 const shellEl = ref<HTMLElement | null>(null)
 const barEl = ref<HTMLElement | null>(null)
 const fabEl = ref<HTMLElement | null>(null)
-const logoEl = ref<HTMLElement | null>(null)
 const logoImgEl = ref<HTMLElement | null>(null)
 const logoLettersEl = ref<SVGGElement | null>(null)
 const logoMarkEl = ref<SVGUseElement | null>(null)
@@ -1130,7 +1129,9 @@ onMounted(() => {
         return el instanceof HTMLElement ? el : null
       }
 
-      const logo = domOf(logoEl.value)
+      // Fade the artwork: the link's CSS transition owns scroll visibility.
+      // Tweening that same opacity restarts its transition on every GSAP tick.
+      const logo = logoImgEl.value
       const menuBtn = domOf(menuBtnEl.value)
       const fab = domOf(fabEl.value)
       const caseBack = domOf(caseBackEl.value)
@@ -1245,7 +1246,6 @@ onUnmounted(() => {
         }"
       >
         <NuxtLink
-          ref="logoEl"
           to="/"
           data-home-top
           class="header-logo-link pointer-events-auto row-start-1 self-center col-span-12 col-start-1 justify-self-center md:col-span-3 md:justify-self-start"
@@ -1773,8 +1773,7 @@ html.page-canvas-lock .menu-btn--float {
     transform 0.28s var(--motion-ease, ease);
 }
 
-/* The intro timeline leaves inline opacity/transform on this element. The
-   direction state must win over those inline values on thumb navigation. */
+/* Direction state must win over inline values left by page transitions. */
 .header-logo-link--mobile-scrolled {
   pointer-events: none;
   opacity: 0 !important;

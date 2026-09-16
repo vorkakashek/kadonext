@@ -63,6 +63,7 @@ function submitForm() {
 <template>
   <div class="contact-form-shell">
     <form
+      v-show="projectType.trim().length > 0"
       :id="props.formId"
       class="contact-form"
       action="mailto:hello@kadonext.com"

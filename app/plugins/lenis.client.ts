@@ -3,6 +3,7 @@ import {
   setAppliedScrollDriverConnected,
 } from '~/utils/appliedScrollFrame'
 import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
+import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
 import {
   CASE_RAIL_TOUCH_EVENT,
   createCaseRailTouchAxis,
@@ -73,6 +74,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   let ownsTouchScroll = createTouchScrollOwnership()
   let nativeTouchActive = false
+  let cancelSectionScroll: (() => void) | null = null
   let touchRail: HTMLElement | null = null
   const railTouchAxis = createCaseRailTouchAxis()
 
@@ -130,7 +132,17 @@ export default defineNuxtPlugin((nuxtApp) => {
     // back into Lenis halfway through the same touch sequence.
     const horizontal = Math.abs(data.deltaX) >= Math.abs(data.deltaY)
     const selection = event.type === 'touchstart' ? window.getSelection() : null
-    const bypass = Boolean(selection && !selection.isCollapsed)
+    // Leave form gestures native from touchstart through release. Cancelling
+    // their touchmove can let the browser focus a field after a scroll gesture.
+    // Labels need the same treatment because their default tap focuses a control.
+    const nativeFormGesture = event.type === 'touchstart' && event.composedPath().some(node =>
+      node instanceof HTMLElement && (
+        node.matches('input, textarea, select')
+        || node.isContentEditable
+        || (node instanceof HTMLLabelElement && node.control !== null)
+      ),
+    )
+    const bypass = nativeFormGesture || Boolean(selection && !selection.isCollapsed)
       || event.composedPath().some(node =>
       node instanceof HTMLElement && (
         node.hasAttribute('data-lenis-prevent')
@@ -273,6 +285,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   function destroy() {
+    cancelSectionScroll?.()
     cancelRailTouch()
     createGeneration += 1
     removeTicker()
@@ -356,18 +369,65 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (runtimeEnabled()) void create()
   }
 
-  function scrollToSection(target: HTMLElement) {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  function scrollToSection(target: HTMLElement, immediate = false) {
+    cancelSectionScroll?.()
+    if (immediate) {
+      // Startup positioning is one write, without a delayed scrollend repair.
+      const top = homeSectionScrollTop(target)
+      if (lenis) {
+        lenis.resize()
+        lenis.scrollTo(top, { immediate: true, force: true })
+      } else {
+        window.scrollTo({ top, left: 0, behavior: 'instant' })
+      }
+      return
+    }
+    const reducedMotion = immediate || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let settleTimer = 0
+    let active = true
+    const cancel = () => {
+      active = false
+      window.clearTimeout(settleTimer)
+      window.removeEventListener('scroll', onNativeScroll)
+      window.removeEventListener('scrollend', finish)
+      window.removeEventListener('pointerdown', cancel, true)
+      window.removeEventListener('wheel', cancel, true)
+      window.removeEventListener('keydown', cancel, true)
+      if (cancelSectionScroll === cancel) cancelSectionScroll = null
+    }
+    const finish = () => {
+      if (!active) return
+      cancel()
+      if (!target.isConnected || pageIsLocked()) return
+      // Browser chrome can resize during the trip; reconcile once at rest.
+      const top = homeSectionScrollTop(target)
+      if (Math.abs(window.scrollY - top) <= 1) return
+      if (lenis) lenis.scrollTo(top, { immediate: true })
+      else window.scrollTo({ top, left: 0, behavior: 'instant' })
+    }
+    const onNativeScroll = () => {
+      window.clearTimeout(settleTimer)
+      settleTimer = window.setTimeout(finish, 150)
+    }
+    cancelSectionScroll = cancel
+    window.addEventListener('pointerdown', cancel, { capture: true, passive: true })
+    window.addEventListener('wheel', cancel, { capture: true, passive: true })
+    window.addEventListener('keydown', cancel, { capture: true })
+    const top = homeSectionScrollTop(target)
     if (lenis) {
       // Replace wheel/release inertia and explicitly wake the otherwise idle RAF.
       lenis.resize()
-      lenis.scrollTo(target, { duration: 3, immediate: reducedMotion })
+      lenis.scrollTo(top, { duration: 3, immediate: reducedMotion, force: immediate, onComplete: finish })
       requestTicker()
     } else {
-      target.scrollIntoView({
-        block: 'start',
+      window.addEventListener('scroll', onNativeScroll, { passive: true })
+      window.addEventListener('scrollend', finish, { once: true })
+      window.scrollTo({
+        top,
+        left: 0,
         behavior: reducedMotion ? 'instant' : 'smooth',
       })
+      onNativeScroll()
     }
   }
 

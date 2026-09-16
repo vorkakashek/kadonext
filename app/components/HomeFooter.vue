@@ -70,6 +70,7 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <div data-contact-photo-boundary class="home-footer__contact-anchor" aria-hidden="true" />
     <div class="home-footer__visual-spacer" aria-hidden="true" />
     <picture
       class="home-footer__visual"
@@ -113,6 +114,8 @@ onUnmounted(() => {
 .home-footer {
   position: relative;
   width: 100%;
+  /* Clip the fixed photo to the footer, including at the contact boundary. */
+  clip-path: inset(0);
   color: var(--palette-ink);
 }
 
@@ -194,6 +197,10 @@ onUnmounted(() => {
   font-size: calc(var(--type-nav) * 0.66);
   letter-spacing: -0.015em;
   line-height: 1.45;
+}
+
+.home-footer__contact-anchor {
+  height: 0;
 }
 
 .home-footer__visual-spacer {
