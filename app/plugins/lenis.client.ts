@@ -2,6 +2,7 @@ import {
   publishAppliedScrollFrame,
   setAppliedScrollDriverConnected,
 } from '~/utils/appliedScrollFrame'
+import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
 
 const SMOOTH_WHEEL_ENABLED =
   '(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)'
@@ -62,6 +63,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   const wheelQuery = window.matchMedia(SMOOTH_WHEEL_ENABLED)
   const touchQuery = window.matchMedia(CONTROLLED_TOUCH_ENABLED)
   const narrowQuery = window.matchMedia(NARROW_TOUCH_ENABLED)
+  let ownsTouchScroll = createTouchScrollOwnership()
+  let nativeTouchActive = false
 
   function controlledTouchEnabled() {
     if (touchQuery.matches) return true
@@ -74,21 +77,53 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   function normalizeTouchReleaseVelocity(data: {
     event: WheelEvent | TouchEvent
+    deltaX: number
+    deltaY: number
   }) {
-    if (!lenis || !controlledTouchEnabled() || !(data.event instanceof TouchEvent)) return
+    if (!lenis || !controlledTouchEnabled() || !(data.event instanceof TouchEvent)) return true
 
     const event = data.event
+    // Match Lenis's explicit nested-scroll escape hatches. A horizontal rail
+    // can keep native horizontal scrolling without leaking a diagonal gesture
+    // back into Lenis halfway through the same touch sequence.
+    const horizontal = Math.abs(data.deltaX) >= Math.abs(data.deltaY)
+    const selection = event.type === 'touchstart' ? window.getSelection() : null
+    const bypass = Boolean(selection && !selection.isCollapsed)
+      || event.composedPath().some(node =>
+      node instanceof HTMLElement && (
+        node.hasAttribute('data-lenis-prevent')
+        || node.hasAttribute('data-lenis-prevent-touch')
+        || (event.type === 'touchmove' && node.hasAttribute(horizontal
+          ? 'data-lenis-prevent-horizontal'
+          : 'data-lenis-prevent-vertical'))
+      ),
+    )
+    if (!lenis.isStopped && !lenis.isLocked && !ownsTouchScroll(event, bypass)) {
+      // Once scrolling is non-cancelable, JS must stop writing against the
+      // browser. Keep this entire gesture native, including its release.
+      if (!nativeTouchActive) {
+        lenis.stop()
+        lenis.start()
+        removeTicker()
+      }
+      nativeTouchActive = true
+      touchSampleY = null
+      touchSampleAt = 0
+      touchVelocityPxPerSec = 0
+      return false
+    }
+    nativeTouchActive = false
     if (event.type === 'touchstart') {
       const touch = event.targetTouches[0]
       touchSampleY = touch?.clientY ?? null
       touchSampleAt = event.timeStamp
       touchVelocityPxPerSec = 0
-      return
+      return true
     }
 
     if (event.type === 'touchmove') {
       const touch = event.targetTouches[0]
-      if (!touch) return
+      if (!touch) return true
       if (touchSampleY !== null && touchSampleAt > 0) {
         const dt = Math.max(1, event.timeStamp - touchSampleAt)
         const velocity = (touchSampleY - touch.clientY) * 1000 / dt
@@ -99,10 +134,10 @@ export default defineNuxtPlugin((nuxtApp) => {
       }
       touchSampleY = touch.clientY
       touchSampleAt = event.timeStamp
-      return
+      return true
     }
 
-    if (event.type !== 'touchend') return
+    if (event.type !== 'touchend') return true
 
     // Lenis normally derives release inertia from its last rendered frame.
     // Normalise the sampled finger velocity by elapsed time so a short flick has
@@ -127,6 +162,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     touchSampleY = null
     touchSampleAt = 0
     touchVelocityPxPerSec = 0
+    return true
   }
 
   function removeTicker() {
@@ -180,6 +216,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     lockObserver = null
     lenis?.destroy()
     lenis = null
+    ownsTouchScroll = createTouchScrollOwnership()
+    nativeTouchActive = false
   }
 
   function loadRuntime() {
@@ -255,7 +293,11 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   nuxtApp.hook('app:mounted', () => {
     const activate = () => void create()
-    if (runtimeEnabled()) {
+    if (controlledTouchEnabled()) {
+      // Attach before normal mobile interaction instead of creating Lenis
+      // halfway through a slow first gesture after the idle timeout.
+      void create()
+    } else if (runtimeEnabled()) {
       // Fetch and evaluate the small smooth-scroll runtime immediately after
       // the first paint. If the user wheels before the idle constructor runs,
       // that gesture no longer pays for three cold dynamic imports.

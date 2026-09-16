@@ -24,7 +24,7 @@ const SCENE_FADE_END = 0.7
 const MOBILE_HERO_VISIBILITY_STONE_P = 0.525
 const MOBILE_HERO_VISIBILITY_HYSTERESIS_P = 0.015
 const MOBILE_HERO_VISIBILITY_FALLBACK_MORPH = 0.96
-const MOBILE_SCENE_FADE_MS = 320
+const MOBILE_HERO_FADE_MS = 1100
 /**
  * Swarm/media bleed past the stage box (px).
  * Desktop: cover stacked roam+hover outward (~2× dent + bow).
@@ -348,7 +348,7 @@ function paintSceneVisibility(opacity: number) {
     sceneReleaseTimer = window.setTimeout(() => {
       sceneReleaseTimer = 0
       if (sceneOpacity.value <= SCENE_LIVE_OPACITY) sceneLive.value = false
-    }, MOBILE_SCENE_FADE_MS + 40)
+    }, MOBILE_HERO_FADE_MS + 40)
   }
 }
 
@@ -1082,6 +1082,7 @@ onUnmounted(() => {
       transform: 'translate3d(var(--hero-stage-left, 0px), var(--hero-stage-top, 0px), 0)',
       width: `${Math.max(1, props.stageWidth)}px`,
       height: `${Math.max(1, props.stageHeight)}px`,
+      '--hero-visual-fade-duration': `${MOBILE_HERO_FADE_MS}ms`,
     }"
   >
     <div
@@ -1143,7 +1144,7 @@ onUnmounted(() => {
 
       <div
         ref="copyEl"
-        class="pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col will-change-transform"
+        class="hero-copy-shell pointer-events-none absolute inset-0 z-10 flex min-h-0 flex-col will-change-transform"
         :class="{ 'hero-intro-hide': introPending }"
         :style="{
           opacity: copyOpacity,
@@ -1177,8 +1178,10 @@ onUnmounted(() => {
       <!-- Only motion controls sit above the copy backing; the WebGL canvas stays below it. -->
       <div
         id="hero-motion-controls"
-        class="pointer-events-none absolute z-20"
+        class="hero-scene-scroll-shell pointer-events-none absolute z-20"
+        :inert="sceneOpacity <= SCENE_LIVE_OPACITY"
         :style="{
+          '--hero-scene-scroll-opacity': sceneOpacity,
           top: `-${sceneBleedY}px`,
           left: `-${sceneBleedX}px`,
           width: `calc(100% + ${sceneBleedX * 2}px)`,
@@ -1270,8 +1273,9 @@ onUnmounted(() => {
 
 /* Mobile keeps the same enlarged scale in the portrait scene. */
 @media (max-width: 767px) {
-  .hero-scene-scroll-shell {
-    transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  .hero-scene-scroll-shell,
+  .hero-copy-shell {
+    transition: opacity var(--hero-visual-fade-duration) cubic-bezier(0.22, 1, 0.36, 1);
     will-change: opacity;
   }
 
@@ -1282,7 +1286,8 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-scene-scroll-shell {
+  .hero-scene-scroll-shell,
+  .hero-copy-shell {
     transition: none;
   }
 

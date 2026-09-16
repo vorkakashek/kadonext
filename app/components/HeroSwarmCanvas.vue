@@ -44,7 +44,6 @@ import {
   swarmHapticPrune,
   swarmHapticReset,
 } from '~/utils/swarmHaptics'
-import { flowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 import { useBrandPreload } from '~/composables/useBrandPreload'
 
 const { t } = useI18n()
@@ -144,6 +143,7 @@ const ENTRY_SCATTER_RATIO_MOBILE = 1.55
 const REBOOT_MS = 320
 const MOTION_INTRO_COOKIE = 'kado_motion_intro'
 const MOTION_INTRO_MAX_AGE = 60 * 60 * 24 * 7
+const MOTION_INTRO_DURATION_MS = 6000
 const DESKTOP_MOTION_EASE_MS = 520
 const DESKTOP_ICON_MORPH_S = 0.38
 // Tabler player-pause/player-play (MIT); combined paths retain the existing morph.
@@ -243,12 +243,21 @@ const motionEnabled = ref(false)
 const motionIntroVisible = ref(false)
 /** The intro is hero-local even though its control layer is teleported. */
 const motionIntroInHero = ref(false)
+const motionIntroPageVisible = ref(true)
+const motionIntroComponentActive = ref(true)
+const motionIntroPreload = useBrandPreload()
+const motionIntroShown = computed(() =>
+  motionIntroVisible.value
+  && motionIntroInHero.value
+  && motionIntroPageVisible.value
+  && motionIntroComponentActive.value
+  && props.active
+  && props.controlsReady
+  && motionIntroPreload.revealed.value,
+)
 const gyroPermissionReady = ref(false)
 const androidHapticEnabled = ref(false)
 const desktopSceneEnabled = ref(true)
-const desktopMotionControlVisible = computed(
-  () => props.controlsReady && flowSurfaceMask.morph <= 0.001,
-)
 const desktopMotionIconPath = ref<SVGPathElement | null>(null)
 const desktopMotionNotice = ref('')
 const desktopMotionNoticeVisible = ref(false)
@@ -307,6 +316,15 @@ function observeMotionIntroHero() {
 function finishMotionIntro() {
   rememberMotionIntro()
   motionIntroVisible.value = false
+}
+
+function onMotionIntroTimerEnd() {
+  // Only an explicit tap is remembered. Expiry leaves the next visit eligible.
+  motionIntroVisible.value = false
+}
+
+function syncMotionIntroPageVisibility() {
+  motionIntroPageVisible.value = document.visibilityState !== 'hidden'
 }
 
 function onMotionIntroTap() {
@@ -492,6 +510,8 @@ function readAppScreenPx(): number {
 }
 
 onMounted(() => {
+  syncMotionIntroPageVisibility()
+  document.addEventListener('visibilitychange', syncMotionIntroPageVisibility)
   isIosClient.value = isAppleTouchDevice()
   isAndroidClient.value = /Android/i.test(navigator.userAgent)
   androidHapticEnabled.value = isAndroidClient.value && swarmHapticIsArmed()
@@ -528,6 +548,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', syncMotionIntroPageVisibility)
   bootGen += 1
   desktopIconMorphGen += 1
   desktopIconMorph?.kill()
@@ -541,11 +562,13 @@ onUnmounted(() => {
 })
 
 onDeactivated(() => {
+  motionIntroComponentActive.value = false
   keepAliveActive = false
   stopLoop()
 })
 
 onActivated(() => {
+  motionIntroComponentActive.value = true
   keepAliveActive = true
   if (!props.active || document.visibilityState === 'hidden') return
   forceResize?.()
@@ -2155,7 +2178,7 @@ async function bootScene() {
           class="motion-control"
           :class="{
             'motion-control--active': desktopSceneEnabled,
-            'motion-control--scroll-hidden': !desktopMotionControlVisible,
+            'motion-control--entry-hidden': !props.controlsReady,
           }"
           :aria-label="desktopSceneEnabled ? t('accessibility.disableSceneMotion') : t('accessibility.enableSceneMotion')"
           :aria-pressed="desktopSceneEnabled"
@@ -2184,22 +2207,34 @@ async function bootScene() {
           </svg>
         </button>
 
-    <button
-      v-if="motionIntroVisible && motionIntroInHero"
-      type="button"
-      class="motion-intro"
-      @pointerup="onMotionIntroPointerUp"
-      @click="onMotionIntroClick"
-    >
-      <span class="motion-intro__content">
-        <img
-          class="motion-intro__icon"
-          src="/svg/phone-tilt-css.svg"
-          alt=""
-        >
-        <span class="motion-intro__text">{{ motionIntroText }}</span>
-      </span>
-    </button>
+        <Transition name="motion-intro">
+          <button
+            v-if="motionIntroVisible"
+            v-show="motionIntroShown"
+            type="button"
+            class="motion-intro"
+            @pointerup="onMotionIntroPointerUp"
+            @click="onMotionIntroClick"
+          >
+            <span
+              class="motion-intro__timer"
+              aria-hidden="true"
+              :style="{
+                animationDuration: `${MOTION_INTRO_DURATION_MS}ms`,
+                animationPlayState: motionIntroShown ? 'running' : 'paused',
+              }"
+              @animationend="onMotionIntroTimerEnd"
+            />
+            <span class="motion-intro__content">
+              <img
+                class="motion-intro__icon"
+                src="/svg/phone-tilt-css.svg"
+                alt=""
+              >
+              <span class="motion-intro__text">{{ motionIntroText }}</span>
+            </span>
+          </button>
+        </Transition>
       </div>
     </Teleport>
   </div>
@@ -2295,7 +2330,7 @@ async function bootScene() {
   }
 }
 
-.motion-control--scroll-hidden {
+.motion-control--entry-hidden {
   opacity: 0;
   pointer-events: none;
 }
@@ -2365,8 +2400,8 @@ async function bootScene() {
     height: 42.5px;
     padding: 0;
     border-radius: 9999px;
-    color: var(--palette-ink);
-    background-color: color-mix(in srgb, var(--palette-sand) 60%, transparent);
+    color: #fff;
+    background-color: var(--palette-ink);
     box-shadow: none;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -2387,7 +2422,7 @@ async function bootScene() {
   .motion-control__icon--haptic {
     width: 24px;
     height: 24px;
-    opacity: 0.48;
+    opacity: 1;
     transform: none;
     transition: opacity 0.28s ease;
   }
@@ -2430,43 +2465,79 @@ async function bootScene() {
 
 .motion-intro {
   position: absolute;
-  inset: 0;
+  left: calc(var(--motion-scene-inset-x, 0px) + var(--layout-margin) + var(--safe-left, 0px));
+  bottom: calc(var(--motion-scene-inset-y, 0px) + var(--layout-margin) + var(--safe-bottom, 0px));
   z-index: 7;
-  display: grid;
-  place-items: center;
-  padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+  width: max-content;
+  max-width: min(19rem, calc(100% - 2 * var(--motion-scene-inset-x, 0px) - 2 * var(--layout-margin) - var(--safe-left, 0px) - var(--safe-right, 0px)));
+  overflow: hidden;
+  padding: 0.75rem 0.875rem;
   border: 0;
-  background: rgba(23, 25, 21, 0.64);
-  color: #f5f1e8;
+  border-radius: 0.75rem;
+  background: var(--palette-ink);
+  color: #fff;
+  cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
+.motion-intro__timer {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--palette-ink) 90%, #fff);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: motion-intro-fill linear forwards;
+  pointer-events: none;
+}
+
+@keyframes motion-intro-fill {
+  to { transform: scaleX(1); }
+}
+
+.motion-intro-enter-active,
+.motion-intro-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.motion-intro-enter-from,
+.motion-intro-leave-to {
+  opacity: 0;
+}
+
+.motion-intro-leave-active {
+  pointer-events: none;
+}
+
 .motion-intro__content {
+  position: relative;
   display: flex;
-  width: min(19rem, 82vw);
-  flex-direction: column;
   align-items: center;
-  gap: 1.25rem;
+  gap: 0.75rem;
 }
 
 .motion-intro__icon {
   display: block;
   width: auto;
-  /* SVG has a safe frame for its 3D tilt; keep the phone itself at the old size. */
-  height: clamp(9rem, 36vw, 12.6rem);
+  height: 2.5rem;
+  flex-shrink: 0;
 }
 
 .motion-intro__text {
-  max-width: 18rem;
   font-family: var(--font-sans);
-  font-size: clamp(1rem, 4.2vw, 1.2rem);
+  font-size: calc(var(--type-nav) * 0.875);
   font-weight: 400;
   line-height: 1.35;
   letter-spacing: -0.01em;
-  text-align: center;
-  text-wrap: balance;
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-intro-enter-active,
+  .motion-intro-leave-active {
+    transition: none;
+  }
 }
 
 </style>

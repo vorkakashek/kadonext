@@ -8,6 +8,13 @@ import {
   subscribeAppliedScrollFrame,
   type AppliedScrollFrame,
 } from '~/utils/appliedScrollFrame'
+import {
+  mobileHeroCopyOpacity,
+  mobileHeroCopyScale,
+  mobileHeroCopyTranslation,
+  readMobileHeroCopyLayout,
+  type MobileHeroCopyLayout,
+} from '~/utils/mobileHeroCopyMotion'
 
 const { locale, tm } = useI18n()
 const heroTitleLines = computed(() => {
@@ -30,16 +37,14 @@ const section = ref<HTMLElement | null>(null)
 const surfaceSlot = ref<HTMLElement | null>(null)
 const titleBlock = ref<HTMLElement | null>(null)
 
-/** Visible downward travel on desktop; mobile copy stays fixed in its sticky wrapper. */
+/** Scroll compensation leaves a small visible downward drift before the copy is covered. */
 const COPY_DESCENT_RATE = 0.22
 const COPY_FADE_START_VH = 0.38
 const COPY_FADE_END_VH = 0.72
-/** Clear the already-covered copy as the full-width Hero field starts docking. */
-const MOBILE_COPY_COVER_START = 0
-const MOBILE_COPY_COVER_END = 0.04
 let copyMotionVh = 0
 let copyMotionWidth = 0
 let copyMotionSectionTop: number | null = null
+let initialMobileCopyLayout: MobileHeroCopyLayout | null = null
 let removeAppliedScrollFrame: (() => void) | null = null
 
 function copyMotionBaseVh() {
@@ -53,6 +58,24 @@ function copyMotionBaseVh() {
 }
 
 function copyExitTarget(scrollY: number) {
+  if (isNarrowViewport()) {
+    if (!flowSurfaceMask.heroCopyLayout && !initialMobileCopyLayout && section.value && surfaceSlot.value) {
+      // The host publishes the canonical layout after its lazy mount. Keep the
+      // first paint stable using the same transform-free layout reader + svh.
+      const screen = Number.parseFloat(getComputedStyle(section.value).minHeight)
+      initialMobileCopyLayout = readMobileHeroCopyLayout(
+        section.value,
+        surfaceSlot.value,
+        Number.isFinite(screen) ? screen : window.innerHeight,
+      )
+    }
+    const layout = flowSurfaceMask.heroCopyLayout ?? initialMobileCopyLayout
+    return {
+      y: layout ? mobileHeroCopyTranslation(scrollY, layout) : 0,
+      opacity: layout ? mobileHeroCopyOpacity(scrollY, layout) : 1,
+      scale: layout ? mobileHeroCopyScale(scrollY, layout) : 1,
+    }
+  }
   const vh = copyMotionBaseVh()
   if (copyMotionSectionTop === null && section.value) {
     copyMotionSectionTop = section.value.getBoundingClientRect().top + scrollY
@@ -67,41 +90,24 @@ function copyExitTarget(scrollY: number) {
     ),
   )
   const easedFade = fadeProgress * fadeProgress * (3 - 2 * fadeProgress)
-  const mobile = isNarrowViewport()
-  if (mobile) {
-    const coverFade = Math.min(
-      1,
-      Math.max(
-        0,
-        (flowSurfaceMask.morph - MOBILE_COPY_COVER_START)
-          / (MOBILE_COPY_COVER_END - MOBILE_COPY_COVER_START),
-      ),
-    )
-    const easedCoverFade = coverFade * coverFade * (3 - 2 * coverFade)
-    return {
-      y: 0,
-      // The sticky block never chases the Surface. Keep it readable until the
-      // scene has crossed the complete title, then clear only the edge remnants.
-      opacity: 1 - easedCoverFade,
-    }
-  }
   return {
     y: Math.min(scrolled, vh * COPY_FADE_END_VH) * (1 + COPY_DESCENT_RATE),
     opacity: 1 - easedFade,
+    scale: 1,
   }
 }
 
-function paintCopyExit(y: number, opacity: number) {
+function paintCopyExit(y: number, opacity: number, scale = 1) {
   const el = titleBlock.value
   if (!el) return
-  el.style.transform = `translate3d(0, ${y.toFixed(3)}px, 0)`
+  el.style.transform = `translate3d(0, ${y.toFixed(3)}px, 0) scale(${scale.toFixed(4)})`
   el.style.opacity = opacity.toFixed(4)
 }
 
 function updateCopyExit(scrollY?: number) {
   if (typeof window === 'undefined') return
   const target = copyExitTarget(scrollY ?? window.scrollY)
-  paintCopyExit(target.y, target.opacity)
+  paintCopyExit(target.y, target.opacity, target.scale)
 }
 
 function onAppliedCopyFrame(frame: AppliedScrollFrame) {
@@ -113,6 +119,7 @@ function onCopyResize() {
     copyMotionVh = 0
     copyMotionWidth = 0
     copyMotionSectionTop = null
+    initialMobileCopyLayout = null
   }
   updateCopyExit()
 }
@@ -124,7 +131,7 @@ onMounted(() => {
 })
 
 watch(
-  () => flowSurfaceMask.morph,
+  () => flowSurfaceMask.heroCopyLayout,
   () => {
     if (typeof window !== 'undefined' && isNarrowViewport()) updateCopyExit()
   },
@@ -349,8 +356,7 @@ defineExpose({ section, surfaceSlot })
 
 @media (max-width: 767.98px) {
   .home-hero__copy {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 1;
   }
 
@@ -359,7 +365,7 @@ defineExpose({ section, surfaceSlot })
     grid-template-columns: max-content max-content;
     justify-content: center;
     column-gap: 0.22em;
-    font-size: clamp(40px, 13cqi, 96px);
+    font-size: calc(clamp(44px, 14.3cqi, 105.6px) * 0.95);
   }
 
   .home-hero__title-line-mask {

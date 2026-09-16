@@ -39,6 +39,8 @@ const logoLettersEl = ref<SVGGElement | null>(null)
 const logoMarkEl = ref<SVGUseElement | null>(null)
 const isOverCases = ref(false)
 const mobileMarkOverCases = ref(false)
+const isOverAboutSurface = ref(false)
+const mobileMarkOverAboutSurface = ref(false)
 const mobileHeader = ref(false)
 const mobileScrollMarkOn = ref(false)
 /** Desktop keeps the compact mark while the reader moves down on any page. */
@@ -85,13 +87,16 @@ function onCaseDetailBack(event: MouseEvent) {
 }
 const logoInverted = computed(
   () => detailInverse.value
+    || isOverAboutSurface.value
     || (isOverCases.value && activeHomeCaseInverse.value),
 )
 const mobileScrollMarkVisible = computed(
   () => mobileHeader.value && mobileScrollMarkOn.value && !canvasForced.value,
 )
 const mobileScrollMarkInverted = computed(
-  () => detailInverse.value || (mobileMarkOverCases.value && activeHomeCaseInverse.value),
+  () => detailInverse.value
+    || mobileMarkOverAboutSurface.value
+    || (mobileMarkOverCases.value && activeHomeCaseInverse.value),
 )
 const navEl = ref<HTMLElement | null>(null)
 const menuBtnEl = ref<HTMLElement | null>(null)
@@ -209,6 +214,8 @@ let gsapMod: typeof import('gsap').default | null = null
 let stMod: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
 let logoCasesSt: { kill: () => void } | null = null
 let mobileMarkCasesSt: { kill: () => void } | null = null
+let aboutToneTriggers: { kill: () => void }[] = []
+let homeLogoDirectionSt: import('gsap/ScrollTrigger').ScrollTrigger | null = null
 let logoToneTries = 0
 let logoToneSyncRaf = 0
 let logoMorphTl: { kill: () => void } | null = null
@@ -224,6 +231,8 @@ function syncLogoCasesToneFromLayout() {
   if (route.path !== '/') {
     isOverCases.value = false
     mobileMarkOverCases.value = false
+    isOverAboutSurface.value = false
+    mobileMarkOverAboutSurface.value = false
     return
   }
   const cases = document.getElementById('cases')
@@ -246,6 +255,14 @@ function syncLogoCasesToneFromLayout() {
     caseBox.top <= mobileMarkCenter
     && caseBox.bottom >= mobileMarkCenter
   )
+  // Only the upper About surface is dark; its biography continues on sand.
+  const aboutBox = document
+    .querySelector<HTMLElement>('#about .home-about__surface')
+    ?.getBoundingClientRect()
+  isOverAboutSurface.value = !!aboutBox
+    && aboutBox.top <= logoBox.bottom && aboutBox.bottom >= logoCenter
+  mobileMarkOverAboutSurface.value = !!aboutBox
+    && aboutBox.top <= mobileMarkCenter && aboutBox.bottom >= mobileMarkCenter
 }
 
 async function setupLogoCasesTrigger() {
@@ -253,6 +270,12 @@ async function setupLogoCasesTrigger() {
   logoCasesSt = null
   mobileMarkCasesSt?.kill()
   mobileMarkCasesSt = null
+  aboutToneTriggers.forEach(trigger => trigger.kill())
+  aboutToneTriggers = []
+  isOverAboutSurface.value = false
+  mobileMarkOverAboutSurface.value = false
+  homeLogoDirectionSt?.kill()
+  homeLogoDirectionSt = null
 
   if (route.path !== '/') {
     isOverCases.value = false
@@ -283,6 +306,23 @@ async function setupLogoCasesTrigger() {
     stMod = mod.ScrollTrigger
     gsapMod.registerPlugin(stMod)
   }
+
+  // Use the photo's resting frame, so its levitation does not move the boundary.
+  const stone = document.querySelector<HTMLElement>('.kado-stone-wrap')
+  if (stone) {
+    homeLogoDirectionSt = stMod.create({
+      trigger: stone,
+      start: 'top top',
+      end: 'max',
+      invalidateOnRefresh: true,
+      onRefresh: () => {
+        syncDesktopScrollMark()
+        syncMobileScrollMark()
+      },
+    })
+  }
+  syncDesktopScrollMark()
+  syncMobileScrollMark()
 
   logoCasesSt = stMod.create({
     trigger: cases,
@@ -320,6 +360,36 @@ async function setupLogoCasesTrigger() {
       mobileMarkOverCases.value = self.isActive
     },
   })
+  const aboutSurface = document.querySelector<HTMLElement>('#about .home-about__surface')
+  if (aboutSurface) {
+    aboutToneTriggers = [
+      stMod.create({
+        trigger: aboutSurface,
+        start: () => `top ${Math.round(logo.getBoundingClientRect().bottom)}px`,
+        end: () => {
+          const r = logo.getBoundingClientRect()
+          return `bottom ${Math.round(r.top + r.height / 2)}px`
+        },
+        invalidateOnRefresh: true,
+        onToggle: self => { isOverAboutSurface.value = self.isActive },
+        onRefresh: self => { isOverAboutSurface.value = self.isActive },
+      }),
+      stMod.create({
+        trigger: aboutSurface,
+        start: () => {
+          const r = fabEl.value?.getBoundingClientRect()
+          return `top ${Math.round(r ? r.top + r.height / 2 : window.innerHeight)}px`
+        },
+        end: () => {
+          const r = fabEl.value?.getBoundingClientRect()
+          return `bottom ${Math.round(r ? r.top + r.height / 2 : window.innerHeight)}px`
+        },
+        invalidateOnRefresh: true,
+        onToggle: self => { mobileMarkOverAboutSurface.value = self.isActive },
+        onRefresh: self => { mobileMarkOverAboutSurface.value = self.isActive },
+      }),
+    ]
+  }
   syncLogoCasesToneFromLayout()
   scheduleLogoCasesToneSync(true)
 }
@@ -673,11 +743,16 @@ function onScroll() {
 }
 
 /**
- * Once desktop scrolling begins, reduce the wordmark to the existing «о» mark.
- * The first hero exit waits for the header shell to settle; later direction
+ * On home, direction changes begin at the stone photo; other pages start at 8px.
+ * The first scroll waits for the header shell to settle; later direction
  * changes stay responsive. Mobile uses its separate thumb-zone mark below.
  */
 const DESKTOP_LOGO_DIR_PX = 6
+function canUseLogoScrollDirection(y: number) {
+  return route.path !== '/'
+    || (homeLogoDirectionSt !== null && y >= homeLogoDirectionSt.start)
+}
+
 function syncDesktopScrollMark() {
   if (mobileHeader.value) {
     desktopLogoCollapsePending = false
@@ -697,7 +772,7 @@ function syncDesktopScrollMark() {
   }
 
   const y = Math.max(0, window.scrollY || 0)
-  if (y <= 8) {
+  if (y <= 8 || !canUseLogoScrollDirection(y)) {
     desktopLogoCollapsePending = false
     desktopLogoWantsCompact = false
     desktopScrollMarkOn.value = false
@@ -724,7 +799,7 @@ function syncDesktopScrollMark() {
   desktopScrollMarkOn.value = true
 }
 
-/** Mobile logo visibility follows scroll direction only, never page position. */
+/** Home keeps the top logo until the viewport reaches the stone photo. */
 function syncMobileScrollMark() {
   if (!mobileHeader.value) {
     mobileScrollMarkOn.value = false
@@ -734,6 +809,11 @@ function syncMobileScrollMark() {
   if (canvasLocksScroll()) return
 
   const y = Math.max(0, window.scrollY || 0)
+  if (!canUseLogoScrollDirection(y)) {
+    mobileScrollMarkOn.value = false
+    lastMobileLogoScrollY = y
+    return
+  }
   if (lastMobileLogoScrollY == null) {
     lastMobileLogoScrollY = y
     return
@@ -1080,6 +1160,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  aboutToneTriggers.forEach(trigger => trigger.kill())
+  aboutToneTriggers = []
   if (collapseTimer) window.clearTimeout(collapseTimer)
   if (logoToneSyncRaf) cancelAnimationFrame(logoToneSyncRaf)
   logoToneSyncRaf = 0
@@ -1087,6 +1169,8 @@ onUnmounted(() => {
   logoCasesSt = null
   mobileMarkCasesSt?.kill()
   mobileMarkCasesSt = null
+  homeLogoDirectionSt?.kill()
+  homeLogoDirectionSt = null
   logoMorphTl?.kill()
   logoMorphTl = null
   window.removeEventListener('scroll', onScroll)
@@ -1351,7 +1435,10 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.header-intro-hide {
+/* Hide the header shell and teleported controls until the intro stages them.
+   Controls need extra specificity because their base styles set visibility. */
+.header-intro-hide,
+.site-nav.header-intro-hide {
   opacity: 0;
   visibility: hidden;
 }

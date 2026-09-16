@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import type { MobileHeroCopyLayout } from '~/utils/mobileHeroCopyMotion'
 
 /** One SVG clipPath for the whole surface window (stone + hero content). */
 export const FLOW_SURFACE_CLIP_ID = 'flow-surface-clip'
@@ -18,6 +19,8 @@ export const flowSurfaceMask = reactive({
   left: 0,
   /** 0 = hero frame, 1 = fully morphed away */
   morph: 0,
+  /** Host-owned static layout: copy pacing and Surface crossing share one geometry. */
+  heroCopyLayout: null as MobileHeroCopyLayout | null,
   /** Named stretch — see FLOW_SURFACE_LIVE. */
   liveId: 'hero' as 'hero' | 'transit' | 'kado',
   pointerInteractive: true,
@@ -112,6 +115,7 @@ export function syncFlowSurfacePaintScrollComp(scrollY: number) {
 export function resetFlowSurfaceMaskSession() {
   paintScrollCompY = 0
   flowSurfaceMask.morph = 0
+  flowSurfaceMask.heroCopyLayout = null
   flowSurfaceMask.liveId = 'hero'
   flowSurfaceMask.freezeSilhouette = false
   flowSurfaceMask.pointerInteractive = true

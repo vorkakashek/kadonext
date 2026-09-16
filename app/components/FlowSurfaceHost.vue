@@ -53,6 +53,10 @@ import {
   subscribeAppliedScrollFrame,
   type AppliedScrollFrame,
 } from '~/utils/appliedScrollFrame'
+import {
+  mobileHeroSurfaceMorphStartScrollY,
+  readMobileHeroCopyLayout,
+} from '~/utils/mobileHeroCopyMotion'
 
 /** The site's minimal mode keeps the core Surface choreography intact. */
 function systemReducedMotion() {
@@ -149,8 +153,6 @@ const MOBILE_ABOUT_EXIT_RUNWAY_PX = 80
 const MOBILE_ABOUT_TONE_END_P = 0.85
 /** Preserve descenders that extend below the heading's tight line box. */
 const MOBILE_ABOUT_TITLE_CLIP_BLEED_PX = 3
-/** Let the full-width Hero field pass just beyond the sticky heading before it docks. */
-const MOBILE_HERO_COPY_COVER_BLEED_PX = 2
 const props = withDefaults(
   defineProps<{
     fromEl?: HTMLElement | null
@@ -492,28 +494,6 @@ function heroRevealScrollY(section: HTMLElement) {
   return Math.max(sectionTop, sectionTop + section.offsetHeight - stableViewportHeight())
 }
 
-/**
- * Keep the mobile Hero surface in its in-flow slot until its leading edge has
- * crossed the complete sticky title/description block. Starting the fixed-box
- * interpolation earlier makes the surface move at a fraction of scroll speed:
- * it clears the nearby description, then appears to stall before the heading.
- */
-function heroCopyCoveredScrollY(
-  section: HTMLElement,
-  heroDoc: SurfaceBox,
-) {
-  const copy = section.querySelector<HTMLElement>('.home-hero__copy')
-  const title = section.querySelector<HTMLElement>('[data-hero-title-block]')
-  if (!copy || !title) return heroRevealScrollY(section)
-
-  const copyBox = copy.getBoundingClientRect()
-  const titleBox = title.getBoundingClientRect()
-  const stickyTop = Number.parseFloat(getComputedStyle(copy).top) || 0
-  const titleInset = titleBox.top - copyBox.top
-  const coveredTop = stickyTop + titleInset - MOBILE_HERO_COPY_COVER_BLEED_PX
-  return heroDoc.top - coveredTop
-}
-
 function syncStageRest(pose: SurfaceBox) {
   stageRest.top = pose.top
   stageRest.left = pose.left
@@ -592,10 +572,16 @@ function captureMobilePoses() {
   if (!readBox(term)) return false
 
   const heroSection = sectionOf(hero)
+  const copyLayout = readMobileHeroCopyLayout(
+    heroSection,
+    hero,
+    stableMobileTriggerViewportHeight(),
+  )
+  flowSurfaceMask.heroCopyLayout = copyLayout
   scrubEndY = scrollYForTopAt(stoneMark, 0.1)
   scrubStartY = Math.max(
     heroRevealScrollY(heroSection),
-    heroCopyCoveredScrollY(heroSection, heroDoc),
+    copyLayout ? mobileHeroSurfaceMorphStartScrollY(copyLayout) : heroRevealScrollY(heroSection),
   )
 
   heroPose = poseAtScrollY(heroDoc, scrubStartY)
