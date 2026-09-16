@@ -3,7 +3,10 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 const currentYear = new Date().getFullYear()
 const footerEl = ref<HTMLElement | null>(null)
+const photoEl = ref<HTMLElement | null>(null)
 const visualIsActive = ref(false)
+
+useFooterPhotoRubberBand(footerEl, photoEl)
 
 let visualObserver: IntersectionObserver | null = null
 
@@ -24,7 +27,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <footer ref="footerEl" class="home-footer pointer-events-auto" aria-label="Подвал сайта">
+  <footer ref="footerEl" class="home-footer pointer-events-auto" data-lenis-prevent-touch aria-label="Подвал сайта">
     <div class="home-footer__surface">
       <div class="home-footer__info">
         <p class="home-footer__copyright">{{ currentYear }} KADŌ</p>
@@ -71,42 +74,45 @@ onUnmounted(() => {
     </div>
 
     <div data-contact-photo-boundary class="home-footer__contact-anchor" aria-hidden="true" />
-    <div class="home-footer__visual-spacer" aria-hidden="true" />
-    <picture
-      class="home-footer__visual"
-      :class="{ 'is-active': visualIsActive }"
-    >
-      <source
-        media="(max-width: 767.98px)"
-        type="image/avif"
-        srcset="/home/kira-photo-vertical-480.avif 480w, /home/kira-photo-vertical-960.avif 960w, /home/kira-photo-vertical-1200.avif 1200w"
-        sizes="100vw"
+    <div data-footer-stable-viewport class="home-footer__stable-viewport" aria-hidden="true" />
+    <div class="home-footer__visual-spacer">
+      <picture
+        ref="photoEl"
+        class="home-footer__visual"
+        :class="{ 'is-active': visualIsActive }"
       >
-      <source
-        media="(max-width: 767.98px)"
-        type="image/webp"
-        srcset="/home/kira-photo-vertical-480.webp 480w, /home/kira-photo-vertical-960.webp 960w, /home/kira-photo-vertical-1200.webp 1200w"
-        sizes="100vw"
-      >
-      <source
-        type="image/avif"
-        srcset="/home/kira-photo-480.avif 480w, /home/kira-photo-960.avif 960w, /home/kira-photo-1440.avif 1440w, /home/kira-photo-1920.avif 1920w, /home/kira-photo-2760.avif 2760w, /home/kira-photo-3840.avif 3840w"
-        sizes="100vw"
-      >
-      <source
-        type="image/webp"
-        srcset="/home/kira-photo-480.webp 480w, /home/kira-photo-960.webp 960w, /home/kira-photo-1440.webp 1440w, /home/kira-photo-1920.webp 1920w, /home/kira-photo-2760.webp 2760w, /home/kira-photo-3840.webp 3840w"
-        sizes="100vw"
-      >
-      <img
-        src="/home/kira-photo.webp"
-        alt="Кира, кошка Антона"
-        width="3840"
-        height="1482"
-        loading="lazy"
-        decoding="async"
-      >
-    </picture>
+        <source
+          media="(max-width: 767.98px)"
+          type="image/avif"
+          srcset="/home/kira-photo-vertical-480.avif 480w, /home/kira-photo-vertical-960.avif 960w, /home/kira-photo-vertical-1200.avif 1200w"
+          sizes="100vw"
+        >
+        <source
+          media="(max-width: 767.98px)"
+          type="image/webp"
+          srcset="/home/kira-photo-vertical-480.webp 480w, /home/kira-photo-vertical-960.webp 960w, /home/kira-photo-vertical-1200.webp 1200w"
+          sizes="100vw"
+        >
+        <source
+          type="image/avif"
+          srcset="/home/kira-photo-480.avif 480w, /home/kira-photo-960.avif 960w, /home/kira-photo-1440.avif 1440w, /home/kira-photo-1920.avif 1920w, /home/kira-photo-2760.avif 2760w, /home/kira-photo-3840.avif 3840w"
+          sizes="100vw"
+        >
+        <source
+          type="image/webp"
+          srcset="/home/kira-photo-480.webp 480w, /home/kira-photo-960.webp 960w, /home/kira-photo-1440.webp 1440w, /home/kira-photo-1920.webp 1920w, /home/kira-photo-2760.webp 2760w, /home/kira-photo-3840.webp 3840w"
+          sizes="100vw"
+        >
+        <img
+          src="/home/kira-photo.webp"
+          alt="Кира, кошка Антона"
+          width="3840"
+          height="1482"
+          loading="lazy"
+          decoding="async"
+        >
+      </picture>
+    </div>
   </footer>
 </template>
 
@@ -114,8 +120,6 @@ onUnmounted(() => {
 .home-footer {
   position: relative;
   width: 100%;
-  /* Clip the fixed photo to the footer, including at the contact boundary. */
-  clip-path: inset(0);
   color: var(--palette-ink);
 }
 
@@ -203,10 +207,25 @@ onUnmounted(() => {
   height: 0;
 }
 
+.home-footer__stable-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: var(--app-screen, 100svh);
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .home-footer__visual-spacer {
   position: relative;
   width: 100%;
   aspect-ratio: 3840 / 1482;
+  background: var(--palette-sand);
+  /* Keep the fixed photo below the info block. Clipping the entire footer
+     lets the photo bleed through its fractional top edge during scrolling. */
+  clip-path: inset(0);
 }
 
 .home-footer__visual {

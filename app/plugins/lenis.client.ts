@@ -119,6 +119,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     deltaX: number
     deltaY: number
   }) {
+    // A local edge gesture (footer photo) has already consumed this input.
+    if (data.event.defaultPrevented) return false
     if (!lenis || !controlledTouchEnabled() || !(data.event instanceof TouchEvent)) return true
 
     const event = data.event
@@ -473,5 +475,27 @@ export default defineNuxtPlugin((nuxtApp) => {
     })
   }
 
-  return { provide: { scrollToSection } }
+  function setScrollPosition(top: number) {
+    if (document.hidden || pageIsLocked()) return
+    cancelSectionScroll?.()
+    if (lenis) {
+      // One position writer during the footer bend. Lenis skips an equal
+      // target before cancelling inertia, so stop/start only in that case.
+      removeTicker()
+      if (lenis.isScrolling && lenis.targetScroll === top) {
+        lenis.stop()
+        lenis.start()
+      }
+      lenis.scrollTo(top, { immediate: true, force: true })
+    } else if (Math.abs(window.scrollY - top) > 0.1) {
+      // Safari must not see a new programmatic scroll for an unchanged position.
+      window.scrollTo({ top, left: 0, behavior: 'instant' })
+    }
+  }
+
+  function getScrollTarget() {
+    return lenis?.targetScroll ?? window.scrollY
+  }
+
+  return { provide: { scrollToSection, setScrollPosition, getScrollTarget } }
 })

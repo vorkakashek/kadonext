@@ -26,6 +26,31 @@ const stage = useState('home-contact-stage', () => '')
 const deadline = useState('home-contact-deadline', () => '')
 const budget = useState('home-contact-budget', () => '')
 const materials = useState('home-contact-materials', () => '')
+const formHeight = useState('home-contact-form-height', () => 0)
+const shellEl = ref<HTMLElement | null>(null)
+const formEl = ref<HTMLFormElement | null>(null)
+let sizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  const shell = shellEl.value
+  const form = formEl.value
+  if (!shell || !form) return
+
+  // The live form sits in a separate surface layer. Reserve only its content
+  // height in the page, including expanded details and resized textareas.
+  sizeObserver = new ResizeObserver(([entry]) => {
+    if (!projectType.value.trim()) return
+    const style = getComputedStyle(shell)
+    formHeight.value = Math.ceil(
+      (entry?.borderBoxSize[0]?.blockSize ?? form.offsetHeight)
+      + parseFloat(style.paddingTop)
+      + parseFloat(style.paddingBottom),
+    )
+  })
+  sizeObserver.observe(form)
+})
+
+onUnmounted(() => sizeObserver?.disconnect())
 
 function encodeMailBody() {
   const lines = [
@@ -61,8 +86,9 @@ function submitForm() {
 </script>
 
 <template>
-  <div class="contact-form-shell">
+  <div ref="shellEl" class="contact-form-shell">
     <form
+      ref="formEl"
       v-show="projectType.trim().length > 0"
       :id="props.formId"
       class="contact-form"
@@ -170,6 +196,7 @@ function submitForm() {
   height: 100%;
   min-height: inherit;
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-content: start;
   column-gap: var(--layout-gutter);
   padding: clamp(2rem, 3vw, 3.5rem) var(--layout-margin-content)
     clamp(3.5rem, 5vw, 6rem);

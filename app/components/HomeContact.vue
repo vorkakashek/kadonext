@@ -15,6 +15,7 @@ const fieldsEl = ref<HTMLElement | null>(null)
 const taskInputEl = ref<HTMLInputElement | null>(null)
 const projectType = useState('home-contact-project-type', () => '')
 const projectTypeError = useState('home-contact-project-type-error', () => false)
+const formHeight = useState('home-contact-form-height', () => 0)
 
 const taskIsRaised = computed(() => projectType.value.length > 0)
 const hasProjectType = computed(() => projectType.value.trim().length > 0)
@@ -95,7 +96,11 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
       :inert="!hasProjectType"
     >
       <div class="home-contact__clip">
-        <div ref="fieldsEl" class="home-contact__fields">
+        <div
+          ref="fieldsEl"
+          class="home-contact__fields"
+          :style="formHeight > 0 ? { '--contact-form-height': `${formHeight}px` } : undefined"
+        >
           <HomeContactForm v-if="!surfaceReady" class="relative z-[1]" form-id="contact-fallback" />
         </div>
       </div>
@@ -268,7 +273,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 .home-contact__fields {
   position: relative;
   width: 100%;
-  min-height: max(52rem, calc(var(--app-screen) - var(--layout-margin-content) * 2));
+  min-height: var(--contact-form-height, 52rem);
   margin-top: clamp(1.25rem, 2vw, 2.5rem);
 }
 

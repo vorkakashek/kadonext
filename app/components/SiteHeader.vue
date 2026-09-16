@@ -19,7 +19,9 @@ const { t } = useI18n()
 const homeCases = useHomeCases()
 const links = headerLinks
 /** Optimistic “you are here” so the chip fill doesn’t wait for the iris hop. */
-const navHerePath = ref(route.fullPath)
+// URL fragments never reach SSR. Apply them only after the header hydrates.
+const navHerePath = ref(route.fullPath.replace(/#.*$/, ''))
+let navHydrated = false
 const scrolled = ref(false)
 const canvasForced = computed(() => canvasSurface.value || canvasOpen.value)
 /** Menu pins the bar to the default wide layout — never the compact scroll state. */
@@ -192,7 +194,7 @@ async function onLogoClick(event: MouseEvent) {
 }
 
 watch(() => route.fullPath, (path) => {
-  navHerePath.value = path
+  navHerePath.value = navHydrated ? path : path.replace(/#.*$/, '')
 })
 
 /** Page canvas pins body (scrollY→0) — ignore that fake scroll for collapse morph. */
@@ -996,6 +998,8 @@ function syncThumbNav() {
 }
 
 onMounted(() => {
+  navHydrated = true
+  navHerePath.value = route.fullPath
   registerFabFit(fitFabLabel)
   refreshTokens()
   void gsap()
