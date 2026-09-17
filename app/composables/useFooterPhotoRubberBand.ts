@@ -1,10 +1,12 @@
 import type { Ref } from 'vue'
 import { isThumbNav } from '~/utils/mobileViewport'
+import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 
 /** Reveal the photo by resisting scroll beyond the footer, then scroll back. */
 export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo: Ref<HTMLElement | null>) {
   const nuxtApp = useNuxtApp()
   const IDLE_MS = 300
+  const RETURN_MS = 750
   const PULL_SPAN = 5
   const MOBILE_PULL_SCREEN_P = 0.7
   const RESISTANCE_EXPONENT = 2.5
@@ -24,6 +26,13 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   let rawPull = 0
   let offset = 0
   let target = 0
+  let wheelPull = false
+  let wheelFrom = 0
+  let wheelElapsed = 0
+  let returnFrom = 0
+  let returnStartedAt: number | null = null
+  let returnProgress = 0
+  let easedReturn = false
   let velocity = 0
   let returning = false
   let ownsScroll = false
@@ -96,7 +105,10 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     touchId = null
     nativeTouchGesture = false
     dragging = returning = ownsScroll = false
-    rawPull = offset = target = velocity = 0
+    rawPull = offset = target = returnFrom = returnProgress = velocity = 0
+    returnStartedAt = null
+    wheelPull = false
+    wheelFrom = wheelElapsed = 0
     lastWrittenY = -1
   }
 
@@ -108,20 +120,30 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     }
     const dt = Math.min(0.032, lastTime ? (time - lastTime) / 1000 : 1 / 60)
     lastTime = time
-    if (returning) {
-      // A damped return, clamped at the footer so it cannot scroll above it.
+    if (returning && easedReturn) {
+      returnStartedAt ??= time
+      returnProgress = Math.min(1, (time - returnStartedAt) / RETURN_MS)
+      // Smootherstep starts and ends with zero speed and acceleration.
+      const p = returnProgress
+      const eased = p * p * p * (p * (p * 6 - 15) + 10)
+      offset = Math.max(0, returnFrom * (1 - eased))
+    } else if (returning) {
+      // Keep the existing mobile spring and touch-release response.
       const steps = Math.ceil(dt / (1 / 120))
       const step = dt / steps
       for (let i = 0; i < steps; i++) {
         velocity += (-180 * offset - 25 * velocity) * step
         offset = Math.max(0, offset + velocity * step)
       }
+    } else if (wheelPull) {
+      wheelElapsed = Math.min(WHEEL_DURATION, wheelElapsed + dt)
+      offset = wheelFrom + (target - wheelFrom) * wheelEasing(wheelElapsed / WHEEL_DURATION)
     } else {
       offset += (target - offset) * (1 - Math.exp(-24 * dt))
     }
     const settled = returning
-      ? offset < 0.25 && Math.abs(velocity) < 3
-      : Math.abs(target - offset) < 0.25
+      ? (easedReturn ? returnProgress >= 1 : offset < 0.25 && Math.abs(velocity) < 3)
+      : (wheelPull ? wheelElapsed >= WHEEL_DURATION : Math.abs(target - offset) < 0.25)
     if (settled) offset = returning ? 0 : target
     write(restY + offset)
     if (settled) {
@@ -147,12 +169,18 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     }
     ownsScroll = true
     returning = false
+    wheelPull = false
     velocity = 0
   }
 
   function returnToFooter() {
     idleTimer = 0
     if (!available() || dragging) return
+    // Finish the last wheel notch before starting the automatic return.
+    if (wheelPull && frame && !returning) {
+      idleTimer = window.setTimeout(returnToFooter, 50)
+      return
+    }
     offset = Math.max(0, window.scrollY - restY)
     if (offset <= 0.25) {
       reset()
@@ -161,6 +189,10 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     ownsScroll = returning = true
     target = 0
     velocity = 0
+    easedReturn = !isThumbNav()
+    returnFrom = offset
+    returnProgress = 0
+    returnStartedAt = null
     write(window.scrollY)
     wake()
   }
@@ -182,9 +214,14 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     if (delta < 0) {
       // Stop our RAF before the same event reaches Lenis/native scrolling.
       // Upward input never goes through a second smoothing loop in the photo.
-      if (ownsScroll || frame || idleTimer) {
+      if (ownsScroll || frame) {
         reset()
         write(y)
+      } else {
+        // Further upward events belong to Lenis. Resetting its position on
+        // each event would discard accumulated input and slow the gesture.
+        window.clearTimeout(idleTimer)
+        idleTimer = 0
       }
       return
     }
@@ -193,9 +230,17 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     if (!wasOwned && intendedY + delta < restY) return
     event.preventDefault()
     takeScroll()
+    if (!wasOwned) {
+      // Lenis may still be approaching the boundary. Preserve that pending
+      // distance, but start rendering at the actual position without a jump.
+      rawPull = unresist(Math.max(0, intendedY - restY))
+    }
     rawPull = Math.min(limit * PULL_SPAN,
       rawPull + Math.max(0, delta - (wasOwned ? 0 : Math.max(0, restY - intendedY))))
     target = resist(rawPull)
+    wheelPull = true
+    wheelFrom = offset
+    wheelElapsed = 0
     wake()
     scheduleReturn()
   }

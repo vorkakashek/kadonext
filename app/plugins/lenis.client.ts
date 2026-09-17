@@ -4,6 +4,7 @@ import {
 } from '~/utils/appliedScrollFrame'
 import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
 import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
+import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 import {
   CASE_RAIL_TOUCH_EVENT,
   createCaseRailTouchAxis,
@@ -19,10 +20,8 @@ const CONTROLLED_TOUCH_ENABLED =
 const NARROW_TOUCH_ENABLED =
   '(prefers-reduced-motion: no-preference) and (max-width: 767.98px)'
 
-// Lenis completes `lerp` scrolling by rounding to the final pixel. Staying too
-// far below its normal follow factor leaves a visible stepped tail before that
-// final frame, especially with notched mouse wheels.
-const WHEEL_LERP = 0.1
+// Keep section navigation's existing Lenis easing independent of wheel tuning.
+const sectionScrollEasing = (t: number) => Math.min(1, 1.001 - 2 ** (-10 * t))
 
 /**
  * Touch stays 1:1 while the finger is down. Only the release inertia is eased,
@@ -331,9 +330,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       syncTouchLerp: TOUCH_INERTIA_LERP,
       touchInertiaExponent: TOUCH_INERTIA_EXPONENT,
       virtualScroll: normalizeTouchReleaseVelocity,
-      // Keep individual wheel notches blended, but let the final pixels settle
-      // promptly instead of exposing a long, stepped inertial tail.
-      lerp: WHEEL_LERP,
+      // Touch uses its own lerp in Lenis; this finite easing governs wheel input.
+      duration: WHEEL_DURATION,
+      easing: wheelEasing,
       wheelMultiplier: 1,
       stopInertiaOnNavigate: true,
       respectReducedMotion: true,
@@ -419,7 +418,13 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (lenis) {
       // Replace wheel/release inertia and explicitly wake the otherwise idle RAF.
       lenis.resize()
-      lenis.scrollTo(top, { duration: 3, immediate: reducedMotion, force: immediate, onComplete: finish })
+      lenis.scrollTo(top, {
+        duration: 3,
+        easing: sectionScrollEasing,
+        immediate: reducedMotion,
+        force: immediate,
+        onComplete: finish,
+      })
       requestTicker()
     } else {
       window.addEventListener('scroll', onNativeScroll, { passive: true })
