@@ -6,7 +6,7 @@ import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo: Ref<HTMLElement | null>) {
   const nuxtApp = useNuxtApp()
   const IDLE_MS = 300
-  const RETURN_MS = 750
+  const RETURN_MS = 500
   const PULL_SPAN = 5
   const MOBILE_PULL_SCREEN_P = 0.7
   const RESISTANCE_EXPONENT = 2.5
