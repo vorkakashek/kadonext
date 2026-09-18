@@ -7,8 +7,7 @@ import type { VoiceClip } from './contactVoice.ts'
 
 export function createContactVoiceSession() {
   const clips = shallowRef<VoiceClip[]>([])
-  const draft = shallowRef<VoiceClip | null>(null)
-  const status = ref<'idle' | 'requesting' | 'recording' | 'stopping' | 'review'>('idle')
+  const status = ref<'idle' | 'requesting' | 'recording' | 'stopping'>('idle')
   const supported = ref(false)
   const error = ref('')
   const notice = ref('')
@@ -210,12 +209,12 @@ export function createContactVoiceSession() {
           replacementId.value = null
           return
         }
-        draft.value = {
+        const clip: VoiceClip = {
           id: crypto.randomUUID(), blob, url: URL.createObjectURL(blob),
           seconds: Math.min(elapsed.value, recordingBudget),
           waveform: compactVoiceWaveform(waveform), warning: finalWarning,
         }
-        status.value = 'review'
+        saveClip(clip)
       }
       const data = new Float32Array(1024)
       startedAt = performance.now()
@@ -240,12 +239,10 @@ export function createContactVoiceSession() {
           if (heardSignal) finalWarning = null
         }
         if (elapsed.value >= recordingBudget - 0.2) {
-          notice.value = 'Достигли лимита времени. Прослушайте и сохраните сообщение.'
           stop()
         }
       }, 100)
       deadlineTimer = setTimeout(() => {
-        notice.value = 'Достигли лимита времени. Прослушайте и сохраните сообщение.'
         stop()
       }, Math.max(0, recordingBudget - 0.2) * 1000)
     } catch (cause) {
@@ -258,9 +255,7 @@ export function createContactVoiceSession() {
     }
   }
 
-  function keepDraft() {
-    const clip = draft.value
-    if (!clip) return
+  function saveClip(clip: VoiceClip) {
     const index = clips.value.findIndex(item => item.id === replacementId.value)
     const updated = [...clips.value]
     if (index >= 0) {
@@ -268,20 +263,9 @@ export function createContactVoiceSession() {
       updated[index] = clip
     } else updated.push(clip)
     clips.value = updated
-    draft.value = null
     replacementId.value = null
     status.value = 'idle'
     warning.value = null
-    notice.value = ''
-  }
-
-  function discardDraft() {
-    if (draft.value) URL.revokeObjectURL(draft.value.url)
-    draft.value = null
-    replacementId.value = null
-    status.value = 'idle'
-    warning.value = null
-    notice.value = ''
   }
 
   function remove(id: string) {
@@ -306,6 +290,7 @@ export function createContactVoiceSession() {
     supported.value = !!(window.isSecureContext && typeof navigator.mediaDevices?.getUserMedia === 'function' && typeof MediaRecorder !== 'undefined')
     document.addEventListener('visibilitychange', visibilityChanged)
     navigator.mediaDevices?.addEventListener?.('devicechange', refreshDevices)
+    if (supported.value) void refreshDevices()
   }
 
   function detach() {
@@ -333,8 +318,8 @@ export function createContactVoiceSession() {
   }
 
   return {
-    clips, draft, status, supported, error, notice, warning, level, elapsed,
+    clips, status, supported, error, notice, warning, level, elapsed,
     replacementId, devices, deviceId, deviceLabel, totalSeconds, remaining, busy,
-    start, stop, keepDraft, discardDraft, remove, attach, detach, clear,
+    start, stop, remove, attach, detach, clear, refreshDevices,
   }
 }

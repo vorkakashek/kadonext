@@ -7,6 +7,7 @@
   --layout-content-max: clamp(390px, calc(49.5238px + 87.3016vw), 720px);
   --layout-header-content: clamp(32px, calc(23.7460px + 2.1164vw), 40px);
   --layout-header-inset: clamp(16px, calc(16.0000px + 0.0000vw), 16px);
+  --layout-contact-action-height: clamp(64px, calc(55.7460px + 2.1164vw), 72px);
   --space-section: clamp(80px, calc(46.9841px + 8.4656vw), 112px);
   --space-block: clamp(32px, calc(15.4921px + 4.2328vw), 48px);
   --space-1: clamp(8px, calc(8.0000px + 0.0000vw), 8px);
@@ -25,6 +26,7 @@
   --type-case-body: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
   --type-case-body-large: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
   --type-lead: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
+  --type-contact-action: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
   --type-nav: clamp(16px, calc(16.0000px + 0.0000vw), 16px);
   --type-slogan: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
   --type-display: clamp(40px, calc(31.7460px + 2.1164vw), 48px);
@@ -41,6 +43,7 @@
     --layout-content-max: clamp(720px, calc(0.0000px + 93.7500vw), 1200px);
     --layout-header-content: clamp(40px, calc(28.0000px + 1.5625vw), 48px);
     --layout-header-inset: clamp(16px, calc(4.0000px + 1.5625vw), 24px);
+    --layout-contact-action-height: clamp(72px, calc(72.0000px + 0.0000vw), 72px);
     --space-section: clamp(112px, calc(40.0000px + 9.3750vw), 160px);
     --space-block: clamp(48px, calc(24.0000px + 3.1250vw), 64px);
     --space-1: clamp(8px, calc(8.0000px + 0.0000vw), 8px);
@@ -59,6 +62,7 @@
     --type-case-body: clamp(20px, calc(14.0000px + 0.7813vw), 24px);
     --type-case-body-large: clamp(24px, calc(18.0000px + 0.7813vw), 28px);
     --type-lead: clamp(20px, calc(14.0000px + 0.7813vw), 24px);
+    --type-contact-action: clamp(20px, calc(14.0000px + 0.7813vw), 24px);
     --type-nav: clamp(16px, calc(10.0000px + 0.7813vw), 20px);
     --type-slogan: clamp(20px, calc(8.0000px + 1.5625vw), 28px);
     --type-display: clamp(48px, calc(24.0000px + 3.1250vw), 64px);
@@ -76,6 +80,7 @@
     --layout-content-max: clamp(1200px, calc(-80.0000px + 100.0000vw), 1360px);
     --layout-header-content: clamp(48px, calc(48.0000px + 0.0000vw), 48px);
     --layout-header-inset: clamp(24px, calc(-40.0000px + 5.0000vw), 32px);
+    --layout-contact-action-height: clamp(72px, calc(8.0000px + 5.0000vw), 80px);
     --space-section: clamp(160px, calc(-160.0000px + 25.0000vw), 200px);
     --space-block: clamp(64px, calc(-64.0000px + 10.0000vw), 80px);
     --space-1: clamp(8px, calc(8.0000px + 0.0000vw), 8px);
@@ -94,6 +99,7 @@
     --type-case-body: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
     --type-case-body-large: clamp(28px, calc(-4.0000px + 2.5000vw), 32px);
     --type-lead: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
+    --type-contact-action: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
     --type-nav: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
     --type-slogan: clamp(28px, calc(-4.0000px + 2.5000vw), 32px);
     --type-display: clamp(64px, calc(0.0000px + 5.0000vw), 72px);
@@ -111,6 +117,7 @@
     --layout-content-max: clamp(1360px, calc(40.0000px + 91.6667vw), 1800px);
     --layout-header-content: clamp(48px, calc(48.0000px + 0.0000vw), 48px);
     --layout-header-inset: clamp(32px, calc(8.0000px + 1.6667vw), 40px);
+    --layout-contact-action-height: clamp(80px, calc(80.0000px + 0.0000vw), 80px);
     --space-section: clamp(200px, calc(128.0000px + 5.0000vw), 224px);
     --space-block: clamp(80px, calc(56.0000px + 1.6667vw), 88px);
     --space-1: clamp(8px, calc(8.0000px + 0.0000vw), 8px);
@@ -129,6 +136,7 @@
     --type-case-body: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
     --type-case-body-large: clamp(32px, calc(20.0000px + 0.8333vw), 36px);
     --type-lead: clamp(24px, calc(12.0000px + 0.8333vw), 28px);
+    --type-contact-action: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
     --type-nav: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
     --type-slogan: clamp(32px, calc(8.0000px + 1.6667vw), 40px);
     --type-display: clamp(72px, calc(48.0000px + 1.6667vw), 80px);
@@ -146,6 +154,7 @@
     --layout-content-max: clamp(1800px, calc(0.0000px + 93.7500vw), 2400px);
     --layout-header-content: clamp(48px, calc(48.0000px + 0.0000vw), 48px);
     --layout-header-inset: clamp(40px, calc(16.0000px + 1.2500vw), 48px);
+    --layout-contact-action-height: clamp(80px, calc(80.0000px + 0.0000vw), 80px);
     --space-section: clamp(224px, calc(176.0000px + 2.5000vw), 240px);
     --space-block: clamp(88px, calc(64.0000px + 1.2500vw), 96px);
     --space-1: clamp(8px, calc(8.0000px + 0.0000vw), 8px);
@@ -164,6 +173,7 @@
     --type-case-body: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
     --type-case-body-large: clamp(36px, calc(36.0000px + 0.0000vw), 36px);
     --type-lead: clamp(28px, calc(28.0000px + 0.0000vw), 28px);
+    --type-contact-action: clamp(24px, calc(24.0000px + 0.0000vw), 24px);
     --type-nav: clamp(20px, calc(20.0000px + 0.0000vw), 20px);
     --type-slogan: clamp(40px, calc(40.0000px + 0.0000vw), 40px);
     --type-display: clamp(80px, calc(80.0000px + 0.0000vw), 80px);

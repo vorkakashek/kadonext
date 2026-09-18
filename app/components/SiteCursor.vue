@@ -5,6 +5,7 @@ const HOT_SEL = [
   'button',
   '[role="button"]',
   '[role="link"]',
+  '[role="option"]',
   'input',
   'textarea',
   'select',
@@ -30,10 +31,11 @@ const TEXT_SEL = [
   '[contenteditable="true"]',
 ].join(',')
 
-const { suppressed } = useSiteCursor()
+const { suppressed, topLayerRequest } = useSiteCursor()
 const { active: caseDetailTransitionActive } = useCaseDetailTransition()
 const rootEl = ref<HTMLElement | null>(null)
 const enabled = ref(false)
+const topLayer = ref(false)
 const hot = ref(false)
 const caseOpen = ref(false)
 const away = ref(true)
@@ -45,6 +47,18 @@ let caseDetailSettleTimer = 0
 let pointerX = 0
 let pointerY = 0
 let pointerSeen = false
+
+// A popover paints above every ordinary z-index. Reinsert the cursor into
+// that same layer after a menu opens, keeping it visible without intercepting input.
+watch(topLayerRequest, async () => {
+  if (!enabled.value || typeof rootEl.value?.showPopover !== 'function') return
+  topLayer.value = true
+  await nextTick()
+  const el = rootEl.value
+  if (!el) return
+  if (el.matches(':popover-open')) el.hidePopover()
+  el.showPopover()
+})
 
 function canUse() {
   return window.matchMedia('(hover: hover) and (pointer: fine)').matches
@@ -171,6 +185,7 @@ onUnmounted(() => {
     <div
       v-if="enabled"
       ref="rootEl"
+      :popover="topLayer ? 'manual' : undefined"
       class="site-cursor"
       :class="{
         'site-cursor--hot': hot,
@@ -190,8 +205,14 @@ onUnmounted(() => {
 <style>
 .site-cursor {
   position: fixed;
+  inset: auto;
   top: 0;
   left: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
   z-index: 10050;
   width: 8px;
   height: 8px;
@@ -205,6 +226,8 @@ onUnmounted(() => {
     height 0.24s var(--motion-ease, ease),
     opacity 0.28s var(--motion-ease, ease);
 }
+
+.site-cursor::backdrop { background: transparent; pointer-events: none; }
 
 .site-cursor--case-transition {
   /* Difference blending ties the cursor repaint to every changing pixel of

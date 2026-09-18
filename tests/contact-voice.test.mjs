@@ -66,11 +66,9 @@ function harness() {
       this.advance(ms)
       session.stop()
       await flush()
-      assert.equal(session.status.value, 'review')
-      session.keepDraft()
+      assert.equal(session.status.value, 'idle')
     },
     async restore() {
-      if (session.status.value === 'review') session.discardDraft()
       session.detach()
       await flush()
       session.clear()
@@ -78,6 +76,21 @@ function harness() {
     },
   }
 }
+
+test('available microphones populate before recording without requesting microphone access', async () => {
+  const h = harness()
+  let permissionRequests = 0
+  h.setPermission(() => { permissionRequests++; return h.acquire() })
+  try {
+    await flush()
+    assert.deepEqual(h.session.devices.value.map(device => device.deviceId), ['mic-1'])
+    assert.equal(h.session.status.value, 'idle')
+    assert.equal(permissionRequests, 0)
+    assert.equal(h.tracks.length, 0)
+    await h.session.refreshDevices()
+    assert.equal(permissionRequests, 0)
+  } finally { await h.restore() }
+})
 
 test('signal heuristic warns after ten seconds; a healthy signal suppresses pause warnings', () => {
   assert.equal(inspectVoiceSignal(Array(100).fill(0), 9, false), null)
@@ -111,22 +124,29 @@ test('two-message limit and deletion recover a slot and time; new messages appen
   } finally { await h.restore() }
 })
 
-test('replacement preserves original until accepted; cancellation preserves it and its order', async () => {
+test('successful recording replaces in place automatically; cancellation preserves the original and its order', async () => {
   const h = harness()
   try {
     await h.record(2000)
     await h.record(1000)
     const original = h.session.clips.value[0]
+    const second = h.session.clips.value[1]
     await h.session.start(original.id)
     h.advance(1000)
-    h.session.stop()
+    assert.equal(h.session.clips.value[0], original)
+    h.session.stop(true)
     await flush()
     assert.equal(h.session.clips.value[0], original)
-    h.session.discardDraft()
+    await h.session.start(original.id)
+    // Invalid short recordings must also preserve the previous message.
+    h.advance(100)
+    h.session.stop()
+    await flush()
     assert.equal(h.session.clips.value[0], original)
     await h.record(3000, original.id)
     assert.equal(h.session.clips.value.length, 2)
     assert.notEqual(h.session.clips.value[0].id, original.id)
+    assert.equal(h.session.clips.value[1], second)
     assert.equal(h.session.totalSeconds.value, 4)
   } finally { await h.restore() }
 })
@@ -138,8 +158,7 @@ test('automatic stop honours aggregate time; replacing a clip credits its own du
     await h.session.start()
     h.advance(1000)
     await flush()
-    assert.equal(h.session.status.value, 'review')
-    h.session.keepDraft()
+    assert.equal(h.session.status.value, 'idle')
     assert.ok(h.session.totalSeconds.value >= 89.7 && h.session.totalSeconds.value <= 90)
     await h.session.start()
     assert.equal(h.session.status.value, 'idle')
@@ -166,7 +185,7 @@ test('quiet or silent input is flagged; detected signal clears the warning', asy
     assert.equal(h.session.warning.value, null)
     h.session.stop()
     await flush()
-    assert.equal(h.session.draft.value.warning, null)
+    assert.equal(h.session.clips.value[0].warning, null)
     assert.ok(h.closedContexts > 0)
   } finally { await h.restore() }
 })
@@ -199,10 +218,9 @@ test('leaving the form retains all accumulated chunks and closes the microphone'
     h.session.detach()
     await flush()
     await flush()
-    assert.equal(h.session.status.value, 'review')
-    assert.equal(h.session.draft.value.blob.size, 16)
+    assert.equal(h.session.status.value, 'idle')
+    assert.equal(h.session.clips.value[0].blob.size, 16)
     assert.ok(h.tracks.every(track => track.stopped))
-    h.session.keepDraft()
     h.session.attach()
     assert.equal(h.session.clips.value.length, 1)
   } finally { await h.restore() }
