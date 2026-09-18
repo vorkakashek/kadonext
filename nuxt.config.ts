@@ -113,6 +113,10 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'robots', content: 'noindex, nofollow' },
       ],
+      link: [
+        { key: 'favicon-ico', rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 96x96' },
+        { key: 'favicon-png', rel: 'icon', href: '/favicon-96.png', type: 'image/png', sizes: '96x96' },
+      ],
       // Before first paint: warm revisit shows full black macron, not empty gray track.
       script: [
         {
