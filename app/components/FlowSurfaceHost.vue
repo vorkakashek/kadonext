@@ -1279,11 +1279,11 @@ function paintAboutSurfaceTone(progress: number) {
     return
   }
 
-  const inkPercent = Math.round(mix * 1000) / 10
-  const stonePercent = Math.round((100 - inkPercent) * 10) / 10
-  const css = inkPercent >= 99.9
-    ? 'var(--palette-ink)'
-    : `color-mix(in srgb, var(--palette-stone) ${stonePercent}%, var(--palette-ink) ${inkPercent}%)`
+  const forestPercent = Math.round(mix * 1000) / 10
+  const stonePercent = Math.round((100 - forestPercent) * 10) / 10
+  const css = forestPercent >= 99.9
+    ? 'var(--hero-scene-forest)'
+    : `color-mix(in srgb, var(--palette-stone) ${stonePercent}%, var(--hero-scene-forest) ${forestPercent}%)`
   if (css === lastCaseToneCss) return
   lastCaseToneCss = css
   el.style.setProperty('--flow-surface-tone', css)

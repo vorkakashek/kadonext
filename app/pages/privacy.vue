@@ -4,7 +4,6 @@ const currentYear = new Date().getFullYear()
 useSeoMeta({
   title: 'Политика обработки персональных данных — KADO',
   description: 'Политика KADO в отношении обработки персональных данных посетителей сайта kadonext.com.',
-  robots: 'index, follow',
 })
 </script>
 
@@ -15,25 +14,12 @@ useSeoMeta({
       <p class="privacy-page__eyebrow">документы</p>
       <h1>Политика в отношении обработки персональных данных</h1>
       <div class="privacy-page__meta">
-        <p>Редакция от 14 сентября 2026 года</p>
+        <p>Редакция от 18 сентября 2026 года</p>
         <p>Сайт: <a href="https://kadonext.com">kadonext.com</a></p>
       </div>
     </header>
 
     <article class="privacy-page__body">
-      <aside class="privacy-page__operator" aria-label="Реквизиты оператора">
-        <strong>До публикации необходимо заполнить</strong>
-        <p>
-          Оператор персональных данных: [ФИО физического лица либо полное
-          наименование ИП/юридического лица].
-        </p>
-        <p>Адрес оператора: [адрес места жительства или места нахождения].</p>
-        <p>
-          Электронная почта для обращений по персональным данным:
-          <a href="mailto:hello@kadonext.com">hello@kadonext.com</a>.
-        </p>
-      </aside>
-
       <section>
         <h2><span>01</span> Общие положения</h2>
         <div class="privacy-page__section-copy">
@@ -67,6 +53,16 @@ useSeoMeta({
             номер телефона, имя пользователя в мессенджере, сведения о проекте,
             его стадии, сроках, бюджете, ссылки на материалы и иная информация,
             которую посетитель добровольно включает в обращение.
+          </p>
+          <p>
+            Вместе с заявкой сохраняются факт предоставления согласия,
+            версия и текст согласия, дата и время отправки заявки.
+          </p>
+          <p>
+            По желанию посетитель может включить в обращение голосовые сообщения.
+            Записи содержат голос и любые звуки, попавшие в микрофон.
+            Голосовые сообщения используются для понимания задачи и ответа на
+            обращение; идентификация личности по голосу не выполняется.
           </p>
           <h3>Технические данные</h3>
           <p>
@@ -131,12 +127,20 @@ useSeoMeta({
             блокирование, удаление и уничтожение данных.
           </p>
           <p>
-            Текущая форма на сайте формирует текст письма на устройстве
-            посетителя и открывает установленное почтовое приложение. До того
-            как посетитель сам отправит письмо, введённые в форму сведения не
-            передаются оператору через сервер сайта. После отправки письмо
-            обрабатывается оператором и почтовыми сервисами отправителя и
-            получателя по их правилам.
+            До нажатия кнопки отправки текст и голосовые сообщения остаются
+            в памяти браузера. Микрофон включается только по действию посетителя
+            и с разрешения браузера. Проверка уровня звука выполняется на
+            устройстве посетителя. При перезагрузке страницы неотправленные
+            записи удаляются; в локальное хранилище они не записываются.
+          </p>
+          <p>
+            При отправке формы введённые сведения и выбранные голосовые
+            сообщения передаются обработчику обращения. Аудиофайлы временно
+            сохраняются для проверки и преобразования в MP3, после чего
+            временные файлы удаляются. Обращение доставляется оператору
+            по электронной почте, записи прикладываются к письму. При обращении
+            через прямую ссылку на email письмо отправляет сам посетитель
+            из своего почтового приложения.
           </p>
           <p>
             Оператор не публикует персональные данные, не продаёт их и не
@@ -288,6 +292,18 @@ useSeoMeta({
           </p>
         </div>
       </section>
+
+      <aside class="privacy-page__operator" aria-label="Реквизиты оператора">
+        <strong>Сведения об операторе</strong>
+        <p>
+          Оператор персональных данных: Хохлов Антон Алексеевич,
+          плательщик налога на профессиональный доход (самозанятый).
+        </p>
+        <p>
+          Электронная почта для обращений по персональным данным:
+          <a href="mailto:hello@kadonext.com">hello@kadonext.com</a>.
+        </p>
+      </aside>
     </article>
 
     <footer class="privacy-page__footer">
@@ -298,272 +314,4 @@ useSeoMeta({
   </main>
 </template>
 
-<style scoped>
-.privacy-page {
-  min-height: var(--app-screen);
-  padding: calc(var(--layout-header-content) + var(--space-6)) var(--layout-margin)
-    var(--space-4);
-  background: var(--palette-sand);
-  color: var(--palette-ink);
-}
-
-.privacy-page__hero,
-.privacy-page__body,
-.privacy-page__footer {
-  width: min(var(--layout-content-max), 100%);
-  margin-inline: auto;
-}
-
-.privacy-page__hero {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  column-gap: var(--layout-gutter);
-  padding-bottom: var(--space-7);
-}
-
-.privacy-page__brand,
-.privacy-page__eyebrow {
-  margin: 0;
-  font-size: var(--type-nav);
-  line-height: 1;
-}
-
-.privacy-page__brand {
-  width: fit-content;
-  grid-column: 1 / span 2;
-  font-weight: 500;
-}
-
-.privacy-page__eyebrow {
-  grid-column: 3 / span 2;
-  color: var(--palette-moss);
-}
-
-.privacy-page h1 {
-  grid-column: 4 / -1;
-  margin: var(--space-7) 0 var(--space-5);
-  font-size: var(--type-display);
-  font-weight: 400;
-  letter-spacing: -0.055em;
-  line-height: 0.98;
-  text-wrap: balance;
-}
-
-.privacy-page__meta {
-  display: flex;
-  grid-column: 4 / -1;
-  gap: var(--space-4);
-  color: var(--palette-moss);
-  font-size: var(--type-nav);
-}
-
-.privacy-page__meta p,
-.privacy-page__operator p {
-  margin: 0;
-}
-
-.privacy-page__body {
-  border-top: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-}
-
-.privacy-page__operator {
-  display: grid;
-  margin: var(--space-4) 0 var(--space-7);
-  border: 1px solid var(--palette-moss);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2) var(--layout-gutter);
-  padding: var(--space-3);
-  color: var(--palette-moss);
-  font-size: var(--type-nav);
-}
-
-.privacy-page__operator strong {
-  grid-column: 1 / -1;
-  font-weight: 500;
-}
-
-.privacy-page section {
-  display: grid;
-  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  column-gap: var(--layout-gutter);
-  padding: var(--space-5) 0 var(--space-6);
-}
-
-.privacy-page h2 {
-  display: grid;
-  grid-column: 1 / span 3;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-2);
-  margin: 0;
-  font-size: var(--type-lead);
-  font-weight: 400;
-  letter-spacing: -0.035em;
-  line-height: 1.15;
-}
-
-.privacy-page h2 span {
-  color: var(--palette-moss);
-  font-size: var(--type-nav);
-  letter-spacing: 0;
-}
-
-.privacy-page__section-copy {
-  display: grid;
-  grid-column: 4 / span 7;
-  gap: 1em;
-  max-width: 72ch;
-  font-size: var(--type-body);
-  letter-spacing: -0.022em;
-  line-height: 1.55;
-}
-
-.privacy-page__section-copy p,
-.privacy-page__section-copy ul {
-  margin: 0;
-}
-
-.privacy-page__section-copy ul {
-  display: grid;
-  gap: 0.45em;
-  padding-left: 1.15em;
-}
-
-.privacy-page__section-copy h3 {
-  margin: 1em 0 -0.5em;
-  font-size: inherit;
-  font-weight: 500;
-}
-
-.privacy-page__section-copy h3:first-child {
-  margin-top: 0;
-}
-
-.privacy-page__purposes {
-  gap: var(--space-4);
-}
-
-.privacy-page__purposes > div {
-  display: grid;
-  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  gap: 0.55em;
-  padding-top: var(--space-2);
-}
-
-.privacy-page__purposes h3 {
-  margin: 0;
-}
-
-.privacy-page a:not(.privacy-page__brand) {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
-}
-
-.privacy-page code {
-  font-family: inherit;
-  font-size: 0.86em;
-}
-
-.privacy-page a:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 4px;
-}
-
-.privacy-page__footer {
-  display: grid;
-  border-top: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--layout-gutter);
-  padding: var(--space-4) 0;
-  font-size: var(--type-nav);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .privacy-page a {
-    transition: opacity var(--motion-base) var(--motion-ease);
-  }
-
-  .privacy-page a:hover {
-    opacity: var(--motion-hover-opacity);
-  }
-}
-
-@media (max-width: 1023.98px) {
-  .privacy-page h1,
-  .privacy-page__meta {
-    grid-column: 3 / -1;
-  }
-
-  .privacy-page h2 {
-    grid-column: 1 / span 4;
-  }
-
-  .privacy-page__section-copy {
-    grid-column: 5 / -1;
-  }
-}
-
-@media (max-width: 767.98px) {
-  .privacy-page {
-    padding-top: calc(var(--layout-header-content) + var(--space-5));
-  }
-
-  .privacy-page__hero {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding-bottom: var(--space-6);
-  }
-
-  .privacy-page__brand,
-  .privacy-page__eyebrow,
-  .privacy-page h1,
-  .privacy-page__meta {
-    grid-column: auto;
-  }
-
-  .privacy-page__eyebrow {
-    justify-self: end;
-  }
-
-  .privacy-page h1 {
-    grid-column: 1 / -1;
-    margin: var(--space-6) 0 var(--space-4);
-  }
-
-  .privacy-page__meta {
-    display: grid;
-    grid-column: 1 / -1;
-    gap: var(--space-1);
-  }
-
-  .privacy-page__operator {
-    grid-template-columns: 1fr;
-  }
-
-  .privacy-page section {
-    display: block;
-  }
-
-  .privacy-page h2 {
-    margin-bottom: var(--space-4);
-  }
-
-  .privacy-page__section-copy {
-    max-width: none;
-  }
-
-  .privacy-page__footer {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .privacy-page__footer a:last-child {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .privacy-page a {
-    transition: none;
-  }
-}
-</style>
+<style scoped src="../styles/legal-document.css"></style>

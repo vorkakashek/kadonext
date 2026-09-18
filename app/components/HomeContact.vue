@@ -16,6 +16,26 @@ const taskInputEl = ref<HTMLInputElement | null>(null)
 const projectType = useState('home-contact-project-type', () => '')
 const projectTypeError = useState('home-contact-project-type-error', () => false)
 const formHeight = useState('home-contact-form-height', () => 0)
+let taskFocusObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  const input = taskInputEl.value
+  if (!input) return
+
+  const desktop = window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)')
+  taskFocusObserver = new IntersectionObserver(([entry]) => {
+    if (!entry?.isIntersecting || entry.intersectionRatio < 1 || !desktop.matches) return
+    if (projectType.value.trim() || document.visibilityState !== 'visible') return
+    if (document.documentElement.classList.contains('page-canvas-lock')) return
+    if (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]')) return
+
+    input.focus({ preventScroll: true })
+    taskFocusObserver?.disconnect()
+  }, { threshold: 1, rootMargin: '0px 0px -20% 0px' })
+  taskFocusObserver.observe(input)
+})
+
+onUnmounted(() => taskFocusObserver?.disconnect())
 
 const taskIsRaised = computed(() => projectType.value.length > 0)
 const hasProjectType = computed(() => projectType.value.trim().length > 0)
@@ -47,7 +67,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
           если вам близок такой подход,<br>
           расскажите о проекте.
         </h2>
-        <p>Я читаю каждое обращение сам<br>и отвечаю лично.</p>
+        <p><span class="home-contact__personal">Я </span>читаю каждое обращение сам<br> и отвечаю лично.</p>
       </header>
 
       <div
@@ -69,6 +89,11 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
             : 'home-contact-task-suggestions'"
           @input="projectTypeError = false"
         >
+        <FieldClearButton
+          v-if="taskIsRaised"
+          label="Очистить задачу"
+          @clear="projectType = ''; projectTypeError = false"
+        />
         <div id="home-contact-task-suggestions" class="home-contact__suggestions" aria-label="Подсказки">
           <button
             v-for="type in projectTypes"
@@ -161,7 +186,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
 .home-contact__task label {
   position: absolute;
-  top: clamp(0.8rem, 1.2vw, 1.25rem);
+  top: clamp(0.64rem, 0.96vw, 1rem);
   left: 0;
   color: color-mix(in srgb, var(--palette-ink) 48%, transparent);
   cursor: text;
@@ -184,7 +209,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
 .home-contact__task input {
   width: 100%;
-  min-height: clamp(4.25rem, 6vw, 6.8rem);
+  min-height: clamp(3.4rem, 4.8vw, 5.44rem);
   border: 0;
   border-bottom: 1.5px solid var(--palette-ink);
   border-radius: 0;
@@ -304,8 +329,19 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
     font-size: clamp(2rem, 9.5vw, 3.25rem);
   }
 
+  .home-contact__intro p {
+    width: 100%;
+    font-size: calc(var(--type-case-body-large) * 0.9);
+  }
+
+  .home-contact__personal,
+  .home-contact__intro p br {
+    display: none;
+  }
+
   .home-contact__task {
     margin-top: clamp(4rem, 20vw, 6rem);
+    --field-clear-top: calc(clamp(0.64rem, 0.96vw, 1rem) - 1.8rem + clamp(1.45rem, 7.2vw, 2.3rem) * 0.5 / 2);
   }
 
   .home-contact__task label,

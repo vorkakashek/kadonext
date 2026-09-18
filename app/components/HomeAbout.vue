@@ -9,11 +9,11 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 defineProps<{ surfaceReady?: boolean }>()
 
 const socialLinks = [
-  { label: 'Telegram', content: 'icon', icon: IconBrandTelegram },
-  { label: 'Behance', content: 'icon', icon: IconBrandBehance },
-  { label: 'LinkedIn', content: 'icon', icon: IconBrandLinkedin },
-  { label: 'Instagram', content: 'text', text: 'Instagram*' },
-  { label: 'Threads', content: 'text', text: 'Threads*' },
+  { label: 'Telegram', href: 'https://t.me/kado_next', content: 'icon', icon: IconBrandTelegram },
+  { label: 'Behance', href: 'https://www.behance.net/bersenev', content: 'icon', icon: IconBrandBehance },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/kadonext/', content: 'icon', icon: IconBrandLinkedin },
+  { label: 'Instagram', href: 'https://www.instagram.com/kado_next/', content: 'text', text: 'Instagram*' },
+  { label: 'Threads', href: 'https://www.threads.net/@kado.next', content: 'text', text: 'Threads*' },
 ] as const
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -303,7 +303,9 @@ onUnmounted(() => {
           <a
             v-for="social in socialLinks"
             :key="social.label"
-            href="#"
+            :href="social.href"
+            target="_blank"
+            rel="noopener noreferrer"
             class="home-about__social-link"
             :class="{ 'home-about__social-link--text': social.content === 'text' }"
             :aria-label="social.label"
@@ -312,7 +314,6 @@ onUnmounted(() => {
             @mouseleave="onNavWaveLeave"
             @focus="onNavWaveEnter"
             @blur="onNavWaveLeave"
-            @click.prevent
           >
             <span
               v-if="social.content === 'text'"
@@ -362,7 +363,7 @@ onUnmounted(() => {
   left: 0;
   height: clamp(35rem, 39vw, 46rem);
   border-radius: var(--flow-surface-radius, 24px);
-  background: var(--palette-ink);
+  background: var(--hero-scene-forest);
 }
 
 .home-about__surface.is-surface-ready {
@@ -370,7 +371,7 @@ onUnmounted(() => {
 }
 
 .home-about__surface[data-flow-surface-proxy-active] {
-  background: var(--palette-ink);
+  background: var(--hero-scene-forest);
 }
 
 .home-about__surface[data-flow-surface-proxy-active] + .home-about__title {
@@ -590,7 +591,7 @@ onUnmounted(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .home-about__surface.is-surface-ready {
-    background: var(--palette-ink);
+    background: var(--hero-scene-forest);
   }
 
   .home-about__title {

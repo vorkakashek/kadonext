@@ -3,6 +3,7 @@ import {
   setAppliedScrollDriverConnected,
 } from '~/utils/appliedScrollFrame'
 import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
+import { createFormSwipeGuard } from '~/utils/formSwipeGuard'
 import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
 import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 import {
@@ -73,6 +74,26 @@ export default defineNuxtPlugin((nuxtApp) => {
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   let ownsTouchScroll = createTouchScrollOwnership()
   let nativeTouchActive = false
+  const formSwipeGuard = createFormSwipeGuard<HTMLElement>()
+
+  function textControl(path: EventTarget[]) {
+    for (const node of path) {
+      if (!(node instanceof HTMLElement)) continue
+      const control = node instanceof HTMLLabelElement ? node.control : node
+      if (control?.matches('textarea, input:not([type]), input[type="text"], input[type="email"], input[type="tel"], input[type="url"], input[type="search"], input[type="password"], input[type="number"]')) {
+        return control
+      }
+    }
+    return null
+  }
+
+  function onFormClick(event: MouseEvent) {
+    // Keyboard and programmatic activation must always remain available.
+    if (event.detail === 0) return
+    if (!formSwipeGuard.suppressClick(textControl(event.composedPath()), event.timeStamp)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
   let cancelSectionScroll: (() => void) | null = null
   let touchRail: HTMLElement | null = null
   const railTouchAxis = createCaseRailTouchAxis()
@@ -90,6 +111,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   function onTouchCancel() {
+    formSwipeGuard.reset()
     cancelRailTouch()
     ownsTouchScroll = createTouchScrollOwnership()
     nativeTouchActive = false
@@ -123,6 +145,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (!lenis || !controlledTouchEnabled() || !(data.event instanceof TouchEvent)) return true
 
     const event = data.event
+    const formControl = textControl(event.composedPath())
+    if (event.type === 'touchstart') {
+      const touch = event.touches[0]
+      formSwipeGuard.start(event.touches.length === 1 ? formControl : null, touch?.clientX ?? 0, touch?.clientY ?? 0)
+    }
     if (event.type === 'touchstart' && event.touches.length === 1) {
       touchRail = (event.composedPath().find(node =>
         node instanceof HTMLElement && node.hasAttribute('data-lenis-horizontal-rail'),
@@ -133,14 +160,13 @@ export default defineNuxtPlugin((nuxtApp) => {
     // back into Lenis halfway through the same touch sequence.
     const horizontal = Math.abs(data.deltaX) >= Math.abs(data.deltaY)
     const selection = event.type === 'touchstart' ? window.getSelection() : null
-    // Leave form gestures native from touchstart through release. Cancelling
-    // their touchmove can let the browser focus a field after a scroll gesture.
-    // Labels need the same treatment because their default tap focuses a control.
+    // Text fields use the page's existing touch driver. Other form controls
+    // retain native gestures (select menus, sliders, checkboxes, etc.).
     const nativeFormGesture = event.type === 'touchstart' && event.composedPath().some(node =>
       node instanceof HTMLElement && (
-        node.matches('input, textarea, select')
+        (node.matches('input, textarea, select') && node !== formControl)
         || node.isContentEditable
-        || (node instanceof HTMLLabelElement && node.control !== null)
+        || (node instanceof HTMLLabelElement && node.control !== null && node.control !== formControl)
       ),
     )
     const bypass = nativeFormGesture || Boolean(selection && !selection.isCollapsed)
@@ -154,6 +180,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       ),
     )
     if (!lenis.isStopped && !lenis.isLocked && !ownsTouchScroll(event, bypass)) {
+      formSwipeGuard.reset()
       publishRailTouch('touchcancel', 0, event.timeStamp)
       touchRail = null
       // Once scrolling is non-cancelable, JS must stop writing against the
@@ -170,6 +197,11 @@ export default defineNuxtPlugin((nuxtApp) => {
       return false
     }
     nativeTouchActive = false
+    if (event.type === 'touchmove' && event.defaultPrevented) {
+      const touch = event.touches[0]
+      if (touch) formSwipeGuard.move(touch.clientX, touch.clientY)
+    }
+    if (event.type === 'touchend') formSwipeGuard.end(event.timeStamp)
     const railGesture = touchRail !== null
     if (railGesture) {
       const delta = railTouchAxis(event.type, data.deltaX, data.deltaY)
@@ -286,6 +318,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   function destroy() {
+    formSwipeGuard.reset()
     cancelSectionScroll?.()
     cancelRailTouch()
     createGeneration += 1
@@ -464,6 +497,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     narrowQuery.addEventListener('change', syncInputMode)
     document.addEventListener('visibilitychange', syncRunState)
     window.addEventListener('touchcancel', onTouchCancel, { passive: true })
+    window.addEventListener('click', onFormClick, { capture: true })
   })
 
   if (import.meta.hot) {
@@ -476,6 +510,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       narrowQuery.removeEventListener('change', syncInputMode)
       document.removeEventListener('visibilitychange', syncRunState)
       window.removeEventListener('touchcancel', onTouchCancel)
+      window.removeEventListener('click', onFormClick, true)
       destroy()
     })
   }

@@ -13,6 +13,14 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
 
+  runtimeConfig: {
+    public: {
+      // Static hosting proxies this path to the separate SMTP gateway.
+      // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
+      contactEndpoint: '/api/contact',
+    },
+  },
+
   modules: ['@nuxt/fonts'],
 
   css: ['~/assets/css/main.css', 'lenis/dist/lenis.css'],
@@ -103,6 +111,7 @@ export default defineNuxtConfig({
     head: {
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        { name: 'robots', content: 'noindex, nofollow' },
       ],
       // Before first paint: warm revisit shows full black macron, not empty gray track.
       script: [
@@ -135,6 +144,7 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/api/**': { prerender: false },
     '/_nuxt/**': {
       headers: { 'cache-control': 'public, max-age=31536000, immutable' },
     },

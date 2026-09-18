@@ -1,0 +1,531 @@
+.privacy-page {
+  min-height: var(--app-screen);
+  padding: calc(var(--layout-header-content) + var(--space-6)) var(--layout-margin)
+    var(--space-4);
+  background: var(--palette-sand);
+  color: var(--palette-ink);
+}
+
+.privacy-page__hero,
+.privacy-page__body,
+.privacy-page__footer {
+  width: min(var(--layout-content-max), 100%);
+  margin-inline: auto;
+}
+
+.privacy-page__hero {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--layout-gutter);
+  padding-bottom: var(--space-7);
+}
+
+.privacy-page__brand,
+.privacy-page__eyebrow {
+  margin: 0;
+  font-size: var(--type-nav);
+  line-height: 1;
+}
+
+.privacy-page__brand {
+  width: fit-content;
+  grid-column: 1 / span 2;
+  font-weight: 500;
+}
+
+.privacy-page__eyebrow {
+  grid-column: 3 / span 2;
+  color: var(--palette-moss);
+}
+
+.privacy-page h1 {
+  grid-column: 4 / -1;
+  margin: var(--space-7) 0 var(--space-5);
+  font-size: var(--type-display);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.privacy-page__meta {
+  display: flex;
+  grid-column: 4 / -1;
+  gap: var(--space-4);
+  color: var(--palette-moss);
+  font-size: var(--type-nav);
+}
+
+.privacy-page__meta p,
+.privacy-page__operator p {
+  margin: 0;
+}
+
+.privacy-page__body {
+  border-top: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.privacy-page__operator {
+  display: grid;
+  margin: var(--space-4) 0 var(--space-7);
+  border: 1px solid var(--palette-moss);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2) var(--layout-gutter);
+  padding: var(--space-3);
+  color: var(--palette-moss);
+  font-size: var(--type-nav);
+}
+
+.privacy-page__operator strong {
+  grid-column: 1 / -1;
+  font-weight: 500;
+}
+
+.privacy-page__body > section {
+  display: grid;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--layout-gutter);
+  padding: var(--space-5) 0 var(--space-6);
+}
+
+.privacy-page__body > section > h2 {
+  display: grid;
+  grid-column: 1 / span 3;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--type-lead);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.privacy-page__body > section > h2 > span {
+  color: var(--palette-moss);
+  font-size: var(--type-nav);
+  letter-spacing: 0;
+}
+
+.privacy-page__section-copy {
+  grid-column: 4 / span 7;
+  min-width: 0;
+  max-width: 72ch;
+  font-size: var(--type-body);
+  letter-spacing: -0.022em;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.privacy-page__section-copy :where(p, ul, ol, blockquote, pre, figure, dl, table, details) {
+  margin: 0;
+}
+
+.privacy-page__section-copy > * + * {
+  margin-block-start: 1em;
+}
+
+.privacy-page__section-copy :where(h2, h3, h4, h5, h6) {
+  margin: 1.5em 0 0.55em;
+  font-size: 1em;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.privacy-page__section-copy h2 {
+  font-size: 1.2em;
+}
+
+.privacy-page__section-copy h3 {
+  font-size: 1.1em;
+}
+
+.privacy-page__section-copy :where(h2, h3, h4, h5, h6):first-child {
+  margin-block-start: 0;
+}
+
+.privacy-page__section-copy :where(h2, h3, h4, h5, h6) + * {
+  margin-block-start: 0;
+}
+
+/* Tailwind Preflight removes native markers. Restore them explicitly. */
+.privacy-page__section-copy :where(ul, ol) {
+  display: block;
+  padding-inline-start: 1.6em;
+  list-style-position: outside;
+}
+
+.privacy-page__section-copy ul {
+  list-style-type: disc;
+}
+
+.privacy-page__section-copy ul ul {
+  list-style-type: circle;
+}
+
+.privacy-page__section-copy ul ul ul {
+  list-style-type: square;
+}
+
+.privacy-page__section-copy ol {
+  list-style-type: decimal;
+}
+
+.privacy-page__section-copy ol[type="a"] {
+  list-style-type: lower-alpha;
+}
+
+.privacy-page__section-copy ol[type="A"] {
+  list-style-type: upper-alpha;
+}
+
+.privacy-page__section-copy ol[type="i"] {
+  list-style-type: lower-roman;
+}
+
+.privacy-page__section-copy ol[type="I"] {
+  list-style-type: upper-roman;
+}
+
+.privacy-page__section-copy ol[type="1"] {
+  list-style-type: decimal;
+}
+
+.privacy-page__section-copy li {
+  display: list-item;
+  padding-inline-start: 0.2em;
+}
+
+.privacy-page__section-copy li + li {
+  margin-block-start: 0.45em;
+}
+
+.privacy-page__section-copy li::marker {
+  color: var(--palette-forest);
+  font-variant-numeric: tabular-nums;
+}
+
+.privacy-page__section-copy li > :where(ul, ol, p) + :where(ul, ol, p),
+.privacy-page__section-copy li > :where(ul, ol) {
+  margin-block-start: 0.55em;
+}
+
+.privacy-page__section-copy .legal-checklist {
+  padding-inline-start: 0;
+  list-style-type: none;
+}
+
+.privacy-page__section-copy .legal-checklist > li {
+  padding-inline-start: 0;
+}
+
+.privacy-page__section-copy .legal-checklist input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  margin-inline-end: 0.5em;
+  accent-color: var(--palette-forest);
+}
+
+.privacy-page__section-copy :where(strong, b) {
+  font-weight: 600;
+}
+
+.privacy-page__section-copy :where(em, i, cite) {
+  font-style: italic;
+}
+
+.privacy-page__section-copy :where(s, del) {
+  text-decoration: line-through;
+}
+
+.privacy-page__section-copy :where(u, ins) {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.privacy-page__section-copy mark {
+  padding: 0.08em 0.2em;
+  background: var(--palette-stone);
+  color: var(--palette-ink);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.privacy-page__section-copy blockquote {
+  border-inline-start: 2px solid var(--palette-moss);
+  padding: 0.8em 1.1em;
+  background: var(--palette-milk);
+  color: var(--palette-ink);
+}
+
+.privacy-page__section-copy blockquote > * + * {
+  margin-block-start: 0.75em;
+}
+
+.privacy-page__section-copy blockquote :where(cite, footer) {
+  display: block;
+  margin-block-start: 0.75em;
+  color: var(--palette-forest);
+  font-size: 0.88em;
+}
+
+.privacy-page__section-copy .legal-note {
+  border: 1px solid color-mix(in srgb, var(--palette-moss) 35%, transparent);
+  padding: 1em 1.2em;
+  background: var(--palette-milk);
+}
+
+.privacy-page__section-copy .legal-note > * + * {
+  margin-block-start: 0.75em;
+}
+
+.privacy-page__section-copy dt {
+  font-weight: 600;
+}
+
+.privacy-page__section-copy dd {
+  margin: 0.3em 0 0 1.2em;
+}
+
+.privacy-page__section-copy dd + dt {
+  margin-block-start: 1em;
+}
+
+.privacy-page__section-copy .legal-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.privacy-page__section-copy table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+.privacy-page__section-copy caption {
+  padding-block-end: 0.65em;
+  text-align: start;
+  font-weight: 500;
+}
+
+.privacy-page__section-copy :where(th, td) {
+  border: 1px solid var(--palette-stone);
+  padding: 0.7em 0.85em;
+  text-align: start;
+  vertical-align: top;
+}
+
+.privacy-page__section-copy th {
+  background: var(--palette-milk);
+  font-weight: 600;
+}
+
+.privacy-page__section-copy :where(th, td) > * + * {
+  margin-block-start: 0.55em;
+}
+
+.privacy-page__section-copy hr {
+  height: 0;
+  margin-block: 1.5em;
+  border: 0;
+  border-block-start: 1px solid var(--palette-stone);
+}
+
+.privacy-page__section-copy :where(img, video, svg) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.privacy-page__section-copy figcaption {
+  margin-block-start: 0.6em;
+  color: var(--palette-ash);
+  font-size: 0.88em;
+}
+
+.privacy-page__section-copy :where(code, kbd, samp, pre) {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.86em;
+  letter-spacing: 0;
+}
+
+.privacy-page__section-copy :where(code, kbd, samp) {
+  padding: 0.1em 0.25em;
+  background: var(--palette-milk);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.privacy-page__section-copy pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1em;
+  background: var(--palette-milk);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.privacy-page__section-copy pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.privacy-page__section-copy small {
+  font-size: 0.85em;
+}
+
+.privacy-page__section-copy :where(sup, sub) {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.privacy-page__section-copy abbr[title] {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.18em;
+}
+
+.privacy-page__section-copy details {
+  border-block: 1px solid var(--palette-stone);
+  padding-block: 0.75em;
+}
+
+.privacy-page__section-copy summary {
+  display: list-item;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.privacy-page__section-copy details[open] > summary {
+  margin-block-end: 0.75em;
+}
+
+.privacy-page__purposes {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.privacy-page__purposes > div {
+  display: grid;
+  margin-block-start: 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  gap: 0.55em;
+  padding-top: var(--space-2);
+}
+
+.privacy-page__purposes h3 {
+  margin: 0;
+}
+
+.privacy-page a:not(.privacy-page__brand) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.privacy-page :where(a, summary):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+.privacy-page__footer {
+  display: grid;
+  border-top: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--layout-gutter);
+  padding: var(--space-4) 0;
+  font-size: var(--type-nav);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .privacy-page a {
+    transition: opacity var(--motion-base) var(--motion-ease);
+  }
+
+  .privacy-page a:hover {
+    opacity: var(--motion-hover-opacity);
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .privacy-page h1,
+  .privacy-page__meta {
+    grid-column: 3 / -1;
+  }
+
+  .privacy-page__body > section > h2 {
+    grid-column: 1 / span 4;
+  }
+
+  .privacy-page__section-copy {
+    grid-column: 5 / -1;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .privacy-page {
+    padding-top: calc(var(--layout-header-content) + var(--space-5));
+  }
+
+  .privacy-page__hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-bottom: var(--space-6);
+  }
+
+  .privacy-page__brand,
+  .privacy-page__eyebrow,
+  .privacy-page h1,
+  .privacy-page__meta {
+    grid-column: auto;
+  }
+
+  .privacy-page__eyebrow {
+    justify-self: end;
+  }
+
+  .privacy-page h1 {
+    grid-column: 1 / -1;
+    margin: var(--space-6) 0 var(--space-4);
+  }
+
+  .privacy-page__meta {
+    display: grid;
+    grid-column: 1 / -1;
+    gap: var(--space-1);
+  }
+
+  .privacy-page__operator {
+    grid-template-columns: 1fr;
+  }
+
+  .privacy-page__body > section {
+    display: block;
+  }
+
+  .privacy-page__body > section > h2 {
+    margin-bottom: var(--space-4);
+  }
+
+  .privacy-page__section-copy {
+    max-width: none;
+  }
+
+  .privacy-page__footer {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .privacy-page__footer a:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacy-page a {
+    transition: none;
+  }
+}
