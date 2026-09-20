@@ -1,13 +1,8 @@
 <script setup lang="ts">
 defineProps<{ surfaceReady?: boolean }>()
 
-const projectTypes = [
-  'сайт под ключ',
-  'дизайн и арт-дирекция',
-  'разработка и motion',
-  'развитие существующего сайта',
-  'пока не знаю',
-] as const
+const { locale, t, tm } = useI18n()
+const projectTypes = computed(() => tm('home.contact.projectTypes') as string[])
 
 const rootEl = ref<HTMLElement | null>(null)
 const surfaceEl = ref<HTMLElement | null>(null)
@@ -16,6 +11,8 @@ const taskInputEl = ref<HTMLInputElement | null>(null)
 const projectType = useState('home-contact-project-type', () => '')
 const projectTypeError = useState('home-contact-project-type-error', () => false)
 const formHeight = useState('home-contact-form-height', () => 0)
+const submitted = useState('home-contact-submitted', () => false)
+const successCollapsing = useState('home-contact-success-collapsing', () => submitted.value)
 let taskFocusObserver: IntersectionObserver | null = null
 
 onMounted(() => {
@@ -44,7 +41,7 @@ function appendProjectType(type: string) {
   const current = projectType.value.trimEnd()
   if (!current) {
     projectType.value = type
-  } else if (!current.toLocaleLowerCase('ru').includes(type.toLocaleLowerCase('ru'))) {
+  } else if (!current.toLocaleLowerCase(locale.value).includes(type.toLocaleLowerCase(locale.value))) {
     projectType.value = `${current}${/[,:;.!?—-]$/.test(current) ? ' ' : ', '}${type}`
   }
   projectTypeError.value = false
@@ -59,60 +56,54 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
     id="contact"
     ref="rootEl"
     class="home-contact pointer-events-auto relative z-10 w-full"
-    aria-label="Обсудить проект"
+    :aria-label="t('home.contact.label')"
   >
-    <div class="home-contact__lead">
-      <header class="home-contact__intro">
-        <h2>
-          если вам близок такой подход,<br>
-          расскажите о проекте.
-        </h2>
-        <p><span class="home-contact__personal">Я </span>читаю каждое обращение сам<br> и отвечаю лично.</p>
-      </header>
+    <div v-if="!successCollapsing" class="home-contact__lead" :class="{ 'is-submitted': submitted }">
+        <header class="home-contact__intro">
+          <h2 v-html="t('home.contact.title')" />
+          <p><span class="home-contact__personal">{{ t('home.contact.personalPrefix') }}</span><span v-html="t('home.contact.personal')" /></p>
+        </header>
 
-      <div
-        class="home-contact__task"
-        :class="{ 'has-value': taskIsRaised, 'has-error': projectTypeError }"
-      >
-        <label for="home-contact-task">Что нужно сделать?</label>
-        <input
-          id="home-contact-task"
-          ref="taskInputEl"
-          v-model="projectType"
-          name="project-type"
-          type="text"
-          placeholder="Что нужно сделать?"
-          autocomplete="off"
-          :aria-invalid="projectTypeError"
-          :aria-describedby="projectTypeError
-            ? 'home-contact-task-suggestions home-contact-task-error'
-            : 'home-contact-task-suggestions'"
-          @input="projectTypeError = false"
-        >
-        <FieldClearButton
-          v-if="taskIsRaised"
-          label="Очистить задачу"
-          @clear="projectType = ''; projectTypeError = false"
-        />
-        <div id="home-contact-task-suggestions" class="home-contact__suggestions" aria-label="Подсказки">
-          <button
-            v-for="type in projectTypes"
-            :key="type"
-            type="button"
-            @click="appendProjectType(type)"
+        <div class="home-contact__task" :class="{ 'has-value': taskIsRaised, 'has-error': projectTypeError }">
+          <label for="home-contact-task">{{ t('home.contact.taskLabel') }}</label>
+          <input
+            id="home-contact-task"
+            ref="taskInputEl"
+            v-model="projectType"
+            name="project-type"
+            type="text"
+            :placeholder="t('home.contact.taskLabel')"
+            autocomplete="off"
+            :aria-invalid="projectTypeError"
+            :aria-describedby="projectTypeError
+              ? 'home-contact-task-suggestions home-contact-task-error'
+              : 'home-contact-task-suggestions'"
+            @input="projectTypeError = false"
           >
-            {{ type }}
-          </button>
+          <FieldClearButton
+            v-if="taskIsRaised"
+            :label="t('home.contact.clearTask')"
+            @clear="projectType = ''; projectTypeError = false"
+          />
+          <div id="home-contact-task-suggestions" class="home-contact__suggestions" :aria-label="t('home.contact.suggestionsLabel')">
+            <button
+              v-for="type in projectTypes"
+              :key="type"
+              type="button"
+              @click="appendProjectType(type)"
+            >
+              {{ type }}
+            </button>
+          </div>
+          <p
+            v-if="projectTypeError"
+            id="home-contact-task-error"
+            class="home-contact__task-error"
+            aria-live="polite"
+          >
+            {{ t('home.contact.taskError') }}
+          </p>
         </div>
-        <p
-          v-if="projectTypeError"
-          id="home-contact-task-error"
-          class="home-contact__task-error"
-          aria-live="polite"
-        >
-          Напишите задачу или выберите подсказку.
-        </p>
-      </div>
     </div>
 
     <div
@@ -154,6 +145,13 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   margin-inline: auto;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   column-gap: var(--layout-gutter);
+  transition: opacity 320ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-contact__lead.is-submitted {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.5rem);
 }
 
 .home-contact__intro {
@@ -181,6 +179,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
 .home-contact__task {
   position: relative;
+  max-height: 12rem;
   margin-top: clamp(4rem, 7vw, 8rem);
 }
 
@@ -340,6 +339,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   }
 
   .home-contact__task {
+    max-height: 14rem;
     margin-top: clamp(4rem, 20vw, 6rem);
     --field-clear-top: calc(clamp(0.64rem, 0.96vw, 1rem) - 1.8rem + clamp(1.45rem, 7.2vw, 2.3rem) * 0.5 / 2);
   }
@@ -364,19 +364,21 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
   .home-contact__fields {
     width: auto;
-    min-height: 69rem;
+    min-height: var(--contact-form-height, 69rem);
     margin-top: 1.5rem;
   }
 }
 
 @media (max-width: 389.98px) {
   .home-contact__fields {
-    min-height: 74rem;
+    min-height: var(--contact-form-height, 74rem);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .home-contact__reveal,
+  .home-contact__lead,
+  .home-contact__task,
   .home-contact__task label,
   .home-contact__suggestions button {
     transition: none;

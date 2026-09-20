@@ -13,7 +13,15 @@ import {
   type AppliedScrollFrame,
 } from '~/utils/appliedScrollFrame'
 
-const { t } = useI18n()
+const { locale, tm } = useI18n()
+const sloganLines = computed(() => {
+  locale.value
+  return tm('home.hero.sloganLines') as string[]
+})
+
+// Clear the word mask's descender padding before the first reveal frame.
+// 115% leaves the tall top of the Cyrillic «ф» barely visible on desktop.
+const HERO_TITLE_ENTER_Y_PERCENT = 125
 
 /** Keep WebGL alive until morph opacity is nearly gone (both platforms). */
 const SCENE_LIVE_OPACITY = 0.08
@@ -950,8 +958,8 @@ onMounted(() => {
       const titleChars = titleGroups.flat()
 
       if (mediaEl.value) gsap.set(mediaEl.value, { autoAlpha: 0 })
-      if (titleChars.length) gsap.set(titleChars, { yPercent: 115 })
-      else if (titleEl.value) gsap.set(titleEl.value, { yPercent: 115 })
+      if (titleChars.length) gsap.set(titleChars, { yPercent: HERO_TITLE_ENTER_Y_PERCENT })
+      else if (titleEl.value) gsap.set(titleEl.value, { yPercent: HERO_TITLE_ENTER_Y_PERCENT })
       if (descEls.value.length) gsap.set(descEls.value, { yPercent: 115 })
 
       // Drop CSS hide only after GSAP owns opacity — no one-frame flash.
@@ -1175,7 +1183,7 @@ onUnmounted(() => {
                 transform: `translate3d(0, ${sloganY}px, 0)`,
               }"
             >
-              {{ t('home.hero.slogan') }}
+              <span v-for="line in sloganLines" :key="line">{{ line }}</span>
             </p>
           </div>
         </div>
@@ -1249,6 +1257,10 @@ onUnmounted(() => {
   line-height: 1.2;
   text-align: center;
   will-change: transform;
+}
+
+.hero-slogan span {
+  display: block;
 }
 
 .hero-swarm-cover--entry {

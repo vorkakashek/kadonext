@@ -2,6 +2,8 @@ import type { Ref } from 'vue'
 import { isThumbNav } from '~/utils/mobileViewport'
 import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 
+export const FOOTER_PHOTO_CANCEL_EVENT = 'kado:footer-photo-cancel'
+
 /** Reveal the photo by resisting scroll beyond the footer, then scroll back. */
 export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo: Ref<HTMLElement | null>) {
   const nuxtApp = useNuxtApp()
@@ -375,6 +377,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     window.addEventListener('touchstart', onOutsideTouchStart, { capture: true, passive: true })
     window.addEventListener('touchend', onAnyTouchEnd, { passive: true })
     window.addEventListener('touchcancel', onAnyTouchEnd, { passive: true })
+    window.addEventListener(FOOTER_PHOTO_CANCEL_EVENT, reset)
     touchTarget = footer.value
     touchTarget?.addEventListener('touchstart', onTouchStart, { capture: true, passive: true })
     touchTarget?.addEventListener('touchmove', onTouchMove, { capture: true, passive: false })
@@ -396,6 +399,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     window.removeEventListener('touchstart', onOutsideTouchStart, true)
     window.removeEventListener('touchend', onAnyTouchEnd)
     window.removeEventListener('touchcancel', onAnyTouchEnd)
+    window.removeEventListener(FOOTER_PHOTO_CANCEL_EVENT, reset)
     touchTarget?.removeEventListener('touchstart', onTouchStart, true)
     touchTarget?.removeEventListener('touchmove', onTouchMove, true)
     touchTarget?.removeEventListener('touchend', onTouchEnd, true)

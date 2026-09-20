@@ -19,7 +19,8 @@ import {
 import { CHIP_FIT_EASE, CHIP_FIT_S } from '~/utils/chipFit'
 import { setChipBgOrigin } from '~/utils/chipHoverBg'
 
-const { t } = useI18n()
+const { locale, t } = useI18n()
+const localePath = useLocalePath()
 
 const {
   open,
@@ -307,7 +308,7 @@ function hideCanvasSurface() {
 }
 
 function frameIsCurrent(frame: SiteNavFrame) {
-  const routePath = route.fullPath.replace(/\/+$/, '') || '/'
+  const routePath = stripLocalePrefix(route.fullPath).replace(/\/+$/, '') || '/'
   const framePath = frame.to.replace(/\/+$/, '') || '/'
   return routePath === framePath
 }
@@ -965,8 +966,7 @@ function isCloseRun(gen: number) {
 }
 
 function isHomeRoute() {
-  const p = route.path
-  return p === '/' || p === ''
+  return isLocalizedHome(route.path)
 }
 
 function finishMenuCloseQuiet() {
@@ -1096,7 +1096,7 @@ async function goToFrame(frame: SiteNavFrame) {
 
   // Home anchors should travel through the page after restoring the menu's
   // saved scroll position, rather than jump to the section under the iris.
-  if (route.path === '/' && frame.id !== 'home' && isHomeAnchorTarget(frame.id)) {
+  if (isLocalizedHome(route.path) && frame.id !== 'home' && isHomeAnchorTarget(frame.id)) {
     navFromCanvas = true
     navHopActive.value = true
     try {
@@ -1105,7 +1105,7 @@ async function goToFrame(frame: SiteNavFrame) {
       if (open.value || surfaceOn.value) return
       lastFocus?.focus({ preventScroll: true })
       lastFocus = null
-      await router.push(frame.to)
+      await router.push(localePath(frame.to))
     } finally {
       navFromCanvas = false
       navHopActive.value = false
@@ -1130,7 +1130,7 @@ async function goToFrame(frame: SiteNavFrame) {
       await unlockSession({ restoreScroll: false })
       hideCanvasSurface()
       open.value = false
-      await router.push(frame.to)
+      await router.push(localePath(frame.to))
       await waitForRoutePaint()
       return
     }
@@ -1144,7 +1144,7 @@ async function goToFrame(frame: SiteNavFrame) {
       if (gen !== motionGen) return
       open.value = false
 
-      await router.push(frame.to)
+      await router.push(localePath(frame.to))
       await waitForHomeHeroShell()
       if (gen !== motionGen) return
       await waitForHeroSwarm()
@@ -1177,7 +1177,7 @@ async function goToFrame(frame: SiteNavFrame) {
       const { start } = await snapIrisCover()
       if (gen !== motionGen) return
 
-      await router.push(frame.to)
+      await router.push(localePath(frame.to))
       await waitForRoutePaint()
       if (gen !== motionGen) return
 
@@ -1246,9 +1246,21 @@ watch(open, async (isOpen, wasOpen) => {
 watch(
   () => route.fullPath,
   () => {
-    if (open.value && !navFromCanvas && !navHopActive.value) closeCanvas()
+    if (
+      open.value
+      && !navFromCanvas
+      && !navHopActive.value
+      && !document.documentElement.classList.contains('language-switch-lock')
+    ) closeCanvas()
   },
 )
+
+watch(locale, async () => {
+  await nextTick()
+  await waitFrames(1)
+  if (open.value || surfaceOn.value) swapCloseWord('back', true)
+  syncNavChrome()
+}, { flush: 'post' })
 
 onMounted(() => {
   reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -1348,14 +1360,10 @@ onUnmounted(() => {
           </div>
         </div>
         <div class="page-canvas__chrome-foot">
-          <button
-            type="button"
+          <LanguageSwitch
             class="page-canvas__lang"
             :tabindex="open ? 0 : -1"
-            aria-label="Switch language"
-          >
-            en
-          </button>
+          />
         </div>
       </div>
 
@@ -1563,7 +1571,7 @@ onUnmounted(() => {
 }
 
 .page-canvas__mail,
-.page-canvas__lang {
+:deep(.page-canvas__lang) {
   pointer-events: auto;
   font: inherit;
   font-size: var(--type-nav);
@@ -1610,15 +1618,9 @@ onUnmounted(() => {
   fill: none;
 }
 
-.page-canvas__lang {
+:deep(.page-canvas__lang) {
   padding: 0.55rem 1.1rem;
   border-radius: 9999px;
-  background: transparent;
-  transition: background 0.22s ease, backdrop-filter 0.22s ease;
-}
-
-.page-canvas__lang:hover,
-.page-canvas__lang:focus-visible {
   background: color-mix(in srgb, var(--palette-sand) 70%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1638,7 +1640,7 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-.page-canvas--thumb .page-canvas__lang {
+.page-canvas--thumb :deep(.page-canvas__lang) {
   box-sizing: border-box;
   height: var(--pc-close-h);
   display: inline-flex;
@@ -1884,7 +1886,7 @@ onUnmounted(() => {
   object-position: center;
   pointer-events: none;
   opacity: 0;
-  transform: scale(1);
+  transform: none;
   transform-origin: 50% 50%;
   filter: blur(0);
   z-index: 0;
@@ -1893,15 +1895,20 @@ onUnmounted(() => {
 /* Previous shot stays put underneath — no exit motion. */
 .pc-preview__shot.is-shown:not(.is-visible) {
   opacity: 1;
-  transform: scale(1);
+  transform: none;
   filter: blur(0);
   z-index: 0;
 }
 
-/* New shot: large scale + blur + opacity 0 → cover the parked one. */
+/* New shot: large scale + blur + opacity 0 → cover the parked one.
+   Keep only the backwards fill: after the entrance, release the transform so
+   the browser does not retain a cropped raster layer inside the sheet. */
 .pc-preview__shot.is-visible {
   z-index: 1;
-  animation: pc-shot-in 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+  animation: pc-shot-in 1s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 @keyframes pc-shot-in {

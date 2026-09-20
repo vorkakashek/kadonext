@@ -1,0 +1,801 @@
+{
+  "seo": {
+    "defaultTitle": "KADO — bespoke website design and development",
+    "defaultDescription": "KADO is an author-led web design and development studio. I create distinctive websites for businesses, from structure and visual concept to development and launch.",
+    "caseTitle": "{title} — KADO",
+    "imageAlt": "KADO — an author-led website design and development studio",
+    "caseImageAlt": "{title} — a website design case study in the KADO portfolio",
+    "home": {
+      "title": "KADO — bespoke website design and development",
+      "description": "KADO is an author-led studio creating distinctive business websites, from structure and visual concept to animation and launch. Explore the work and tell me about your project."
+    },
+    "projects": {
+      "title": "Projects — website design and development portfolio | KADO",
+      "description": "KADO projects: Audience, Keys Store, Baltika Brew and SCHMIDT. Website design, development and animation case studies covering the challenge, visual direction and working interface."
+    },
+    "privacy": {
+      "title": "Personal data processing policy — KADO",
+      "description": "How KADO processes personal data from kadonext.com visitors: enquiry data, purposes, storage, cookies and visitor rights."
+    },
+    "consent": {
+      "title": "Consent to personal data processing — KADO",
+      "description": "Terms of consent to personal data processing when submitting an enquiry through the KADO website: data involved, purposes and withdrawal procedure."
+    },
+    "cases": {
+      "audience": {
+        "title": "Audience — website design and development | KADO",
+        "description": "Audience case study: structure, UX/UI design and development. How identity, menus, content and service journeys became one digital system."
+      },
+      "keys-store": {
+        "title": "Keys Store — digital marketplace UX/UI design | KADO",
+        "description": "Keys Store case study: logo, UX/UI and design system for a digital goods marketplace, including game and subscription catalogues, product pages, cart and checkout."
+      },
+      "baltika": {
+        "title": "Baltika Brew — web design, 3D and animation | KADO",
+        "description": "Baltika Brew case study: web design, 3D graphics and animation in collaboration with BOSON GROUP. How the interface and a dimensional packaging model became one visual system."
+      },
+      "schmidt": {
+        "title": "SCHMIDT — brand website design and development | KADO",
+        "description": "SCHMIDT case study in collaboration with PAIR GROUP: art direction, web design, front-end development and interactive animation. A brand story told through a horizontal website composition."
+      }
+    }
+  },
+  "common": {
+    "home": "Home",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "menu": "menu",
+    "close": "close",
+    "back": "back",
+    "backHome": "Back to home",
+    "scrollTop": "Back to top",
+    "open": "open"
+  },
+  "language": {
+    "switchTo": {
+      "ru": "Switch the site to Russian",
+      "en": "Switch the site to English"
+    }
+  },
+  "navigation": {
+    "mainLabel": "Primary",
+    "canvasLabel": "Site navigation",
+    "pagesLabel": "Pages",
+    "header": {
+      "projects": "work",
+      "services": "services",
+      "contact": "contact"
+    },
+    "frames": {
+      "home": {
+        "label": "home",
+        "blurb": "Positioning and opening screen"
+      },
+      "projects": {
+        "label": "projects",
+        "blurb": "Case study archive"
+      },
+      "services": {
+        "label": "services",
+        "blurb": "End-to-end ways of working"
+      },
+      "about": {
+        "label": "author",
+        "blurb": "A personal perspective and approach"
+      },
+      "contact": {
+        "label": "contact",
+        "blurb": "Discuss a project"
+      }
+    }
+  },
+  "home": {
+    "hero": {
+      "titleLines": [
+        "digital form",
+        "for your business"
+      ],
+      "mobileTitleLines": [
+        "digital form",
+        "for your",
+        "business"
+      ],
+      "descriptionLines": [
+        "I create distinctive websites.",
+        "from structure to launch."
+      ],
+      "sloganLines": [
+        "freedom of form.",
+        "order in process"
+      ]
+    },
+    "kado": {
+      "imageAlt": "Stone",
+      "title": "Kadō — the way of flowers.",
+      "definition": "A Japanese art of composition in which the freedom of natural form finds a precise order.",
+      "body": "KADO brings this principle into the digital world: it creates a distinct visual language for every challenge and shapes it into a working system."
+    },
+    "cases": {
+      "title": "Projects",
+      "intro": "Selected projects, from the idea and visual system to a working website.",
+      "navigationLabel": "Case studies",
+      "sectionLabel": "Case study: {title}",
+      "openCase": "Open the {title} case study",
+      "gestureLabel": "Swipe to browse. Tap to dismiss this hint.",
+      "gestureSwipe": "Swipe to browse.",
+      "gestureDismiss": "Tap to dismiss this hint."
+    },
+    "formats": {
+      "title": "Ways to work together.",
+      "intro": "Come with an idea, a finished design, or an existing website.",
+      "items": [
+        {
+          "title": "End-to-end website",
+          "description": "When the whole project needs to come together, from the challenge and structure to launch.",
+          "preview": "/home/work/001-960.webp",
+          "previewAvif": "/home/work/001-960.avif",
+          "alt": "Japanese restaurant homepage displayed on a tablet"
+        },
+        {
+          "title": "Design and art direction",
+          "description": "When a product needs a visual language of its own and a coherent interface system.",
+          "preview": "/home/work/002-960.webp",
+          "previewAvif": "/home/work/002-960.avif",
+          "alt": "Branded packaging for the Kitaycheck UI kit"
+        },
+        {
+          "title": "Development and motion",
+          "description": "When a finished design needs to be carried faithfully into the browser and brought to life through motion.",
+          "preview": "/home/work/003-960.webp",
+          "previewAvif": "/home/work/003-960.avif",
+          "alt": "Mobile interface for a medical website on a smartphone"
+        },
+        {
+          "title": "Post-launch growth",
+          "description": "When a live website needs new sections, updates and ongoing support.",
+          "preview": "/home/work/004-960.webp",
+          "previewAvif": "/home/work/004-960.avif",
+          "alt": "Digital product dashboard in a dark 3D composition"
+        }
+      ]
+    },
+    "about": {
+      "titleLines": ["A personal perspective.", "One coherent result."],
+      "portraitAlt": "Anton, founder of KADO",
+      "roles": "art direction  ·  UX/UI  ·  development  ·  motion",
+      "location": "moscow  ·  working worldwide",
+      "heading": "About me",
+      "paragraphs": [
+        "My name is Anton. I am a designer, developer and the founder of KADO. I personally lead the key stages of every project: understanding the challenge, shaping the structure and visual direction, designing interactions and staying involved in development through launch.",
+        "I build websites as coherent digital spaces, each with its own character, clear logic and motion that serves the content rather than existing for effect."
+      ],
+      "socialsLabel": "Social media"
+    },
+    "contact": {
+      "label": "Discuss a project",
+      "title": "if this approach speaks to you,<br>tell me about your project.",
+      "personalPrefix": "I ",
+      "personal": "read every enquiry myself<br>and reply personally.",
+      "taskLabel": "What do you need?",
+      "clearTask": "Clear project type",
+      "suggestionsLabel": "Suggestions",
+      "taskError": "Describe the task or choose a suggestion.",
+      "projectTypes": [
+        "end-to-end website",
+        "design and art direction",
+        "development and motion",
+        "improving an existing website",
+        "not sure yet"
+      ]
+    }
+  },
+  "projects": {
+    "catalog": {
+      "title": "Projects",
+      "description": "Case studies: challenge, idea, system, outcome."
+    },
+    "detail": {
+      "notFound": "Case study not found",
+      "fallbackTitle": "Case study",
+      "client": "client",
+      "year": "year",
+      "contribution": "contribution",
+      "collaboration": "in collaboration with",
+      "links": "links",
+      "next": "Next case study",
+      "disclosureRead": "read",
+      "disclosureCollapse": "collapse",
+      "horizontalGallery": "Horizontal gallery"
+    },
+    "items": [
+      {
+        "label": "Audience",
+        "title": "Audience",
+        "client": "HookahPlace Audience",
+        "blurb": "We connected identity, content and service journeys in one coherent digital system.",
+        "focusTags": [
+          "stillness",
+          "rhythm",
+          "Japanese form"
+        ],
+        "roleTags": [
+          "art direction",
+          "UX/UI design",
+          "end to end"
+        ],
+        "media": {
+          "alt": "Audience cuisine and seasonal menu section on a smartphone"
+        }
+      },
+      {
+        "label": "Keys Store",
+        "title": "Keys Store",
+        "client": "Keys-Store.com",
+        "blurb": "We brought order to games, subscriptions and Steam items by uniting them in one digital system.",
+        "focusTags": [
+          "system",
+          "speed",
+          "trust"
+        ],
+        "roleTags": [
+          "logo",
+          "UX/UI design",
+          "design system",
+          "catalogues",
+          "checkout"
+        ],
+        "media": {
+          "alt": "Keys Store homepage featuring Atomic Heart and product categories on a monitor"
+        }
+      },
+      {
+        "label": "Baltika Brew",
+        "title": "Baltika Brew",
+        "client": "Baltika",
+        "blurb": "We connected interface and 3D so the packaging could become the central character of the digital story.",
+        "focusTags": [
+          "object",
+          "motion",
+          "transformation"
+        ],
+        "roleTags": [
+          "web design",
+          "3D graphics",
+          "animation"
+        ],
+        "media": {
+          "alt": "3D model of a Baltika Brew bottle in Blender"
+        }
+      },
+      {
+        "label": "SCHMIDT",
+        "title": "SCHMIDT",
+        "client": "SCHMIDT",
+        "blurb": "We unfolded a brand with two centuries of history into one continuous horizontal composition.",
+        "focusTags": [
+          "rhythm",
+          "contrast",
+          "materiality"
+        ],
+        "roleTags": [
+          "art direction",
+          "web design",
+          "front-end",
+          "interactive animation"
+        ],
+        "media": {
+          "alt": "SCHMIDT homepage with a still-life composition on a monitor"
+        }
+      }
+    ],
+    "details": {
+      "audience": {
+        "blocks": [
+          {
+            "title": "A space,<br>assembled into one<br>digital system.",
+            "paragraphs": [
+              "For Audience, we translated the character of its interior and visual language into the website structure. This case study presents the composition, navigation and content-management decisions.",
+              "The challenge was to connect the concept, interior, cuisine and service in one coherent digital system."
+            ],
+            "media": [
+              {
+                "alt": "Audience interior with guests seated at tables"
+              },
+              {
+                "alt": "Audience homepage with natural textures on a laptop"
+              }
+            ]
+          },
+          {
+            "title": "Visual language as part of navigation.",
+            "paragraphs": [
+              "The visual system does not imitate Eastern aesthetics through decoration. It is built on depth, natural textures, the contrast of light and shadow, open space and a restrained pace of interaction. These principles run consistently through every part of the website.",
+              "Navigation connects the concept, interior, menu and service. The same structure supports three language versions: Russian, English and Chinese."
+            ],
+            "media": {
+              "alt": "Mobile version of the Audience website on a smartphone held in one hand"
+            }
+          },
+          {
+            "title": "How do you organise a complex content structure?",
+            "lead": {
+              "media": {
+                "alt": "Audience homepage with a waterfall image on a tablet"
+              },
+              "text": "Every menu area received its own structure of categories, cards and editorial material."
+            },
+            "fillText": "Each area has its own structure, categories, cards and content.",
+            "rows": [
+              {
+                "feature": {
+                  "alt": "Samurai armour in the dark Audience interior"
+                },
+                "detail": {
+                  "alt": "Audience main menu and green tea card on mobile screens"
+                },
+                "statement": "The main UX challenge was to retain the depth of material while making the structure easy to understand."
+              },
+              {
+                "feature": {
+                  "alt": "Intimate Audience seating area with a low table and warm light"
+                },
+                "detail": {
+                  "alt": "Audience menu section with a teapot photograph on a laptop"
+                },
+                "statement": "The information architecture and category system follow the same rules."
+              }
+            ]
+          },
+          {
+            "title": "Motion as part of<br>navigation.",
+            "paragraphs": [
+              "Animation connects screens, marks transitions between sections and supports the reading order without becoming performative."
+            ],
+            "media": [
+              {
+                "alt": "Audience homepage animation on a laptop surrounded by natural textures"
+              }
+            ]
+          },
+          {
+            "title": "A living website,<br>not a one-off<br>launch.",
+            "text": "The project was built as an evolving content system. Menus and seasonal items can be updated, news published, imagery changed and sections kept current without rebuilding the website by hand.",
+            "media": [
+              {
+                "alt": "Audience admin panel with integration and image settings"
+              },
+              {
+                "alt": "Mobile Audience content-management panel on a smartphone"
+              }
+            ]
+          },
+          {
+            "text": "For Audience, we developed the structure, visual system, interface, animation and content-management tools. This case study presents completed design and technical work and does not offer or promote the client's products."
+          }
+        ],
+        "closing": {
+          "alt": "Audience logo against the bar interior"
+        }
+      },
+      "keys-store": {
+        "blocks": [
+          {
+            "title": "One store,<br>several business<br>models.",
+            "paragraphs": [
+              "Keys Store brings together Steam and PlayStation games, digital subscriptions, and the buying and selling of Steam items. Behind one brand are different product types, selection rules, payment methods and user expectations."
+            ],
+            "media": [
+              {
+                "alt": "Keys Store cart with digital products and total price on a smartphone"
+              },
+              {
+                "alt": "Keys Store mobile interface in a still-life composition with dark stones"
+              }
+            ],
+            "statement": "The task was not to make yet another catalogue. It was to create a commerce system where people immediately understand what they are buying, which platform it works on and how to complete the transaction."
+          },
+          {
+            "title": "A shared language<br>for every catalogue.",
+            "paragraphs": [
+              "We created one language for all catalogues: a shared grid, cards, filters, typographic hierarchy, statuses and price treatment. Moving between areas, users retain a familiar logic.",
+              "The system adapts to the product: a game shows platform and delivery method, a subscription its term and contents, and a Steam item its availability, purchase price and sale price."
+            ],
+            "media": {
+              "alt": "Keys Store game catalogue with search and filters on a laptop"
+            }
+          },
+          {
+            "title": "The differences remain visible.<br>The system stays coherent.",
+            "paragraphs": [
+              "A shared style does not mean identical interfaces. Each catalogue gets its own emphasis and only the information needed to make a decision in that specific journey."
+            ],
+            "media": [
+              {
+                "alt": "Keys Store mobile game catalogue with cards and prices"
+              },
+              {
+                "alt": "Counter-Strike item catalogue in the Keys Store mobile interface"
+              },
+              {
+                "alt": "PlayStation Plus subscription cards in the Keys Store mobile catalogue"
+              },
+              {
+                "alt": "Team Fortress 2 item catalogue on a smartphone"
+              }
+            ],
+            "statement": "Product complexity is not hidden behind decorative uniformity; it is translated into clear decision-making criteria."
+          },
+          {
+            "title": "A path to purchase<br>without needless decisions.",
+            "paragraphs": [
+              "Buying a digital product can involve platform, region, edition, payment method and delivery method. We shaped these into a sequential journey where the next step and final terms are visible before confirmation.",
+              "Different checkout options do not turn the process into a maze of technical forks. The interface reveals available actions in sequence and keeps the order clear."
+            ],
+            "media": {
+              "alt": "Keys Store marketplace mobile interface on a smartphone held in one hand"
+            }
+          },
+          {
+            "title": "Trust is built<br>into the interface.",
+            "paragraphs": [
+              "The design explains how each transaction works, shows availability and timing, records order status and makes the terms transparent, from choosing a product to receiving a game or a payout for a sale."
+            ],
+            "media": [
+              {
+                "alt": "Keys Store marketplace with items and transaction parameters on a tablet"
+              },
+              {
+                "alt": "Set of Keys Store mobile screens showing products, transactions and messages"
+              }
+            ]
+          },
+          {
+            "title": "Identity is<br>part of the product.",
+            "paragraphs": [
+              "The logo and visual language bring diverse areas together in one recognisable product. Vibrant game imagery identifies categories while the interface shell keeps a common rhythm.",
+              "Identity does not exist apart from UX: it helps people recognise areas, platforms and service types more quickly."
+            ],
+            "media": {
+              "alt": "Green and purple game controller with the Keys Store logo"
+            }
+          },
+          {
+            "text": "Keys Store is a large commerce system in which different digital products become one coherent experience. Users keep a familiar journey even as the product, platform and transaction model change."
+          }
+        ],
+        "closing": {
+          "alt": "Keys Store branded Steam games banner on an outdoor display"
+        }
+      },
+      "baltika": {
+        "summary": "How we designed the interface and 3D system for a brand website.",
+        "headerMedia": {
+          "alt": "Baltika Brew — 3D bottle model in Blender"
+        },
+        "blocks": [
+          {
+            "title": "The challenge and<br>the design object.",
+            "paragraphs": [
+              "For Baltika Brew, we developed the brand website structure, visual concept and a set of 3D scenes. This case study records the team's decisions and the stages of creating the digital interface.",
+              "The bottle model became the central graphic object. It demonstrated the principles of composition, material treatment and interface behaviour across different screens.",
+              "To comply with Russian law, certain elements in the imagery and layouts shown in this case study have been concealed or replaced with neutral alternatives."
+            ],
+            "media": [
+              {
+                "alt": "Island with autumn trees in water, part of the Baltika Brew visual system"
+              },
+              {
+                "alt": "Baltika Brew website with a landscape composition on a monitor and smartphone"
+              }
+            ],
+            "presentation": {
+              "title": "offset"
+            }
+          },
+          {
+            "title": "The label as part of<br>the visual system.",
+            "paragraphs": [
+              "The label artwork was integrated into the 3D model and connected with the background scenes. This established one presentation principle for several products in the range.",
+              "Products were distinguished through colour, imagery and scene parameters, while the navigation and page structure remained consistent."
+            ],
+            "media": {
+              "alt": "Baltika Brew homepage with a 3D bottle on a laptop"
+            }
+          },
+          {
+            "title": "Original imagery<br>for every product.",
+            "paragraphs": [
+              "For each product, we selected an original photograph and developed an individual scene. Colour, texture and scale distinguish the screens, while the overall composition connects each visual story into one system."
+            ],
+            "media": [
+              {
+                "alt": "Lake and coniferous islands in mist, an illustration for Baltika Brew"
+              },
+              {
+                "alt": "Red cliffs in evening light, an illustration for Baltika Brew"
+              },
+              {
+                "alt": "Trees reflected in pink water, an illustration for Baltika Brew"
+              },
+              {
+                "alt": "Island with an autumn forest in blue water, an illustration for Baltika Brew"
+              }
+            ],
+            "statement": "The photography distinguishes each screen while preserving the integrity of the visual system.",
+            "presentation": {
+              "title": "nowrap"
+            }
+          },
+          {
+            "title": "Motion as part of<br>the interface.",
+            "paragraphs": [
+              "Animation moves between states of the 3D scene and sequences the appearance of information. It supports navigation and guides attention through the composition."
+            ],
+            "media": [
+              {
+                "alt": "Animation of the rotating Baltika Brew 3D bottle model"
+              }
+            ]
+          },
+          {
+            "title": "Reference material<br>without visual noise.",
+            "paragraphs": [
+              "For extensive reference material, we developed distinct typographic levels and compact information modules.",
+              "Content follows a clear visual hierarchy, keeping the screen readable without competing with the main 3D scene."
+            ],
+            "media": {
+              "alt": "Baltika Brew mobile page with a bottle and landscape artwork on its label"
+            }
+          },
+          {
+            "title": "Editorial and<br>reference sections.",
+            "paragraphs": [
+              "News and reference material share common navigation and a repeatable page structure. This case study treats the section as part of the website's information architecture."
+            ],
+            "media": [
+              {
+                "alt": "Baltika Brew information section on a tablet held in both hands"
+              }
+            ],
+            "presentation": {
+              "title": "nowrap"
+            }
+          },
+          {
+            "title": "Responsive<br>composition.",
+            "paragraphs": [
+              "Wide screens use a horizontal composition with text and graphic elements distributed across the canvas.",
+              "On mobile, the same material becomes a sequential vertical structure while retaining its reading order."
+            ],
+            "media": {
+              "alt": "Responsive Baltika Brew page with a landscape composition on a tablet"
+            }
+          },
+          {
+            "text": "For Baltika Brew, we developed the brand website's structure, visual system, 3D graphics and animation. This case study describes completed design and technical work and does not offer or promote alcoholic products."
+          }
+        ],
+        "closing": {
+          "alt": "Series of Baltika Brew 3D bottle models with different landscape labels"
+        }
+      },
+      "schmidt": {
+        "headerMedia": {
+          "alt": "SCHMIDT website displayed on a monitor"
+        },
+        "blocks": [
+          {
+            "title": "A brand story<br>in a horizontal rhythm.",
+            "paragraphs": [
+              "Instead of the familiar downward movement, users travel through the SCHMIDT website from left to right. Identity, editorial blocks and interface scenes become one continuous sequence."
+            ],
+            "media": [
+              {
+                "alt": "SCHMIDT horizontal website composition"
+              }
+            ],
+            "statement": "The horizontal route sets the pace of discovery and turns the landing page into a continuous trajectory. It is not an effect for effect's sake."
+          },
+          {
+            "title": "Clarity in a still-life<br>composition.",
+            "paragraphs": [
+              "Clear glass, grain, pearls and a fine golden line shape the website's object language. Contrasting objects connect individual screens into one visual system.",
+              "Large typography and white space keep the composition clear and composed without making it sterile."
+            ],
+            "media": {
+              "alt": "SCHMIDT web typography featuring DIN Pro and a screen with a photograph of wheat"
+            }
+          },
+          {
+            "title": "The brand story<br>as the next scene.",
+            "paragraphs": [
+              "Family history, heritage and values do not sit on a separate text page. They become part of the same spatial sequence, giving each fact weight and rhythm without interrupting the movement."
+            ],
+            "media": [
+              {
+                "alt": "SCHMIDT history section with an illustration on a laptop screen"
+              },
+              {
+                "alt": "Horizontal SCHMIDT website composition on a smartphone held in one hand"
+              }
+            ]
+          },
+          {
+            "title": "Production as<br>a transparent process.",
+            "paragraphs": [
+              "The section is divided into four numbered scenes. We developed a distinct object image for each while preserving shared rules for grid, typography and motion."
+            ],
+            "media": [
+              {
+                "alt": "Scene 01 of the SCHMIDT production section with an ear of wheat"
+              },
+              {
+                "alt": "Scene 02 of the SCHMIDT production section with a transparent blue droplet"
+              },
+              {
+                "alt": "Scene 03 of the SCHMIDT production section with a dimensional splash of water"
+              },
+              {
+                "alt": "Scene 04 of the SCHMIDT production section with a silver sphere"
+              }
+            ],
+            "statement": "Four distinct images become one continuous visual journey."
+          },
+          {
+            "title": "The range continues<br>through distinct journeys.",
+            "paragraphs": [
+              "Every product receives its own screen with an individual composition, colour accent and arrangement of content.",
+              "Shared grid and typographic rules hold the sections together, while varied layouts prevent mechanical repetition."
+            ],
+            "media": {
+              "alt": "SCHMIDT website pages and still-life composition on a monitor"
+            }
+          },
+          {
+            "title": "One rhythm.<br>Different screens.",
+            "paragraphs": [
+              "On a wide screen, the story unfolds as a long horizontal composition. On narrow screens, the order of scenes remains while guidance becomes more explicit.",
+              "Responsive design is judged not by shrinking blocks, but by preserving the same rhythm of discovering the brand."
+            ],
+            "media": {
+              "alt": "SCHMIDT website pages on a laptop with horizontal navigation"
+            }
+          },
+          {
+            "text": "For SCHMIDT, we created a distinctive website with unified art direction, a horizontal rhythm and interactive animation. Grid, typography and object imagery connect every section in a coherent digital brand story."
+          }
+        ],
+        "closing": {
+          "alt": "Horizontal SCHMIDT homepage on an ultrawide monitor"
+        }
+      }
+    }
+  },
+  "pages": {
+    "stubNote": "A draft page for Page Canvas navigation. Full content is coming next.",
+    "services": {
+      "title": "Services",
+      "blurb": "One approach: a distinctive end-to-end website. Every way of working, on one page."
+    },
+    "contact": {
+      "title": "Contact",
+      "blurb": "Tell me about your project, and we will work through the challenge."
+    }
+  },
+  "footer": {
+    "label": "Site footer",
+    "privacy": "privacy policy",
+    "metaDisclaimer": "*Instagram and Threads are owned by Meta Platforms Inc. The operation of Instagram and Facebook by Meta Platforms Inc. has been designated extremist and is prohibited in the Russian Federation.",
+    "photoAlt": "Kira, Anton's cat"
+  },
+  "cookieNotice": {
+    "titleLines": [
+      "this website remembers",
+      "a few things too 🍪"
+    ],
+    "text": "Essential cookies and browser storage remember your settings and avoid showing the same thing twice.",
+    "note": "Nothing personal. Literally.",
+    "details": "What exactly?",
+    "accept": "ok"
+  },
+  "contactForm": {
+    "addVoice": "Add another voice message",
+    "recordVoice": "Record a voice message",
+    "descriptionRequired": "Tell me about the project in writing or record a voice message.",
+    "submitFailed": "I couldn't send your enquiry. Your text and recordings are still on this page — try again or email hello@kadonext.com.",
+    "sendingStatus": "Sending your message…",
+    "sentStatus": "Message sent. Thank you for reaching out — I will get back to you personally soon.",
+    "fieldset": "Project details",
+    "descriptionLabel": "a little about the project",
+    "clearDescription": "Clear project description",
+    "descriptionHint": "What are you creating, and what should the website achieve?<br>A few sentences are enough. You can also add a voice message.",
+    "contactLabel": "how can I reach you?",
+    "contactTitle": "Enter the contact details I should use to reach you.",
+    "contactHint": "name, Telegram or email",
+    "clearContact": "Clear contact details",
+    "consentBefore": "I give",
+    "consentLink": "consent to the processing of my personal data",
+    "consentAfter": "so that my enquiry can be reviewed and answered.",
+    "policy": "Personal data processing policy",
+    "honeypot": "Your website",
+    "sending": "Sending…",
+    "sendingLabel": "Sending message",
+    "submit": "Continue the conversation",
+    "emailLead": "Or email me directly:",
+    "successTitle": "Thank you<br>for reaching out.",
+    "successBody": "Your message is with me. I will read through the details{voice} and get back to you personally soon.",
+    "successVoice": ", listen to your voice messages"
+  },
+  "voice": {
+    "messages": "Voice messages",
+    "requesting": "Waiting for microphone access",
+    "stopping": "Preparing the recording",
+    "recording": "Recording in progress",
+    "recordingTime": "Recording time",
+    "messageLimit": "Message limit: {time}",
+    "signalLevel": "Microphone signal level",
+    "cancel": "Cancel recording",
+    "finish": "Finish recording",
+    "savedBudget": "Saved: {saved}; remaining: {remaining}",
+    "savedCount": "Saved messages: {count} of {max}",
+    "orderedMessages": "Voice messages in sending order",
+    "message": "Message {number}",
+    "rerecord": "Record message {number} again",
+    "rerecordTitle": "Record again",
+    "remove": "Delete message {number}",
+    "removeTitle": "Delete",
+    "noSignal": "No sound detected. Check your microphone or choose another one after stopping the recording.",
+    "quiet": "The sound is very quiet. Try speaking closer to the microphone and listen before sending.",
+    "clipNoSignal": "Check the sound: the recording contains almost no signal.",
+    "clipQuiet": "Quiet recording — listen before sending.",
+    "defaultDevice": "Default",
+    "microphone": "Microphone {number}",
+    "deviceWithName": "Recording microphone: {name}",
+    "device": "Recording microphone",
+    "pause": "Pause",
+    "play": "Play",
+    "playbackPosition": "Playback position: {label}",
+    "timeOf": "{current} of {total}",
+    "download": "Download: {label}",
+    "playbackError": "The recording could not be played.",
+    "downloadIt": "Download it",
+    "playOnDevice": "and listen on your device.",
+    "defaultMicrophone": "Default microphone",
+    "deviceDisconnected": "The selected microphone was disconnected. The default microphone will be used for the next recording.",
+    "permissionDenied": "Microphone access is blocked. Allow it in your browser's site settings or describe the project in writing.",
+    "notFound": "No microphone was found. Connect one or describe the project in writing.",
+    "selectedUnavailable": "The selected microphone is unavailable. Choose another one and try again.",
+    "notReadable": "The microphone could not be started. Check its connection and whether another application is using it.",
+    "startFailed": "The recording could not be started. Try again or describe the project in writing.",
+    "unsupported": "Recording is not available in this browser. Open the website over HTTPS (or localhost locally) in Safari, Chrome or Firefox, or use text instead.",
+    "limitReached": "The recording limit has been reached. Delete a message or record over an existing one.",
+    "storageLimit": "The recordings take up too much space. Delete one of the messages.",
+    "genericMicrophone": "Microphone",
+    "ended": "The microphone was disconnected. The recorded part was saved — listen to it before sending.",
+    "muted": "The microphone has temporarily stopped sending sound. Check its connection.",
+    "meterUnavailable": "Sound-level checking is unavailable. Listen to the message after recording.",
+    "tooLarge": "The recording is too large. Try recording a shorter message.",
+    "interrupted": "The browser interrupted the recording. Previous messages are safe; try again.",
+    "stopDelayed": "The browser delayed stopping the recording and it exceeded the time limit. Record the message again.",
+    "tooShort": "The recording is too short. Try again.",
+    "hiddenStop": "Recording stopped when the page was hidden. The recorded part was saved.",
+    "leaveStop": "Recording stopped when you left the page. The recorded part was saved."
+  },
+  "accessibility": {
+    "brandHome": "KADO — home",
+    "brandHomeRu": "KADO — home",
+    "preload": "Loading: {percent} percent",
+    "connectionOptimized": "lighter loading for your current connection",
+    "ambientSoundEmpty": "No sound selected yet",
+    "enableVibration": "Enable vibration",
+    "disableVibration": "Disable vibration",
+    "enableGyroscope": "Enable gyroscope",
+    "disableGyroscope": "Disable gyroscope",
+    "enableSceneMotion": "Enable scene motion",
+    "disableSceneMotion": "Disable scene motion",
+    "enableGyroscopeHint": "Tap to enable the gyroscope",
+    "enableGyroscopeAndVibrationHint": "Tap to enable the gyroscope and vibration",
+    "enabledShort": "on",
+    "disabledShort": "off"
+  }
+}

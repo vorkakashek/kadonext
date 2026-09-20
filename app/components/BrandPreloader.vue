@@ -206,7 +206,7 @@ async function settleAndExit(opts?: { skipSpin?: boolean }) {
   // 99%: Three import, WebGL context, HDR/PMREM, shader compile and hidden paints.
   // A bounded wait keeps a cold network from turning the brand beat into a wall.
   const homeDesktop =
-    route.path === '/'
+    isLocalizedHome(route.path)
     && !reduced.value
     && window.innerWidth >= 900
     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
@@ -625,7 +625,7 @@ watch(
 )
 
 onMounted(async () => {
-  if (route.path === '/') {
+  if (isLocalizedHome(route.path)) {
     heroWebglPrebootRequested.value = false
     heroWebglBooted.value = false
     heroWebglLit.value = false

@@ -5,14 +5,15 @@ import { VOICE_MAX_COUNT, VOICE_MAX_SECONDS, voiceTime } from '~/utils/contactVo
 const props = defineProps<{ formId: string; disabled?: boolean }>()
 const emit = defineEmits<{ 'focus-record-button': [] }>()
 const voice = useContactVoice()
+const { t } = useI18n()
 const { clips, status, error, notice, warning, level, elapsed, replacementId, totalSeconds, remaining, busy } = voice
 const playingId = ref<string | null>(null)
 const panelEl = ref<HTMLElement | null>(null)
 const budget = computed(() => remaining.value + (clips.value.find(clip => clip.id === replacementId.value)?.seconds ?? 0))
 const visible = computed(() => busy.value || clips.value.length > 0 || !!error.value || !!notice.value)
 const warningText = computed(() => warning.value === 'silent'
-  ? 'Не улавливаем звук. Проверьте микрофон или выберите другой после остановки записи.'
-  : 'Звук очень тихий. Попробуйте говорить ближе к микрофону и прослушайте запись перед отправкой.')
+  ? t('voice.noSignal')
+  : t('voice.quiet'))
 
 function pausePlayer(id: string) { if (playingId.value === id) playingId.value = null }
 function start(replaceId: string) {
@@ -37,39 +38,39 @@ watch(() => props.disabled, () => { if (props.disabled) playingId.value = null }
 </script>
 
 <template>
-  <section :id="`${formId}-voice`" ref="panelEl" v-show="visible" class="voice-input" aria-label="Голосовые сообщения">
-    <div v-if="busy" class="voice-input__recording" :aria-busy="status !== 'recording'" :aria-label="status === 'requesting' ? 'Ожидание доступа к микрофону' : status === 'stopping' ? 'Подготовка записи' : 'Идёт запись'">
+  <section :id="`${formId}-voice`" ref="panelEl" v-show="visible" class="voice-input" :aria-label="t('voice.messages')">
+    <div v-if="busy" class="voice-input__recording" :aria-busy="status !== 'recording'" :aria-label="status === 'requesting' ? t('voice.requesting') : status === 'stopping' ? t('voice.stopping') : t('voice.recording')">
       <div class="voice-input__live">
         <div class="voice-input__time">
-          <span class="voice-input__clock" aria-label="Время записи">{{ voiceTime(elapsed) }}</span>
-          <span class="voice-input__record-limit" :aria-label="`Лимит сообщения ${voiceTime(budget)}`">/ {{ voiceTime(budget) }}</span>
+          <span class="voice-input__clock" :aria-label="t('voice.recordingTime')">{{ voiceTime(elapsed) }}</span>
+          <span class="voice-input__record-limit" :aria-label="t('voice.messageLimit', { time: voiceTime(budget) })">/ {{ voiceTime(budget) }}</span>
         </div>
-        <div class="voice-input__meter" role="meter" aria-label="Уровень сигнала микрофона" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(level * 100)">
+        <div class="voice-input__meter" role="meter" :aria-label="t('voice.signalLevel')" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(level * 100)">
           <ContactVoiceFrog :level="level" :active="status === 'recording'" />
         </div>
         <div class="voice-input__live-actions">
-          <button type="button" class="voice-input__round-button" aria-label="Отменить запись" title="Отменить запись" :disabled="status === 'stopping'" @click="voice.stop(true)"><IconX stroke="1.5" aria-hidden="true" /></button>
-          <button type="button" class="voice-input__round-button" aria-label="Завершить запись" title="Завершить запись" :disabled="status !== 'recording'" @click="voice.stop()"><IconCheck stroke="1.5" aria-hidden="true" /></button>
+          <button type="button" class="voice-input__round-button" :aria-label="t('voice.cancel')" :title="t('voice.cancel')" :disabled="status === 'stopping'" @click="voice.stop(true)"><IconX stroke="1.5" aria-hidden="true" /></button>
+          <button type="button" class="voice-input__round-button" :aria-label="t('voice.finish')" :title="t('voice.finish')" :disabled="status !== 'recording'" @click="voice.stop()"><IconCheck stroke="1.5" aria-hidden="true" /></button>
         </div>
       </div>
       <p v-if="warning" class="voice-input__warning" role="status">{{ warningText }}</p>
     </div>
 
-    <div v-else-if="clips.length" class="voice-input__budget" :aria-label="`Сохранено ${voiceTime(totalSeconds)}, осталось ${voiceTime(remaining)}`">
+    <div v-else-if="clips.length" class="voice-input__budget" :aria-label="t('voice.savedBudget', { saved: voiceTime(totalSeconds), remaining: voiceTime(remaining) })">
       <span class="voice-input__budget-line"><span :style="{ transform: `scaleX(${totalSeconds / VOICE_MAX_SECONDS})` }" /></span>
       <span>{{ voiceTime(remaining) }}</span>
-      <span class="voice-input__count" :aria-label="`Сохранено сообщений: ${clips.length} из ${VOICE_MAX_COUNT}`">{{ clips.length }} / {{ VOICE_MAX_COUNT }}</span>
+      <span class="voice-input__count" :aria-label="t('voice.savedCount', { count: clips.length, max: VOICE_MAX_COUNT })">{{ clips.length }} / {{ VOICE_MAX_COUNT }}</span>
     </div>
 
-    <ol v-if="clips.length" class="voice-input__messages" aria-label="Голосовые сообщения в порядке отправки">
+    <ol v-if="clips.length" class="voice-input__messages" :aria-label="t('voice.orderedMessages')">
       <li v-for="(clip, index) in clips" :key="clip.id" class="voice-input__message" :class="{ 'is-replacing': replacementId === clip.id }">
-        <ContactVoicePlayer :clip="clip" :label="`Сообщение ${index + 1}`" :active="playingId === clip.id" :disabled="busy || disabled" @play="playingId = $event" @pause="pausePlayer">
+        <ContactVoicePlayer :clip="clip" :label="t('voice.message', { number: index + 1 })" :active="playingId === clip.id" :disabled="busy || disabled" @play="playingId = $event" @pause="pausePlayer">
           <template #actions>
-            <button type="button" class="voice-input__round-button voice-input__round-button--small" :aria-label="`Перезаписать сообщение ${index + 1}`" title="Перезаписать" :disabled="busy || disabled" @click="start(clip.id)"><IconRefresh stroke="1.5" aria-hidden="true" /></button>
-            <button type="button" class="voice-input__round-button voice-input__round-button--small" :aria-label="`Удалить сообщение ${index + 1}`" title="Удалить" :disabled="busy || disabled" @click="remove(clip.id)"><IconX stroke="1.5" aria-hidden="true" /></button>
+            <button type="button" class="voice-input__round-button voice-input__round-button--small" :aria-label="t('voice.rerecord', { number: index + 1 })" :title="t('voice.rerecordTitle')" :disabled="busy || disabled" @click="start(clip.id)"><IconRefresh stroke="1.5" aria-hidden="true" /></button>
+            <button type="button" class="voice-input__round-button voice-input__round-button--small" :aria-label="t('voice.remove', { number: index + 1 })" :title="t('voice.removeTitle')" :disabled="busy || disabled" @click="remove(clip.id)"><IconX stroke="1.5" aria-hidden="true" /></button>
           </template>
         </ContactVoicePlayer>
-        <p v-if="clip.warning" class="voice-input__warning">{{ clip.warning === 'silent' ? 'Проверьте звук: в записи почти нет сигнала.' : 'Тихий звук — прослушайте запись перед отправкой.' }}</p>
+        <p v-if="clip.warning" class="voice-input__warning">{{ clip.warning === 'silent' ? t('voice.clipNoSignal') : t('voice.clipQuiet') }}</p>
       </li>
     </ol>
     <p v-if="notice" class="voice-input__notice" role="status">{{ notice }}</p>

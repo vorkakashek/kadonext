@@ -91,10 +91,15 @@ test('no more than two recordings; valid audio-only briefing preserves attachmen
 })
 
 test('per-client limit prevents unbounded mail submissions', async () => {
-  const handle = createContactHandler({ env, send: accepted })
+  const handle = createContactHandler({ env: { ...env, CONTACT_RATE_LIMIT_ENABLED: 'true' }, send: accepted })
   for (let i = 0; i < 10; i++) assert.equal((await handle(request(), 'one-client')).status, 200)
   assert.equal((await handle(request(), 'one-client')).status, 429)
   assert.equal((await handle(request(), 'other-client')).status, 200)
+})
+
+test('rate limit stays disabled while the contact flow is under QA', async () => {
+  const handle = createContactHandler({ env, send: accepted })
+  for (let i = 0; i < 12; i++) assert.equal((await handle(request(), 'one-client')).status, 200)
 })
 
 test('real browser containers convert to playable MP3; duration is measured from audio, not submitted metadata', async () => {

@@ -6,9 +6,10 @@ const sessions = new WeakMap<object, ReturnType<typeof createContactVoiceSession
 
 export function useContactVoice() {
   const app = useNuxtApp()
+  const { t } = useI18n()
   let session = sessions.get(app)
   if (!session) {
-    session = createContactVoiceSession()
+    session = createContactVoiceSession(t)
     sessions.set(app, session)
   }
   onMounted(session.attach)

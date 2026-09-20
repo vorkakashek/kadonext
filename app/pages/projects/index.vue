@@ -4,6 +4,7 @@ import { warmCaseDetailRoute } from '~/utils/caseDetailRouteWarmup'
 
 const { openCaseDetail } = useCaseDetailTransition()
 const { t } = useI18n()
+const localePath = useLocalePath()
 const homeCases = useHomeCases()
 const projectsCatalogTitle = computed(() => t('projects.catalog.title'))
 const preload = useBrandPreload()
@@ -308,7 +309,7 @@ function onProjectCardPointerLeave(event: PointerEvent) {
 }
 
 function warmCaseDetail(item: HomeCase) {
-  void warmCaseDetailRoute(homeCaseDetailPath(item))
+  void warmCaseDetailRoute(localePath(homeCaseDetailPath(item)))
 }
 
 onMounted(() => {
@@ -352,7 +353,7 @@ function openCase(item: HomeCase, event: MouseEvent) {
   }
   event.preventDefault()
   openCaseDetail({
-    to: homeCaseDetailPath(item), origin: 'projects', src: item.media.src,
+    to: localePath(homeCaseDetailPath(item)), origin: 'projects', src: item.media.src,
     proxySrc: paintedImage?.currentSrc || undefined,
     webpSrcset: item.media.webpSrcset, avifSrcset: item.media.avifSrcset,
     mobileSrc: item.media.mobileSrc,
@@ -390,7 +391,7 @@ function openCase(item: HomeCase, event: MouseEvent) {
       <ul ref="projectsGridEl" class="projects-catalog__grid">
         <li v-for="(item, index) in homeCases" :key="item.id">
           <a
-            :href="homeCaseDetailPath(item)"
+            :href="localePath(homeCaseDetailPath(item))"
             class="projects-card"
             @pointerenter="onProjectCardPointerEnter(item, $event)"
             @pointermove="updateProjectCardMotion"

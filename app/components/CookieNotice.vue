@@ -5,6 +5,9 @@ import {
 } from '~/utils/cookieNotice'
 
 const visible = ref(false)
+const { t, tm } = useI18n()
+const localePath = useLocalePath()
+const titleLines = computed(() => tm('cookieNotice.titleLines') as string[])
 
 function dismiss() {
   rememberCookieNotice()
@@ -24,17 +27,20 @@ onMounted(() => {
       aria-labelledby="cookie-notice-title"
     >
       <div class="cookie-notice__copy">
-        <p class="cookie-notice__eyebrow">немного памяти</p>
-        <h2 id="cookie-notice-title">сайт тоже кое-что запоминает</h2>
+        <h2 id="cookie-notice-title">
+          <span v-for="line in titleLines" :key="line">{{ line }}</span>
+        </h2>
         <p class="cookie-notice__text">
-          Технические cookie и память браузера сохраняют настройки и не
-          показывают одно и то же дважды. Ничего личного — буквально.
-          <NuxtLink to="/privacy">Что именно?</NuxtLink>
+          <span>{{ t('cookieNotice.text') }}</span>
+          <span class="cookie-notice__note">
+            {{ t('cookieNotice.note') }}
+            <NuxtLink :to="localePath('/privacy')">{{ t('cookieNotice.details') }}</NuxtLink>
+          </span>
         </p>
       </div>
 
       <button class="cookie-notice__button" type="button" @click="dismiss">
-        ок
+        {{ t('cookieNotice.accept') }}
       </button>
     </aside>
   </Transition>
@@ -65,25 +71,21 @@ onMounted(() => {
   gap: 0.6rem;
 }
 
-.cookie-notice__eyebrow,
 .cookie-notice__text,
 .cookie-notice h2 {
   margin: 0;
 }
 
-.cookie-notice__eyebrow {
-  color: var(--palette-ash);
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
-}
-
 .cookie-notice h2 {
   max-width: 19ch;
-  font-size: clamp(1.6rem, 2.1vw, 2.15rem);
+  font-size: clamp(1.45rem, 1.8vw, 1.85rem);
   font-weight: 500;
   letter-spacing: -0.045em;
-  line-height: 0.98;
+  line-height: 1;
+}
+
+.cookie-notice h2 span {
+  display: block;
 }
 
 .cookie-notice__text {
@@ -91,6 +93,10 @@ onMounted(() => {
   font-size: 0.9rem;
   letter-spacing: -0.015em;
   line-height: 1.42;
+}
+
+.cookie-notice__note {
+  display: block;
 }
 
 .cookie-notice__text a {
@@ -109,7 +115,8 @@ onMounted(() => {
   color: var(--palette-milk);
   cursor: pointer;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.15;
   transition: background-color var(--motion-fast), color var(--motion-fast);
@@ -145,17 +152,62 @@ onMounted(() => {
   transform: translateY(1.25rem) scale(0.98);
 }
 
+@media (min-width: 768px) {
+  .cookie-notice {
+    right: 0;
+    bottom: 0;
+    left: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+    padding-block: clamp(1rem, 1.5vw, 1.35rem) max(1rem, var(--safe-bottom));
+    padding-inline: max(var(--layout-margin-content), var(--safe-left))
+      max(var(--layout-margin-content), var(--safe-right));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
+    gap: clamp(2rem, 5vw, 6rem);
+  }
+
+  .cookie-notice__copy {
+    grid-template-columns: minmax(13rem, 0.55fr) minmax(0, 1.45fr);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 6rem);
+  }
+
+  .cookie-notice__text {
+    max-width: 80ch;
+  }
+
+  .cookie-notice__note {
+    display: inline;
+    margin-left: 0.25em;
+  }
+
+  .cookie-notice__button {
+    justify-self: end;
+    font-size: 1.125rem;
+  }
+}
+
 @media (max-width: 767.98px) {
   .cookie-notice {
-    right: max(var(--layout-margin), var(--safe-right));
-    bottom: max(var(--layout-margin), var(--safe-bottom));
-    width: calc(100vw - var(--layout-margin) * 2);
-    padding: 1.25rem;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 1.25rem max(1.25rem, var(--safe-right))
+      max(1.25rem, var(--safe-bottom)) max(1.25rem, var(--safe-left));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0;
     gap: 1.25rem;
   }
 
   .cookie-notice h2 {
-    font-size: clamp(1.5rem, 7.3vw, 1.85rem);
+    font-size: clamp(1.35rem, 6.4vw, 1.65rem);
   }
 
   .cookie-notice__button {

@@ -5,7 +5,7 @@ import {
 } from './contactVoice.ts'
 import type { VoiceClip } from './contactVoice.ts'
 
-export function createContactVoiceSession() {
+export function createContactVoiceSession(t: (key: string) => string) {
   const clips = shallowRef<VoiceClip[]>([])
   const status = ref<'idle' | 'requesting' | 'recording' | 'stopping'>('idle')
   const supported = ref(false)
@@ -17,7 +17,9 @@ export function createContactVoiceSession() {
   const replacementId = ref<string | null>(null)
   const devices = shallowRef<MediaDeviceInfo[]>([])
   const deviceId = ref('')
-  const deviceLabel = ref('Микрофон по умолчанию')
+  const deviceLabel = computed(() => deviceId.value
+    ? devices.value.find(device => device.deviceId === deviceId.value)?.label || t('voice.genericMicrophone')
+    : t('voice.defaultMicrophone'))
   const totalSeconds = computed(() => clips.value.reduce((sum, clip) => sum + clip.seconds, 0))
   const remaining = computed(() => Math.max(0, VOICE_MAX_SECONDS - totalSeconds.value))
   const busy = computed(() => status.value !== 'idle')
@@ -62,7 +64,7 @@ export function createContactVoiceSession() {
       devices.value = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'audioinput')
       if (deviceId.value && !devices.value.some(device => device.deviceId === deviceId.value)) {
         deviceId.value = ''
-        notice.value = 'Выбранный микрофон отключён. Для следующей записи используем микрофон по умолчанию.'
+        notice.value = t('voice.deviceDisconnected')
       }
     } catch { /* Device selection is optional; recording may still be available. */ }
   }
@@ -85,11 +87,11 @@ export function createContactVoiceSession() {
 
   function microphoneError(cause: unknown) {
     const name = cause instanceof Error ? cause.name : ''
-    if (name === 'NotAllowedError' || name === 'SecurityError') return 'Доступ к микрофону закрыт. Разрешите его в настройках сайта в браузере или расскажите о проекте текстом.'
-    if (name === 'NotFoundError') return 'Микрофон не найден. Подключите его или расскажите о проекте текстом.'
-    if (name === 'OverconstrainedError') return 'Выбранный микрофон недоступен. Выберите другой и повторите запись.'
-    if (name === 'NotReadableError') return 'Не удалось включить микрофон. Проверьте подключение и не занят ли он другим приложением.'
-    return 'Не удалось начать запись. Попробуйте ещё раз или расскажите о проекте текстом.'
+    if (name === 'NotAllowedError' || name === 'SecurityError') return t('voice.permissionDenied')
+    if (name === 'NotFoundError') return t('voice.notFound')
+    if (name === 'OverconstrainedError') return t('voice.selectedUnavailable')
+    if (name === 'NotReadableError') return t('voice.notReadable')
+    return t('voice.startFailed')
   }
 
   async function start(replaceId: string | null = null) {
@@ -97,19 +99,19 @@ export function createContactVoiceSession() {
     error.value = ''
     notice.value = ''
     if (!supported.value) {
-      error.value = 'Запись недоступна в этом браузере. Откройте сайт по HTTPS (локально — через localhost) в Safari, Chrome или Firefox либо напишите текст.'
+      error.value = t('voice.unsupported')
       return
     }
     const oldClip = clips.value.find(clip => clip.id === replaceId)
     if (replaceId && !oldClip) return
     recordingBudget = VOICE_MAX_SECONDS - totalSeconds.value + (oldClip?.seconds ?? 0)
     if ((!oldClip && clips.value.length >= VOICE_MAX_COUNT) || recordingBudget < 1) {
-      error.value = 'Лимит записей достигнут. Удалите сообщение или перезапишите одно из существующих.'
+      error.value = t('voice.limitReached')
       return
     }
     const remainingBytes = VOICE_MAX_BYTES - clips.value.reduce((sum, clip) => sum + clip.blob.size, 0) + (oldClip?.blob.size ?? 0)
     if (remainingBytes < 1024) {
-      error.value = 'Записи занимают слишком много места. Удалите одно из сообщений.'
+      error.value = t('voice.storageLimit')
       return
     }
     const token = ++generation
@@ -147,15 +149,14 @@ export function createContactVoiceSession() {
       stream = acquired
       const track = acquired.getAudioTracks()[0]
       if (!track) throw new Error('Missing audio track')
-      deviceLabel.value = track.label || 'Микрофон'
       void refreshDevices()
       track.onended = () => {
         if (token !== generation || status.value !== 'recording') return
-        notice.value = 'Микрофон отключился. Сохранили записанную часть — прослушайте её перед отправкой.'
+        notice.value = t('voice.ended')
         stop()
       }
       track.onmute = () => {
-        if (token === generation && status.value === 'recording') notice.value = 'Микрофон временно не передаёт звук. Проверьте подключение.'
+        if (token === generation && status.value === 'recording') notice.value = t('voice.muted')
       }
       track.onunmute = () => { if (token === generation) notice.value = '' }
       if (context) {
@@ -167,10 +168,10 @@ export function createContactVoiceSession() {
           analyser.fftSize = 1024
           source.connect(analyser)
         } catch {
-          if (token === generation) notice.value = 'Проверка громкости недоступна. Прослушайте сообщение после записи.'
+          if (token === generation) notice.value = t('voice.meterUnavailable')
         }
       } else {
-        notice.value = 'Проверка громкости недоступна. Прослушайте сообщение после записи.'
+        notice.value = t('voice.meterUnavailable')
       }
       if (token !== generation) return
       const mime = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find(type => MediaRecorder.isTypeSupported(type))
@@ -180,7 +181,7 @@ export function createContactVoiceSession() {
         if (token !== generation || !event.data.size) return
         bytes += event.data.size
         if (bytes > remainingBytes) {
-          error.value = 'Запись получилась слишком большой. Попробуйте записать более короткое сообщение.'
+          error.value = t('voice.tooLarge')
           discardRecording = true
           stop(true)
           return
@@ -190,7 +191,7 @@ export function createContactVoiceSession() {
       activeRecorder.onerror = () => {
         if (token !== generation) return
         discardRecording = true
-        error.value = 'Браузер прервал запись. Предыдущие сообщения сохранены; попробуйте ещё раз.'
+        error.value = t('voice.interrupted')
         stop(true)
       }
       activeRecorder.onstop = () => {
@@ -203,8 +204,8 @@ export function createContactVoiceSession() {
         chunks = []
         if (discardRecording || !blob.size || elapsed.value < 0.35 || elapsed.value > recordingBudget + 0.5) {
           if (!discardRecording) error.value = elapsed.value > recordingBudget + 0.5
-            ? 'Браузер задержал остановку записи. Она превысила лимит времени — запишите сообщение ещё раз.'
-            : 'Запись слишком короткая. Попробуйте ещё раз.'
+            ? t('voice.stopDelayed')
+            : t('voice.tooShort')
           status.value = 'idle'
           replacementId.value = null
           return
@@ -279,7 +280,7 @@ export function createContactVoiceSession() {
     if (document.visibilityState === 'hidden') {
       if (status.value === 'requesting') stop(true)
       else if (status.value === 'recording') {
-        notice.value = 'Остановили запись, когда вы свернули страницу. Записанная часть сохранена.'
+        notice.value = t('voice.hiddenStop')
         stop()
       }
     }
@@ -301,7 +302,7 @@ export function createContactVoiceSession() {
       navigator.mediaDevices?.removeEventListener?.('devicechange', refreshDevices)
       // Preserve committed clips across the fallback → surface handoff.
       if (status.value === 'recording') {
-        notice.value = 'Остановили запись при уходе со страницы. Записанная часть сохранена.'
+        notice.value = t('voice.leaveStop')
         stop()
       } else if (status.value === 'requesting') stop(true)
       else releaseMicrophone()

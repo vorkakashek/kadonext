@@ -4,6 +4,7 @@ import {
   localeLoaders,
   type LocaleCode,
 } from '~/generated/locales/manifest'
+import { localeFromPath } from '~/utils/localeRouting'
 
 type LocaleMessages = Record<string, unknown>
 type MessageParams = Record<string, string | number>
@@ -30,9 +31,9 @@ export default defineNuxtPlugin(async () => {
     path: '/',
     sameSite: 'lax',
   })
-  const initialLocale = localeCookie.value && localeCookie.value in localeLoaders
-    ? localeCookie.value
-    : defaultLocale
+  const pathLocale = localeFromPath(useRequestURL().pathname)
+  const initialLocale = pathLocale
+    ?? (localeCookie.value && localeCookie.value in localeLoaders ? localeCookie.value : defaultLocale)
   const initialMessages = initialLocale === defaultLocale
     ? defaultMessages as LocaleMessages
     : await localeLoaders[initialLocale]() as LocaleMessages
@@ -42,6 +43,19 @@ export default defineNuxtPlugin(async () => {
     [defaultLocale, defaultMessages as LocaleMessages],
     [initialLocale, initialMessages],
   ])
+
+  function rememberLocale(nextLocale: LocaleCode) {
+    localeCookie.value = nextLocale
+    if (import.meta.client) {
+      try {
+        localStorage.setItem('kadonext-locale', nextLocale)
+      } catch {
+        /* Cookie remains the primary preference store. */
+      }
+    }
+  }
+
+  if (pathLocale) rememberLocale(initialLocale)
 
   function tm(key: string): unknown {
     return resolveMessage(messages.value, key)
@@ -53,6 +67,10 @@ export default defineNuxtPlugin(async () => {
   }
 
   async function setLocale(nextLocale: LocaleCode) {
+    if (nextLocale === locale.value && messages.value === loaded.get(nextLocale)) {
+      rememberLocale(nextLocale)
+      return
+    }
     let nextMessages = loaded.get(nextLocale)
     if (!nextMessages) {
       nextMessages = await localeLoaders[nextLocale]() as LocaleMessages
@@ -60,7 +78,7 @@ export default defineNuxtPlugin(async () => {
     }
     messages.value = nextMessages
     locale.value = nextLocale
-    localeCookie.value = nextLocale
+    rememberLocale(nextLocale)
   }
 
   return {

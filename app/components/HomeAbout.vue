@@ -8,6 +8,10 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 defineProps<{ surfaceReady?: boolean }>()
 
+const { t, tm } = useI18n()
+const aboutTitleLines = computed(() => tm('home.about.titleLines') as string[])
+const aboutParagraphs = computed(() => tm('home.about.paragraphs') as string[])
+
 const socialLinks = [
   { label: 'Telegram', href: 'https://t.me/kado_next', content: 'icon', icon: IconBrandTelegram },
   { label: 'Behance', href: 'https://www.behance.net/bersenev', content: 'icon', icon: IconBrandBehance },
@@ -246,15 +250,13 @@ onUnmounted(() => {
           class="home-about__title"
         >
           <span class="home-about__title-copy">
-            <span class="home-about__title-line"><span class="home-about__title-line-text">Личный взгляд.</span></span>
-            <span class="home-about__title-line"><span class="home-about__title-line-text">Цельный результат.</span></span>
+            <span v-for="line in aboutTitleLines" :key="line" class="home-about__title-line"><span class="home-about__title-line-text">{{ line }}</span></span>
           </span>
           <span
             class="home-about__title-copy home-about__title-copy--inverse"
             aria-hidden="true"
           >
-            <span class="home-about__title-line"><span class="home-about__title-line-text">Личный взгляд.</span></span>
-            <span class="home-about__title-line"><span class="home-about__title-line-text">Цельный результат.</span></span>
+            <span v-for="line in aboutTitleLines" :key="line" class="home-about__title-line"><span class="home-about__title-line-text">{{ line }}</span></span>
           </span>
         </h2>
 
@@ -272,7 +274,7 @@ onUnmounted(() => {
             >
             <img
               src="/home/me.png"
-              alt="Антон, основатель KADO"
+              :alt="t('home.about.portraitAlt')"
               width="1801"
               height="2048"
               loading="lazy"
@@ -280,26 +282,16 @@ onUnmounted(() => {
             >
           </picture>
           <figcaption class="home-about__meta">
-            <span>арт-дирекция&nbsp;&nbsp;·&nbsp;&nbsp;UX/UI&nbsp;&nbsp;·&nbsp;&nbsp;разработка&nbsp;&nbsp;·&nbsp;&nbsp;motion</span>
-            <span>москва&nbsp;&nbsp;·&nbsp;&nbsp;работа по всему миру</span>
+            <span>{{ t('home.about.roles') }}</span>
+            <span>{{ t('home.about.location') }}</span>
           </figcaption>
         </figure>
       </div>
 
       <div ref="contentEndEl" class="home-about__copy">
-        <h3><span>Обо мне</span></h3>
-        <p>
-          Меня зовут Антон. Я дизайнер и разработчик, основатель KADO.
-          Лично веду ключевые этапы проекта: разбираюсь в задаче, формирую
-          структуру и визуальное направление, проектирую взаимодействия и
-          участвую в разработке до самого запуска.
-        </p>
-        <p>
-          Я собираю сайты как цельные цифровые пространства — со своим
-          характером, понятной логикой и движением, которое помогает содержанию,
-          а не существует ради эффекта.
-        </p>
-        <nav class="home-about__socials" aria-label="Социальные сети">
+        <h3><span>{{ t('home.about.heading') }}</span></h3>
+        <p v-for="paragraph in aboutParagraphs" :key="paragraph">{{ paragraph }}</p>
+        <nav class="home-about__socials" :aria-label="t('home.about.socialsLabel')">
           <a
             v-for="social in socialLinks"
             :key="social.label"

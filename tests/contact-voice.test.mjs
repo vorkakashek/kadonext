@@ -5,6 +5,31 @@ import { createContactVoiceSession } from '../app/utils/contactVoiceSession.ts'
 
 const flush = async () => { await Promise.resolve(); await Promise.resolve() }
 
+const voiceMessages = {
+  'voice.defaultMicrophone': 'Микрофон по умолчанию',
+  'voice.genericMicrophone': 'Микрофон',
+  'voice.permissionDenied': 'Доступ к микрофону закрыт. Разрешите его в настройках сайта в браузере или расскажите о проекте текстом.',
+  'voice.notFound': 'Микрофон не найден. Подключите его или расскажите о проекте текстом.',
+  'voice.selectedUnavailable': 'Выбранный микрофон недоступен. Выберите другой и повторите запись.',
+  'voice.notReadable': 'Не удалось включить микрофон. Проверьте подключение и не занят ли он другим приложением.',
+  'voice.startFailed': 'Не удалось начать запись. Попробуйте ещё раз или расскажите о проекте текстом.',
+  'voice.unsupported': 'Запись недоступна в этом браузере.',
+  'voice.limitReached': 'Лимит записей достигнут. Удалите сообщение или перезапишите одно из существующих.',
+  'voice.storageLimit': 'Записи занимают слишком много места. Удалите одно из сообщений.',
+  'voice.deviceDisconnected': 'Выбранный микрофон отключён.',
+  'voice.ended': 'Микрофон отключился.',
+  'voice.muted': 'Микрофон временно не передаёт звук.',
+  'voice.meterUnavailable': 'Проверка громкости недоступна.',
+  'voice.tooLarge': 'Запись получилась слишком большой.',
+  'voice.interrupted': 'Браузер прервал запись.',
+  'voice.stopDelayed': 'Запись превысила лимит времени.',
+  'voice.tooShort': 'Запись слишком короткая.',
+  'voice.hiddenStop': 'Остановили запись, когда вы свернули страницу.',
+  'voice.leaveStop': 'Остановили запись при уходе со страницы.',
+}
+
+const translateVoice = key => voiceMessages[key] ?? key
+
 function harness() {
   const originals = new Map()
   const install = (name, value) => { originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name)); Object.defineProperty(globalThis, name, { configurable: true, value, writable: true }) }
@@ -46,7 +71,7 @@ function harness() {
   install('clearInterval', fn => intervals.delete(fn))
   install('setTimeout', (fn, ms) => { timeouts.set(fn, now + ms); return fn })
   install('clearTimeout', fn => timeouts.delete(fn))
-  const session = createContactVoiceSession()
+  const session = createContactVoiceSession(translateVoice)
   session.attach()
   return {
     session, tracks, acquire,

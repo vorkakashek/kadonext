@@ -29,7 +29,11 @@ function loadTs(path, globals = {}, imports = {}) {
   }, { filename: path })
   return exports
 }
-const seo = loadTs('app/utils/siteSeo.ts', {}, { './homeCases': { homeCaseIds: structure.map(project => project.id) } })
+const routing = loadTs('app/utils/localeRouting.ts')
+const seo = loadTs('app/utils/siteSeo.ts', {}, {
+  './homeCases': { homeCaseIds: structure.map(project => project.id) },
+  './localeRouting': routing,
+})
 const plain = value => JSON.parse(JSON.stringify(value))
 const lookup = key => key.split('.').reduce((value, part) => value?.[part], messages)
 function setup(initialPath = '/', indexable = true) {
@@ -44,7 +48,7 @@ function setup(initialPath = '/', indexable = true) {
     useI18n: () => ({ locale: ref('ru'), tm: lookup, t: lookup }),
     useSeoMeta: value => { meta = value; calls += 1 },
     useHead: value => { head = value },
-  }, { '~/utils/siteSeo': seo })
+  }, { '~/utils/siteSeo': seo, '~/utils/localeRouting': routing })
   useSiteSeo()
   return {
     route, config,
@@ -60,12 +64,12 @@ test('canonical URLs strip query, fragment and trailing slash', () => {
     assert.equal(seo.canonicalPath(input), '/projects/audience')
   }
   assert.equal(seo.canonicalPath('/#contact'), '/')
-  assert.equal(seo.siteUrl('/projects/audience'), 'https://kadonext.com/projects/audience')
+  assert.equal(routing.localizedPath('/projects/audience', 'ru'), '/ru/projects/audience')
 })
 
 test('one head owner updates every page and restores home after kept-alive navigation', () => {
   const app = setup()
-  const sequence = ['/', '/projects', '/projects/audience', '/projects/keys-store', '/projects/baltika', '/projects/schmidt', '/privacy', '/consent', '/projects/audience/', '/#contact', '/']
+  const sequence = ['/ru/', '/ru/projects', '/ru/projects/audience', '/ru/projects/keys-store', '/ru/projects/baltika', '/ru/projects/schmidt', '/ru/privacy', '/ru/consent', '/ru/projects/audience/', '/ru/#contact', '/ru/']
   for (const path of sequence) {
     app.route.path = path
     const cleanPath = seo.canonicalPath(path)
@@ -76,15 +80,16 @@ test('one head owner updates every page and restores home after kept-alive navig
     assert.equal(app.meta('description'), expected.description)
     assert.equal(app.meta('ogTitle'), expected.title)
     assert.equal(app.meta('twitterDescription'), expected.description)
-    assert.equal(app.meta('ogUrl'), seo.siteUrl(cleanPath))
-    assert.equal(app.head().link[0].href, seo.siteUrl(cleanPath))
+    const localizedUrl = seo.siteUrl(routing.localizedPath(cleanPath, 'ru'))
+    assert.equal(app.meta('ogUrl'), localizedUrl)
+    assert.equal(app.head().link[0].href, localizedUrl)
     assert.match(app.meta('robots'), /^index, follow/)
     const graph = app.graph()
-    assert.equal(graph.find(node => node['@id'] === `${seo.siteUrl(cleanPath)}#webpage`).name, expected.title)
+    assert.equal(graph.find(node => node['@id'] === `${localizedUrl}#webpage`).name, expected.title)
     if (project) {
       assert.equal(app.meta('ogImage'), seo.siteUrl(`/og/${project.id}.jpg`))
       assert.equal(graph.find(node => node['@type'] === 'CreativeWork').name, project.title)
-      assert.equal(graph.find(node => node['@type'] === 'BreadcrumbList').itemListElement.at(-1).item, seo.siteUrl(cleanPath))
+      assert.equal(graph.find(node => node['@type'] === 'BreadcrumbList').itemListElement.at(-1).item, localizedUrl)
     } else if (cleanPath === '/') {
       assert.equal(app.meta('ogImage'), seo.siteUrl('/og/home.jpg'))
       assert.equal(graph.filter(node => node['@type'] === 'Service').length, 4)
@@ -95,15 +100,15 @@ test('one head owner updates every page and restores home after kept-alive navig
 })
 
 test('unknown routes remove canonical and structured data; returning restores them', () => {
-  const app = setup('/projects/audience')
+  const app = setup('/ru/projects/audience')
   for (const path of ['/missing', '/projects/missing', '/200.html', '/404.html']) {
     app.route.path = path
     assert.equal(app.meta('robots'), 'noindex, follow')
     assert.deepEqual(app.head().link, [])
     assert.deepEqual(app.head().script, [])
   }
-  app.route.path = '/'
-  assert.equal(app.head().link[0].href, seo.siteUrl('/'))
+  app.route.path = '/ru/'
+  assert.equal(app.head().link[0].href, seo.siteUrl('/ru/'))
   assert.match(app.meta('robots'), /^index,/)
 })
 
@@ -122,13 +127,14 @@ test('boolean and string configuration are consistent in HTML, robots and sitema
     const robots = loadTs('server/routes/robots.txt.ts', globals, { '../../app/utils/siteSeo': seo }).default({})
     const sitemap = loadTs('server/routes/sitemap.xml.ts', globals, {
       '../../app/utils/siteSeo': seo,
+      '../../app/utils/localeRouting': routing,
       '../../app/data/homeCases.json': structure,
       '../../app/data/projectCaseDetails.json': details,
     }).default({})
     assert.match(robots, /^Allow: \/$/m)
     assert.doesNotMatch(robots, /^Disallow: \/$/m)
     assert.equal(robots.includes('Sitemap:'), indexable)
-    assert.equal([...sitemap.matchAll(/<loc>/g)].length, indexable ? 8 : 0)
+    assert.equal([...sitemap.matchAll(/<loc>/g)].length, indexable ? 16 : 0)
     if (indexable) {
       assert.ok(sitemap.includes('<image:loc>https://kadonext.com/home/me-1024.webp</image:loc>'))
       assert.doesNotMatch(sitemap, /<lastmod>|#contact|\/200.html|\/404.html/)

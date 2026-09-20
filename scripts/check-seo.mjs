@@ -6,14 +6,18 @@ import sharp from 'sharp'
 const root = resolve('.output/public')
 const site = 'https://kadonext.com'
 const projects = JSON.parse(readFileSync('app/data/homeCases.json', 'utf8'))
-const paths = ['/', '/projects', ...projects.map(project => `/projects/${project.id}`), '/privacy', '/consent']
+const basePaths = ['/', '/projects', ...projects.map(project => `/projects/${project.id}`), '/privacy', '/consent']
+const locales = ['ru', 'en']
+const paths = locales.flatMap(locale => basePaths.map(path => `/${locale}${path}`))
+const basePathFor = path => path.replace(/^\/(?:ru|en)(?=\/|$)/, '').replace(/\/+$/, '') || '/'
+const localeFor = path => path.split('/')[1]
 const robots = readFileSync(resolve(root, 'robots.txt'), 'utf8')
 const indexable = /^Sitemap: /m.test(robots)
 assert.ok(/^Allow: \/$/m.test(robots), 'Crawlers must be able to read HTML indexation directives')
 assert.ok(!/^Disallow: \/$/m.test(robots), 'Do not hide noindex directives behind a crawl prohibition')
 const sitemap = readFileSync(resolve(root, 'sitemap.xml'), 'utf8')
 const xmlLocations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1])
-assert.deepEqual(xmlLocations, indexable ? paths.map(path => site + path) : [], 'Sitemap must contain exactly the indexable content pages')
+assert.deepEqual(xmlLocations, indexable ? paths.map(path => site + path) : [], 'Sitemap must contain exactly the localized content pages')
 if (indexable) assert.ok(robots.includes(`Sitemap: ${site}/sitemap.xml`), 'robots.txt must advertise the sitemap')
 
 const decode = text => text.replace(/&(?:amp|quot|apos|lt|gt|#39|#x27|#\d+|#x[\da-f]+);/gi, entity => {
@@ -31,9 +35,11 @@ const cards = new Set()
 let imageCount = 0
 
 for (const path of paths) {
+  const locale = localeFor(path)
+  const basePath = basePathFor(path)
   const html = htmlFor(path)
   const context = `${path}: `
-  assert.match(html, /<html\b[^>]*\blang="ru"/, context + 'document language')
+  assert.match(html, new RegExp(`<html\\b[^>]*\\blang="${locale}"`), context + 'document language')
   assert.match(html, /<noscript\b[^>]*>[\s\S]*?\.brand-preload[\s\S]*?<\/noscript>/, context + 'static content fallback')
   assert.equal(tags(html, 'h1').length, 1, context + 'one main heading')
   assert.equal(tags(html, 'main').length, 1, context + 'one main landmark')
@@ -65,7 +71,7 @@ for (const path of paths) {
   assert.equal(getMeta('twitter:description'), description, context + 'Twitter description')
   assert.equal(getMeta('og:url'), site + path, context + 'OG URL')
   assert.equal(getMeta('og:type'), 'website', context + 'OG type')
-  assert.equal(getMeta('og:locale'), 'ru_RU', context + 'OG locale')
+  assert.equal(getMeta('og:locale'), locale === 'ru' ? 'ru_RU' : 'en_US', context + 'OG locale')
   assert.equal(getMeta('og:site_name'), 'KADO', context + 'site name')
   assert.equal(getMeta('twitter:card'), 'summary_large_image', context + 'large image card')
   getMeta('og:image:alt')
@@ -87,13 +93,13 @@ for (const path of paths) {
   assert.equal(page.description, description, context + 'schema description matches page')
   assert.ok(graph.some(node => node['@type'] === 'Organization'), context + 'studio identity')
   assert.ok(graph.some(node => node['@type'] === 'WebSite'), context + 'website identity')
-  if (path !== '/') {
+  if (basePath !== '/') {
     const breadcrumbs = graph.find(node => node['@type'] === 'BreadcrumbList').itemListElement
     assert.equal(breadcrumbs.at(-1).item, site + path, context + 'breadcrumb destination')
     assert.deepEqual(breadcrumbs.map(crumb => crumb.position), breadcrumbs.map((_, index) => index + 1), context + 'ordered breadcrumbs')
   }
-  if (path.startsWith('/projects/')) assert.ok(graph.some(node => node['@type'] === 'CreativeWork'), context + 'case schema')
-  if (path === '/projects') assert.equal(graph.find(node => node['@type'] === 'ItemList').numberOfItems, projects.length, context + 'catalog schema')
+  if (basePath.startsWith('/projects/')) assert.ok(graph.some(node => node['@type'] === 'CreativeWork'), context + 'case schema')
+  if (basePath === '/projects') assert.equal(graph.find(node => node['@type'] === 'ItemList').numberOfItems, projects.length, context + 'catalog schema')
 
   for (const tag of tags(html, 'img')) {
     imageCount += 1
@@ -149,8 +155,10 @@ for (const fallback of ['200.html', '404.html']) {
   assert.equal(entries.length, 1, `${fallback}: one robots tag`)
   assert.match(entries[0].content, /noindex/, `${fallback}: never index fallbacks`)
 }
-const homeLinks = tags(htmlFor('/'), 'a').map(tag => tag.href)
-assert.ok(homeLinks.includes('/projects'), 'Home must link to the project catalog in initial HTML')
-const catalogLinks = tags(htmlFor('/projects'), 'a').map(tag => tag.href)
-for (const project of projects) assert.ok(catalogLinks.includes(`/projects/${project.id}`), `Catalog must link to ${project.id} in initial HTML`)
+for (const locale of locales) {
+  const homeLinks = tags(htmlFor(`/${locale}/`), 'a').map(tag => tag.href)
+  assert.ok(homeLinks.includes(`/${locale}/projects`), `${locale} home must link to its project catalog in initial HTML`)
+  const catalogLinks = tags(htmlFor(`/${locale}/projects`), 'a').map(tag => tag.href)
+  for (const project of projects) assert.ok(catalogLinks.includes(`/${locale}/projects/${project.id}`), `${locale} catalog must link to ${project.id} in initial HTML`)
+}
 console.log(`SEO passed: ${paths.length} pages, ${imageCount} images, ${cards.size} share cards, canonical URLs, metadata, JSON-LD, internal links, sitemap and fallbacks (${indexable ? 'production' : 'preview'}).`)

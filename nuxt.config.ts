@@ -1,6 +1,11 @@
 import tailwindcss from '@tailwindcss/vite'
 import { homeCaseIds } from './app/utils/homeCases'
 
+const contentRoutes = ['/', '/projects', '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`)]
+const localizedContentRoutes = ['ru', 'en'].flatMap(locale => (
+  contentRoutes.map(path => `/${locale}${path}`)
+))
+
 const threeSourceUrl = new URL('./node_modules/three/src/Three.js', import.meta.url)
 const threeSourceEntry = decodeURIComponent(
   /^\/[A-Za-z]:\//.test(threeSourceUrl.pathname)
@@ -18,12 +23,28 @@ export default defineNuxtConfig({
       // Static hosting proxies this path to the separate SMTP gateway.
       // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
       contactEndpoint: '/api/contact',
+      // Temporary client-side production preview. Set false when the real API is deployed.
+      contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK !== 'false' && process.env.NODE_ENV === 'production',
+      contactMockDelayMs: Math.min(Math.max(Number(process.env.NUXT_PUBLIC_CONTACT_MOCK_DELAY_MS) || 500, 0), 10000),
       // Set false for preview builds; static hosts must publish a fresh build.
       siteIndexable: process.env.NUXT_PUBLIC_SITE_INDEXABLE !== 'false' && process.env.NODE_ENV !== 'development',
     },
   },
 
   modules: ['@nuxt/fonts'],
+
+  hooks: {
+    'pages:extend'(pages) {
+      const addLocaleAliases = (page: typeof pages[number]) => {
+        if (page.path.startsWith('/')) {
+          const aliases = ['ru', 'en'].map(locale => `/${locale}${page.path}`)
+          page.alias = [...(Array.isArray(page.alias) ? page.alias : page.alias ? [page.alias] : []), ...aliases]
+        }
+        page.children?.forEach(addLocaleAliases)
+      }
+      pages.forEach(addLocaleAliases)
+    },
+  },
 
   css: ['~/assets/css/main.css', 'lenis/dist/lenis.css'],
 
@@ -133,6 +154,12 @@ export default defineNuxtConfig({
       // Before first paint: warm revisit shows full black macron, not empty gray track.
       script: [
         {
+          key: 'locale-redirect',
+          innerHTML:
+            "try{var p=location.pathname;if(!/^\\/(?:ru|en)(?:\\/|$)/.test(p)){var m=document.cookie.match(/(?:^|; )kadonext-locale=(ru|en)(?:;|$)/);var s=localStorage.getItem('kadonext-locale');var n=(navigator.languages&&navigator.languages[0])||navigator.language||'';var l=m?m[1]:(s==='ru'||s==='en'?s:(/^ru(?:-|$)/i.test(n)?'ru':'en'));document.cookie='kadonext-locale='+l+'; Path=/; Max-Age=31536000; SameSite=Lax';localStorage.setItem('kadonext-locale',l);location.replace('/'+l+(p==='/'?'/':p)+location.search+location.hash)}}catch(e){}",
+          tagPosition: 'head',
+        },
+        {
           key: 'preload-warm',
           innerHTML:
             "try{if(localStorage.getItem('kadonext-preload-seen')==='1')document.documentElement.setAttribute('data-preload-warm','1')}catch(e){}",
@@ -156,7 +183,7 @@ export default defineNuxtConfig({
     // without doing compression work at request time.
     compressPublicAssets: true,
     prerender: {
-      routes: ['/', '/projects', '/privacy', '/consent', '/robots.txt', '/sitemap.xml', ...homeCaseIds.map(id => `/projects/${id}`)],
+      routes: [...contentRoutes, ...localizedContentRoutes, '/robots.txt', '/sitemap.xml'],
     },
   },
 

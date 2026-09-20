@@ -26,6 +26,15 @@ const heroTitleLineWords = computed(() => (
     line.trim().split(/\s+/).map(word => Array.from(word))
   ))
 ))
+const heroMobileTitleLines = computed(() => {
+  locale.value
+  return tm('home.hero.mobileTitleLines') as string[]
+})
+const heroMobileTitleLineWords = computed(() => (
+  heroMobileTitleLines.value.map(line => (
+    line.trim().split(/\s+/).map(word => Array.from(word))
+  ))
+))
 const heroDescriptionLines = computed(() => {
   locale.value
   return tm('home.hero.descriptionLines') as string[]
@@ -191,7 +200,7 @@ defineExpose({ section, surfaceSlot })
           <span
             v-for="(lineWords, lineIndex) in heroTitleLineWords"
             :key="lineIndex"
-            class="home-hero__title-line-mask"
+            class="home-hero__title-line-mask home-hero__title-line-mask--desktop"
             :data-hero-title-line="lineIndex"
             aria-hidden="true"
           >
@@ -199,7 +208,25 @@ defineExpose({ section, surfaceSlot })
               v-for="(word, wordIndex) in lineWords"
               :key="wordIndex"
               class="home-hero__title-word-mask"
-              :data-hero-title-mobile-row="lineIndex + wordIndex"
+            >
+              <span
+                v-for="(char, charIndex) in word"
+                :key="`${char}-${charIndex}`"
+                class="home-hero__title-char"
+              >{{ char }}</span>
+            </span>
+          </span>
+          <span
+            v-for="(lineWords, lineIndex) in heroMobileTitleLineWords"
+            :key="`mobile-${lineIndex}`"
+            class="home-hero__title-line-mask home-hero__title-line-mask--mobile"
+            :data-hero-title-mobile-row="lineIndex"
+            aria-hidden="true"
+          >
+            <span
+              v-for="(word, wordIndex) in lineWords"
+              :key="wordIndex"
+              class="home-hero__title-word-mask"
             >
               <span
                 v-for="(char, charIndex) in word"
@@ -310,11 +337,17 @@ defineExpose({ section, surfaceSlot })
   margin-inline: auto;
 }
 
+.home-hero__title-line-mask--mobile {
+  display: none;
+}
+
 .home-hero__title-word-mask {
   display: inline-block;
   overflow: hidden;
   padding-top: 0.08em;
   padding-right: 0.04em;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
 }
 
 .home-hero__title-word-mask + .home-hero__title-word-mask {
@@ -380,47 +413,19 @@ defineExpose({ section, surfaceSlot })
   }
 
   .home-hero__title {
-    display: grid;
-    grid-template-columns: max-content max-content;
-    justify-content: center;
-    column-gap: 0.22em;
     font-size: calc(clamp(44px, 14.3cqi, 105.6px) * 0.95);
   }
 
-  .home-hero__title-line-mask {
-    display: contents;
+  .home-hero__title-line-mask--desktop {
+    display: none;
+  }
+
+  .home-hero__title-line-mask--mobile {
+    display: flex;
   }
 
   .home-hero__title-word-mask {
-    display: block;
-    width: max-content;
-    margin: 0;
-  }
-
-  .home-hero__title-word-mask + .home-hero__title-word-mask {
-    margin-left: 0;
-  }
-
-  .home-hero__title-line-mask[data-hero-title-line="0"] .home-hero__title-word-mask:first-child {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    justify-self: center;
-  }
-
-  .home-hero__title-line-mask[data-hero-title-line="0"] .home-hero__title-word-mask:last-child {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .home-hero__title-line-mask[data-hero-title-line="1"] .home-hero__title-word-mask:first-child {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .home-hero__title-line-mask[data-hero-title-line="1"] .home-hero__title-word-mask:last-child {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    justify-self: center;
+    display: inline-block;
   }
 
   .home-hero__surface-slot {

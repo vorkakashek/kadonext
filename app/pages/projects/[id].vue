@@ -4,6 +4,7 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 const route = useRoute()
 const { t } = useI18n()
+const localePath = useLocalePath()
 const { scrollRevision } = useMotionRuntime()
 const homeCases = useHomeCases()
 const projectCaseDetails = await useProjectCaseDetails()
@@ -880,7 +881,7 @@ if (!item.value) {
 
     <NuxtLink
       v-if="nextItem"
-      :to="homeCaseDetailPath(nextItem)"
+      :to="localePath(homeCaseDetailPath(nextItem))"
       class="case-detail__next"
       :class="{ 'case-detail__next--inverse': nextItem.inverse }"
       :data-page-iris-color="nextItem.wash"

@@ -24,6 +24,7 @@ export type CaseDetailTransitionRequest = {
 export type CaseDetailOrigin = 'home' | 'projects'
 
 export function useCaseDetailTransition() {
+  const localePath = useLocalePath()
   const request = useState<CaseDetailTransitionRequest | null>(
     'case-detail-transition-request',
     () => null,
@@ -54,7 +55,7 @@ export function useCaseDetailTransition() {
     request.value = {
       ...next,
       direction: 'close',
-      to: returningHome ? '/#cases' : '/projects',
+      to: localePath(returningHome ? '/#cases' : '/projects'),
       targetSelector: returningHome
         ? `[data-case-media="${next.src}"]`
         : `[data-case-cover="${next.src}"]`,

@@ -25,7 +25,14 @@ const allPages = [
   { id: 'home', path: '/', selector: '.hero-swarm canvas' },
   { id: 'projects', path: '/projects', selector: '.projects-catalog__title' },
   { id: 'services', path: '/#services', selector: '#services' },
-  { id: 'about', path: '/#about', selector: '#about' },
+  {
+    id: 'about',
+    path: '/#about',
+    selector: '#about',
+    // The desktop menu tile should introduce the author, not repeat the
+    // section heading: keep the portrait in view and reveal the opening copy.
+    desktopOffsetY: 350,
+  },
   { id: 'contact', path: '/#contact', selector: '#contact' },
 ]
 
@@ -113,6 +120,7 @@ async function capturePass(spec) {
       content: `
         .fps-meter { display: none !important; }
         .brand-preload { display: none !important; visibility: hidden !important; }
+        .cookie-notice { display: none !important; visibility: hidden !important; }
         html.preload-lock,
         html.preload-lock body { overflow: auto !important; }
       `,
@@ -143,6 +151,10 @@ async function capturePass(spec) {
         const rect = document.querySelector(selector)?.getBoundingClientRect()
         return rect && rect.top < window.innerHeight && rect.bottom > 0
       }, item.selector, { timeout: 20_000 })
+      if (!spec.mobile && item.desktopOffsetY) {
+        await page.evaluate((offsetY) => window.scrollBy({ top: offsetY, behavior: 'instant' }), item.desktopOffsetY)
+        await page.waitForTimeout(1800)
+      }
     }
     await page.waitForFunction(() => [...document.images].every((image) => {
       const rect = image.getBoundingClientRect()

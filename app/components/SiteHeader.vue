@@ -16,12 +16,14 @@ const {
 } = usePageCanvas()
 const route = useRoute()
 const nuxtApp = useNuxtApp()
-const { t } = useI18n()
+const { locale, t } = useI18n()
+const localePath = useLocalePath()
+const routeBasePath = computed(() => baseRoutePath(route.path))
 const homeCases = useHomeCases()
 const links = headerLinks
 /** Optimistic “you are here” so the chip fill doesn’t wait for the iris hop. */
 // URL fragments never reach SSR. Apply them only after the header hydrates.
-const navHerePath = ref(route.fullPath.replace(/#.*$/, ''))
+const navHerePath = ref(stripLocalePrefix(route.fullPath).replace(/#.*$/, ''))
 let navHydrated = false
 const scrolled = ref(false)
 const canvasForced = computed(() => canvasSurface.value || canvasOpen.value)
@@ -56,10 +58,10 @@ const {
 const returningToHomeCases = computed(() => (
   caseDetailTransitionActive.value
   && caseDetailTransitionRequest.value?.direction === 'close'
-  && caseDetailTransitionRequest.value.to === '/#cases'
+  && stripLocalePrefix(caseDetailTransitionRequest.value.to) === '/#cases'
 ))
 const detailCase = computed(() => {
-  const match = /^\/projects\/([^/]+)$/.exec(route.path)
+  const match = /^\/projects\/([^/]+)$/.exec(routeBasePath.value)
   return match ? homeCases.value.find((item) => item.id === match[1]) : undefined
 })
 const detailInverse = computed(() => !!detailCase.value?.inverse)
@@ -179,7 +181,7 @@ async function onLogoClick(event: MouseEvent) {
     || event.ctrlKey
     || event.shiftKey
     || event.altKey
-    || route.path !== '/'
+    || routeBasePath.value !== '/'
   ) {
     return
   }
@@ -187,14 +189,15 @@ async function onLogoClick(event: MouseEvent) {
   event.preventDefault()
   // Drop a stale section hash as well, so reload/back keeps the home hero.
   if (route.hash) {
-    await navigateTo('/', { replace: true })
+    await navigateTo(localePath('/'), { replace: true })
   } else {
     nuxtApp.$scrollToSection(document.documentElement)
   }
 }
 
 watch(() => route.fullPath, (path) => {
-  navHerePath.value = navHydrated ? path : path.replace(/#.*$/, '')
+  const baseFullPath = stripLocalePrefix(path)
+  navHerePath.value = navHydrated ? baseFullPath : baseFullPath.replace(/#.*$/, '')
 })
 
 /** Page canvas pins body (scrollY→0) — ignore that fake scroll for collapse morph. */
@@ -231,7 +234,7 @@ let fabFitResolve: (() => void) | null = null
  * boxes when we resync so the logo tone never waits for another user scroll.
  */
 function syncLogoCasesToneFromLayout() {
-  if (route.path !== '/') {
+  if (routeBasePath.value !== '/') {
     isOverCases.value = false
     mobileMarkOverCases.value = false
     isOverAboutSurface.value = false
@@ -280,7 +283,7 @@ async function setupLogoCasesTrigger() {
   homeLogoDirectionSt?.kill()
   homeLogoDirectionSt = null
 
-  if (route.path !== '/') {
+  if (routeBasePath.value !== '/') {
     isOverCases.value = false
     mobileMarkOverCases.value = false
     logoToneTries = 0
@@ -752,7 +755,7 @@ function onScroll() {
  */
 const DESKTOP_LOGO_DIR_PX = 6
 function canUseLogoScrollDirection(y: number) {
-  return route.path !== '/'
+  return routeBasePath.value !== '/'
     || (homeLogoDirectionSt !== null && y >= homeLogoDirectionSt.start)
 }
 
@@ -950,14 +953,27 @@ function syncMenuFloat() {
 }
 
 function fitDeskChipWord() {
-  if (canvasOpen.value || canvasSurface.value) return
   const btn = menuBtnEl.value
   if (!btn || thumbNav.value) return
   const word = btn.querySelector('.menu-chip-word') as HTMLElement | null
-  const sizer = btn.querySelector('.menu-sizer-menu') as HTMLElement | null
+  const sizerSelector = canvasOpen.value || canvasSurface.value
+    ? '.menu-sizer-back'
+    : '.menu-sizer-menu'
+  const sizer = btn.querySelector(sizerSelector) as HTMLElement | null
   if (!word || !sizer) return
   word.style.width = `${Math.ceil(sizer.scrollWidth)}px`
 }
+
+watch(locale, async () => {
+  await nextTick()
+  requestAnimationFrame(() => {
+    if (thumbNav.value && !canvasOpen.value && !canvasSurface.value) {
+      void fitFabLabel(fabLabelOn.value, true)
+    }
+    else fitDeskChipWord()
+    syncMenuFloat()
+  })
+}, { flush: 'post' })
 
 function onResize() {
   if (isMobileChromeHeightOnlyResize()) {
@@ -999,7 +1015,7 @@ function syncThumbNav() {
 
 onMounted(() => {
   navHydrated = true
-  navHerePath.value = route.fullPath
+  navHerePath.value = stripLocalePrefix(route.fullPath)
   registerFabFit(fitFabLabel)
   refreshTokens()
   void gsap()
@@ -1250,7 +1266,7 @@ onUnmounted(() => {
         }"
       >
         <NuxtLink
-          to="/"
+          :to="localePath('/')"
           data-home-top
           class="header-logo-link pointer-events-auto row-start-1 self-center col-span-12 col-start-1 justify-self-center md:col-span-3 md:justify-self-start"
           :class="{ 'header-logo-link--mobile-scrolled': mobileScrollMarkVisible }"
@@ -1310,7 +1326,7 @@ onUnmounted(() => {
           <NuxtLink
             v-for="(link, index) in links"
             :key="link.to"
-            :to="link.to"
+            :to="localePath(link.to)"
             class="nav-link chip-scale-host text-ink"
             :class="{
               'nav-link--here': isNavHere(link.to),
@@ -1392,7 +1408,7 @@ onUnmounted(() => {
     <Transition name="mobile-scroll-mark">
       <NuxtLink
         v-if="mobileScrollMarkVisible && !canvasSurface"
-        to="/"
+        :to="localePath('/')"
         data-home-top
         class="mobile-scroll-mark pointer-events-auto"
         :class="{ 'mobile-scroll-mark--inverted': mobileScrollMarkInverted }"

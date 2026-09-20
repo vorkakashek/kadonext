@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import { createContext, runInContext } from 'node:vm'
 import ts from 'typescript'
 import * as anchorContract from '../app/utils/homeAnchorMotion.ts'
+import { baseRoutePath } from '../app/utils/localeRouting.ts'
 
 // Exercise the actual Nuxt scroll driver with native scrolling, without a browser.
 function harness({ reduced = false, thumb = true } = {}) {
@@ -176,4 +177,50 @@ test('cancellation clears the early desktop kickoff; every named section uses th
     assert.equal(h.calls.some(call => call[0] === 'approach'), false)
     assert.equal(h.timers.size, 0)
   }
+})
+
+test('localized home hash removal keeps the logo return on the smooth-scroll driver', async () => {
+  let mounted
+  const calls = []
+  const root = { id: 'home', classList: { contains: () => false } }
+  const router = {
+    currentRoute: { value: { fullPath: '/ru/', path: '/ru/', hash: '' } },
+    options: { scrollBehavior: () => ({ top: 0, behavior: 'auto' }) },
+  }
+  const modules = {
+    '~/utils/mobileViewport': { isThumbNav: () => false },
+    '~/utils/homeSectionScroll': { homeSectionScrollTop: () => 0 },
+    '~/utils/homeAnchorMotion': { isHomeAnchorTarget: anchorContract.isHomeAnchorTarget },
+    '~/utils/localeRouting': { baseRoutePath },
+  }
+  const source = readFileSync(new URL('../app/plugins/home-section-scroll.client.ts', import.meta.url), 'utf8')
+    .replaceAll('import.meta.hot?.dispose', '(() => {})')
+  const context = createContext({
+    exports: {}, require: name => modules[name], defineNuxtPlugin: fn => fn,
+    useRouter: () => router, nextTick: () => Promise.resolve(),
+    window: {
+      location: { pathname: '/ru/', hash: '' },
+      addEventListener() {}, removeEventListener() {},
+    },
+    document: {
+      documentElement: root,
+      getElementById: () => null,
+    },
+    performance: { getEntriesByType: () => [] },
+  })
+  runInContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, context)
+  context.exports.default({
+    hook(name, callback) { if (name === 'app:mounted') mounted = callback },
+    $scrollToSection(target) { calls.push(target) },
+  })
+  mounted()
+
+  const result = await router.options.scrollBehavior(
+    { path: '/ru/', fullPath: '/ru/', hash: '' },
+    { path: '/ru/', fullPath: '/ru/#cases', hash: '#cases' },
+    null,
+  )
+
+  assert.equal(result, false)
+  assert.deepEqual(calls, [root])
 })

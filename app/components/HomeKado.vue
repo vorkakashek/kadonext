@@ -6,7 +6,7 @@
  * Mobile surface waypoints: stone → term → Kado word → center square
  * (square hop starts when Kado hits top 20%).
  */
-const BRAND = 'Kado'
+const BRAND_PATTERN = /^kado\b/i
 const { t } = useI18n()
 const bodyText = computed(() => t('home.kado.body'))
 /** Scroll lag for the whole fill timeline. */
@@ -128,7 +128,9 @@ function buildLineFill(host: HTMLElement): HTMLElement[] {
     const row = document.createElement('span')
     row.className = 'kado-body__line'
 
-    if (i === 0 && lineText.startsWith(BRAND)) {
+    const brandMatch = i === 0 ? BRAND_PATTERN.exec(lineText) : null
+    if (brandMatch) {
+      const brand = brandMatch[0]
       const wrap = document.createElement('span')
       wrap.className = 'kado-brand'
       const pin = document.createElement('span')
@@ -137,11 +139,11 @@ function buildLineFill(host: HTMLElement): HTMLElement[] {
       pin.setAttribute('aria-hidden', 'true')
       const label = document.createElement('span')
       label.className = 'kado-brand__text'
-      label.textContent = BRAND
+      label.textContent = brand
       wrap.append(pin, label)
       row.appendChild(wrap)
       kadoWord.value = wrap
-      lineText = lineText.slice(BRAND.length).replace(/^\s+/, '')
+      lineText = lineText.slice(brand.length).replace(/^\s+/, '')
       // Explicit space node — leading space inside the next span can collapse.
       if (lineText.length) row.appendChild(document.createTextNode(' '))
     }
@@ -531,6 +533,15 @@ watch(
     })
   },
 )
+
+watch(bodyText, async () => {
+  if (componentUnmounted || typeof window === 'undefined') return
+  await nextTick()
+  if (componentUnmounted) return
+  await setupLineFill(true)
+  if (componentUnmounted) return
+  stMod?.refresh()
+}, { flush: 'post' })
 
 onMounted(async () => {
   componentUnmounted = false

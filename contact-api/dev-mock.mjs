@@ -16,7 +16,7 @@ export function createContactDevMockOptions(env = process.env) {
   const configuredDelay = Number(env.CONTACT_DEV_MOCK_DELAY_MS)
   const delay = Number.isFinite(configuredDelay)
     ? Math.min(Math.max(configuredDelay, 0), 10000)
-    : 1600
+    : 500
 
   return {
     // The real handler still validates fields, consent, attachment count, MIME

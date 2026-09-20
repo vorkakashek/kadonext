@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { IconMicrophone } from '@tabler/icons-vue'
 import { VOICE_MAX_COUNT, voiceExtension } from '~/utils/contactVoice'
+import { FOOTER_PHOTO_CANCEL_EVENT } from '~/composables/useFooterPhotoRubberBand'
 import { CONTACT_CONSENT_VERSION } from '../../contact-api/consent.mjs'
 
 const props = withDefaults(defineProps<{ formId?: string }>(), {
   formId: 'contact',
 })
+const { t } = useI18n()
+const localePath = useLocalePath()
+const nuxtApp = useNuxtApp()
 
 const projectType = useState('home-contact-project-type', () => '')
 const projectTypeError = useState('home-contact-project-type-error', () => false)
@@ -14,10 +18,13 @@ const contact = useState('home-contact-channel', () => '')
 const consent = useState('home-contact-consent', () => false)
 const submitting = useState('home-contact-submitting', () => false)
 const submitted = useState('home-contact-submitted', () => false)
+const successCollapsing = useState('home-contact-success-collapsing', () => submitted.value)
+const successAnimationPlayed = useState('home-contact-success-animation-played', () => submitted.value)
 const submitError = useState('home-contact-submit-error', () => '')
 const descriptionError = useState('home-contact-description-error', () => '')
 const voice = useContactVoice()
 const runtimeConfig = useRuntimeConfig()
+const contactMock = computed(() => runtimeConfig.public.contactMock)
 const voiceBusy = voice.busy
 const voiceCount = computed(() => voice.clips.value.length)
 const includedVoiceClips = voice.clips
@@ -25,15 +32,40 @@ const { devices, deviceId } = voice
 const recordingLimitReached = computed(() => voiceCount.value >= VOICE_MAX_COUNT || voice.remaining.value < 1)
 const formLocked = computed(() => submitting.value || voiceBusy.value)
 const formHeight = useState('home-contact-form-height', () => 0)
-const successHeight = useState('home-contact-success-height', () => 0)
 const shellEl = ref<HTMLElement | null>(null)
 const formEl = ref<HTMLFormElement | null>(null)
 const descriptionEl = ref<HTMLTextAreaElement | null>(null)
 const modeButtonEl = ref<HTMLButtonElement | null>(null)
 const modeHintVisible = ref(false)
-const modeHint = computed(() => voiceCount.value === 1 ? 'Добавить еще сообщение' : 'Записать голосовое сообщение')
+const successReady = ref(submitted.value)
+const successActive = ref(submitted.value)
+const successEntering = ref(false)
+const successFlightFrame = ref(false)
+const successFrogEl = ref<HTMLElement | null>(null)
+const successTitleEl = ref<HTMLElement | null>(null)
+const successBodyEl = ref<HTMLElement | null>(null)
+const modeHint = computed(() => voiceCount.value === 1 ? t('contactForm.addVoice') : t('contactForm.recordVoice'))
 let sizeObserver: ResizeObserver | null = null
 let descriptionWidth = 0
+let successCollapsePending = false
+let successCollapseFrame = 0
+let successAnimations: Animation[] = []
+let successFrogMotionFrame = 0
+let successRevealTimer = 0
+let stopScrollInterruptionWatch: (() => void) | null = null
+let collapsingSection: HTMLElement | null = null
+let sectionPreviousHeight = ''
+let sectionPreviousOverflow = ''
+
+const SUCCESS_COLLAPSE_MS = 760
+const SUCCESS_SETTLE_MS = 120
+const SUCCESS_FROG_MS = 1000
+// Keep the shared FlowSurface on its settled Contact waypoint while the form
+// removes a large amount of document height. These values mirror the Contact
+// settle boundary owned by FlowSurfaceHost.
+const CONTACT_DOCK_VIEWPORT_P = 0.18
+const CONTACT_DOCK_LEAD_PX = 72
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '])
 
 function hideModeHint() {
   modeHintVisible.value = false
@@ -71,12 +103,9 @@ onMounted(() => {
       descriptionWidth = width
       resizeDescription()
     }
-    const style = getComputedStyle(shell)
-    formHeight.value = Math.ceil(
-      (entry?.borderBoxSize[0]?.blockSize ?? form.offsetHeight)
-      + parseFloat(style.paddingTop)
-      + parseFloat(style.paddingBottom),
-    )
+    if (!successCollapsePending && !successCollapseFrame) {
+      formHeight.value = measuredFormHeight(entry?.borderBoxSize[0]?.blockSize)
+    }
   })
   sizeObserver.observe(form)
   resizeDescription()
@@ -84,8 +113,302 @@ onMounted(() => {
 
 onUnmounted(() => {
   sizeObserver?.disconnect()
+  successCollapsePending = false
+  if (successCollapseFrame) cancelAnimationFrame(successCollapseFrame)
+  cancelSuccessAnimations()
+  cancelSuccessFrogMotion()
+  if (successRevealTimer) window.clearTimeout(successRevealTimer)
+  stopScrollInterruptionWatch?.()
+  restoreSectionStyles()
   hideModeHint()
 })
+
+function measuredFormHeight(blockSize?: number) {
+  const shell = shellEl.value
+  const form = formEl.value
+  if (!shell || !form) return formHeight.value
+  const style = getComputedStyle(shell)
+  return Math.ceil(
+    (blockSize ?? form.getBoundingClientRect().height)
+    + parseFloat(style.paddingTop)
+    + parseFloat(style.paddingBottom),
+  )
+}
+
+function cancelSuccessAnimations() {
+  for (const animation of successAnimations) animation.cancel()
+  successAnimations = []
+}
+
+function cancelSuccessFrogMotion() {
+  if (successFrogMotionFrame) cancelAnimationFrame(successFrogMotionFrame)
+  successFrogMotionFrame = 0
+}
+
+function mix(from: number, to: number, progress: number) {
+  return from + (to - from) * progress
+}
+
+function animateSuccessFrog(frog: HTMLElement) {
+  cancelSuccessFrogMotion()
+  const startedAt = performance.now()
+  let flightFrameFinished = false
+
+  const render = (progress: number) => {
+    let y = 0
+    let scaleX = 1
+    let scaleY = 1
+
+    if (progress <= 0.55) {
+      const phase = progress / 0.55
+      const eased = 1 - (1 - phase) ** 3
+      y = mix(135, -82, eased)
+      scaleX = mix(0.94, 1.01, eased)
+      scaleY = mix(0.82, 0.99, eased)
+    } else {
+      const phase = (progress - 0.55) / 0.45
+      y = mix(-82, 0, phase * phase)
+      if (phase < 0.78) {
+        scaleX = mix(1.01, 1.08, phase / 0.78)
+        scaleY = mix(0.99, 0.92, phase / 0.78)
+      } else {
+        const settle = (phase - 0.78) / 0.22
+        scaleX = mix(1.08, 1, settle)
+        scaleY = mix(0.92, 1, settle)
+      }
+    }
+
+    frog.style.opacity = `${Math.min(1, progress / 0.18)}`
+    frog.style.transform = `translate3d(0, ${y}%, 0) scaleX(${scaleX}) scaleY(${scaleY})`
+  }
+
+  render(0)
+  const tick = (now: number) => {
+    const progress = Math.min(1, (now - startedAt) / SUCCESS_FROG_MS)
+    render(progress)
+
+    if (!flightFrameFinished && progress >= 0.85) {
+      flightFrameFinished = true
+      successFlightFrame.value = false
+    }
+
+    if (progress < 1) {
+      successFrogMotionFrame = requestAnimationFrame(tick)
+      return
+    }
+
+    successFrogMotionFrame = 0
+    frog.style.removeProperty('opacity')
+    frog.style.removeProperty('transform')
+    successFlightFrame.value = false
+    successEntering.value = false
+  }
+  successFrogMotionFrame = requestAnimationFrame(tick)
+}
+
+async function revealSuccess() {
+  if (successAnimationPlayed.value) return
+  successAnimationPlayed.value = true
+  successActive.value = true
+  successEntering.value = true
+  successFlightFrame.value = true
+  await nextTick()
+
+  const frog = successFrogEl.value
+  const title = successTitleEl.value
+  const body = successBodyEl.value
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reducedMotion || !frog || !title || !body) {
+    successEntering.value = false
+    successFlightFrame.value = false
+    successReady.value = true
+    return
+  }
+
+  cancelSuccessAnimations()
+  animateSuccessFrog(frog)
+  successAnimations = [
+    title.animate([
+      { opacity: 0, transform: 'translateY(1.25rem)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ], { duration: 600, delay: 980, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' }),
+    body.animate([
+      { opacity: 0, transform: 'translateY(0.75rem)' },
+      { opacity: 1, transform: 'translateY(0)' },
+    ], { duration: 560, delay: 1110, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' }),
+  ]
+  successReady.value = true
+  const animations = [...successAnimations]
+  void Promise.allSettled(animations.map(animation => animation.finished)).then(() => {
+    if (!animations.every(animation => successAnimations.includes(animation))) return
+    cancelSuccessAnimations()
+  })
+}
+
+function revealSuccessAfterSettle() {
+  if (successRevealTimer) window.clearTimeout(successRevealTimer)
+  successRevealTimer = window.setTimeout(() => {
+    successRevealTimer = 0
+    revealSuccess()
+  }, SUCCESS_SETTLE_MS)
+}
+
+function watchForScrollInterruption(interrupt: () => void) {
+  const interruptOnKey = (event: KeyboardEvent) => {
+    if (SCROLL_KEYS.has(event.key)) interrupt()
+  }
+  const options = { capture: true, passive: true } as const
+  window.addEventListener('wheel', interrupt, options)
+  window.addEventListener('touchstart', interrupt, options)
+  window.addEventListener('pointerdown', interrupt, options)
+  window.addEventListener('keydown', interruptOnKey, true)
+  return () => {
+    window.removeEventListener('wheel', interrupt, true)
+    window.removeEventListener('touchstart', interrupt, true)
+    window.removeEventListener('pointerdown', interrupt, true)
+    window.removeEventListener('keydown', interruptOnKey, true)
+  }
+}
+
+function restoreSectionStyles() {
+  if (!collapsingSection) return
+  collapsingSection.style.height = sectionPreviousHeight
+  collapsingSection.style.overflow = sectionPreviousOverflow
+  collapsingSection = null
+  sectionPreviousHeight = ''
+  sectionPreviousOverflow = ''
+}
+
+function sectionHeightWriter(section: HTMLElement) {
+  const style = getComputedStyle(section)
+  const chrome = style.boxSizing === 'border-box'
+    ? 0
+    : parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+      + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+  return (borderBoxHeight: number) => {
+    section.style.height = `${Math.max(0, borderBoxHeight - chrome)}px`
+  }
+}
+
+async function collapseSubmittedForm() {
+  if (!successCollapsePending || !import.meta.client) return
+  window.dispatchEvent(new Event(FOOTER_PHOTO_CANCEL_EVENT))
+  const section = document.querySelector<HTMLElement>('#contact.home-contact')
+  const fields = document.querySelector<HTMLElement>('.home-contact__fields')
+  const footerPhotoBoundary = document.querySelector<HTMLElement>('[data-contact-photo-boundary]')
+  if (!section || !fields) return
+  const writeSectionHeight = sectionHeightWriter(section)
+  const fromSectionHeight = section.getBoundingClientRect().height
+  collapsingSection = section
+  sectionPreviousHeight = section.style.height
+  sectionPreviousOverflow = section.style.overflow
+  writeSectionHeight(fromSectionHeight)
+  section.style.overflow = 'hidden'
+  successCollapsing.value = true
+  await nextTick()
+  successCollapseFrame = requestAnimationFrame(() => {
+    successCollapseFrame = 0
+    if (!successCollapsePending) return
+    const toFormHeight = measuredFormHeight()
+    formHeight.value = toFormHeight
+    fields.style.setProperty('--contact-form-height', `${toFormHeight}px`)
+    section.style.height = ''
+    const toSectionHeight = section.getBoundingClientRect().height
+    writeSectionHeight(fromSectionHeight)
+    const sectionDelta = Math.max(0, fromSectionHeight - toSectionHeight)
+    const fromScroll = window.scrollY
+    const success = formEl.value?.querySelector<HTMLElement>('.contact-form__success')
+    const successRect = success?.getBoundingClientRect()
+    const viewportHeight = document.documentElement.clientHeight
+    const successTop = successRect
+      ? fromScroll + successRect.top
+      : fromScroll
+    const desiredTop = successRect
+      ? Math.max(24, (viewportHeight - successRect.height) / 2)
+      : 24
+    const footerBoundaryDocY = footerPhotoBoundary
+      ? fromScroll + footerPhotoBoundary.getBoundingClientRect().top
+      : Number.POSITIVE_INFINITY
+    const finalPhotoSafeScroll = footerBoundaryDocY - sectionDelta - viewportHeight
+    const requestedScroll = Math.max(0, Math.min(
+      fromScroll,
+      successTop - desiredTop,
+      finalPhotoSafeScroll,
+    ))
+    const sectionDocTop = fromScroll + section.getBoundingClientRect().top
+    const contactDockScroll = Math.max(0, Math.min(
+      sectionDocTop - viewportHeight * CONTACT_DOCK_VIEWPORT_P,
+      footerBoundaryDocY - viewportHeight - CONTACT_DOCK_LEAD_PX,
+    ))
+    // Never reverse-scroll across the Contact docking boundary. If the form
+    // was submitted before the Surface fully docked, hold the current scroll
+    // instead of pushing it farther back into the About→Contact morph.
+    const minimumSettledScroll = Math.min(fromScroll, contactDockScroll)
+    const toScroll = Math.max(minimumSettledScroll, requestedScroll)
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    successCollapsePending = false
+
+    if (sectionDelta <= 1 || reducedMotion) {
+      writeSectionHeight(toSectionHeight)
+      nuxtApp.$setScrollPosition(toScroll)
+      restoreSectionStyles()
+      revealSuccess()
+      return
+    }
+
+    let scrollInterrupted = false
+    stopScrollInterruptionWatch?.()
+    stopScrollInterruptionWatch = watchForScrollInterruption(() => {
+      scrollInterrupted = true
+      stopScrollInterruptionWatch?.()
+      stopScrollInterruptionWatch = null
+    })
+    const startedAt = performance.now()
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / SUCCESS_COLLAPSE_MS)
+      const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10)
+      writeSectionHeight(fromSectionHeight - sectionDelta * eased)
+      if (!scrollInterrupted) {
+        nuxtApp.$setScrollPosition(fromScroll + (toScroll - fromScroll) * eased)
+      }
+      if (progress < 1) {
+        successCollapseFrame = requestAnimationFrame(tick)
+        return
+      }
+      successCollapseFrame = 0
+      stopScrollInterruptionWatch?.()
+      stopScrollInterruptionWatch = null
+      writeSectionHeight(toSectionHeight)
+      successCollapseFrame = requestAnimationFrame(() => {
+        successCollapseFrame = 0
+        restoreSectionStyles()
+        if (!scrollInterrupted) {
+          const settledSuccessRect = success?.getBoundingClientRect()
+          const settledSuccessScroll = settledSuccessRect
+            ? window.scrollY + settledSuccessRect.top - desiredTop
+            : window.scrollY
+          const photoSafeScroll = footerPhotoBoundary
+            ? window.scrollY + footerPhotoBoundary.getBoundingClientRect().top
+              - document.documentElement.clientHeight
+            : Number.POSITIVE_INFINITY
+          const settledScroll = Math.max(
+            minimumSettledScroll,
+            Math.max(0, Math.min(
+              window.scrollY,
+              settledSuccessScroll,
+              photoSafeScroll,
+            )),
+          )
+          if (window.scrollY > settledScroll + 0.5) {
+            nuxtApp.$setScrollPosition(settledScroll)
+          }
+        }
+        revealSuccessAfterSettle()
+      })
+    }
+    successCollapseFrame = requestAnimationFrame(tick)
+  })
+}
 
 function startVoice() {
   if (formLocked.value || recordingLimitReached.value) return
@@ -106,7 +429,7 @@ async function submitForm() {
     return
   }
   if (!description.value.trim() && !includedVoiceClips.value.length) {
-    descriptionError.value = 'Расскажите о проекте текстом или запишите голосовое сообщение.'
+    descriptionError.value = t('contactForm.descriptionRequired')
     descriptionEl.value?.focus()
     return
   }
@@ -123,13 +446,26 @@ async function submitForm() {
   submitting.value = true
   hideModeHint()
   try {
-    const response = await $fetch<{ ok: boolean }>(runtimeConfig.public.contactEndpoint, { method: 'POST', body: payload, timeout: 120000, retry: 0 })
+    const response = contactMock.value
+      ? await new Promise<{ ok: true }>(resolve => window.setTimeout(
+          () => resolve({ ok: true }),
+          runtimeConfig.public.contactMockDelayMs,
+        ))
+      : await $fetch<{ ok: boolean }>(runtimeConfig.public.contactEndpoint, { method: 'POST', body: payload, timeout: 120000, retry: 0 })
     if (!response?.ok) throw new Error('Unexpected contact response')
-    successHeight.value = formEl.value?.offsetHeight ?? 0
+    successReady.value = false
+    successActive.value = false
+    successEntering.value = false
+    successFlightFrame.value = false
+    cancelSuccessAnimations()
+    cancelSuccessFrogMotion()
+    successAnimationPlayed.value = false
+    successCollapsing.value = false
+    successCollapsePending = true
     submitted.value = true
   } catch (cause) {
     const data = (cause as { data?: { message?: string } }).data
-    submitError.value = data?.message || 'Не удалось отправить заявку. Текст и записи сохранены на этой странице — попробуйте ещё раз или напишите на hello@kadonext.com.'
+    submitError.value = data?.message || t('contactForm.submitFailed')
   } finally {
     submitting.value = false
   }
@@ -141,22 +477,21 @@ function focusConfirmation() {
 </script>
 
 <template>
-  <div ref="shellEl" class="contact-form-shell">
+  <div ref="shellEl" class="contact-form-shell" :class="{ 'is-submitted': successCollapsing }">
     <form
       ref="formEl"
       v-show="projectType.trim().length > 0"
       :id="props.formId"
       class="contact-form"
-      :class="{ 'is-submitting': submitting, 'is-submitted': submitted }"
-      :style="submitted && successHeight ? { minHeight: `${successHeight}px` } : undefined"
+      :class="{ 'is-submitting': submitting, 'is-submitted': successCollapsing }"
       :action="runtimeConfig.public.contactEndpoint"
       method="post"
       enctype="multipart/form-data"
       @submit.prevent="submitForm"
     >
-      <span class="contact-form__status" role="status" aria-live="polite" aria-atomic="true">{{ submitting ? 'Отправляем сообщение…' : submitted ? 'Сообщение отправлено. Спасибо! Отвечу лично по указанному контакту.' : '' }}</span>
-      <Transition name="contact-result" mode="out-in" @after-enter="focusConfirmation">
-      <fieldset v-if="!submitted" class="contact-form__fieldset" :disabled="submitting" :aria-busy="submitting" aria-label="Данные проекта">
+      <span class="contact-form__status" role="status" aria-live="polite" aria-atomic="true">{{ submitting ? t('contactForm.sendingStatus') : submitted ? t('contactForm.sentStatus') : '' }}</span>
+      <Transition name="contact-result" mode="out-in" @before-enter="collapseSubmittedForm" @after-enter="focusConfirmation">
+      <fieldset v-if="!submitted" class="contact-form__fieldset" :disabled="submitting" :aria-busy="submitting" :aria-label="t('contactForm.fieldset')">
       <div class="contact-form__description">
         <div class="contact-form__editor">
           <div class="contact-form__mode-control">
@@ -186,7 +521,7 @@ function focusConfirmation() {
         :class="{ 'has-value': description.length > 0 }"
       >
         <label class="contact-form__field">
-          <span class="contact-form__label">коротко о проекте</span>
+          <span class="contact-form__label">{{ t('contactForm.descriptionLabel') }}</span>
           <textarea
             ref="descriptionEl"
             v-model="description"
@@ -194,21 +529,18 @@ function focusConfirmation() {
             rows="1"
             maxlength="10000"
             :aria-invalid="!!descriptionError"
-            placeholder="коротко о проекте"
+            :placeholder="t('contactForm.descriptionLabel')"
             :aria-describedby="descriptionError ? `${props.formId}-description-hint ${props.formId}-description-error` : `${props.formId}-description-hint`"
           />
         </label>
         <FieldClearButton
           v-if="description.length > 0"
-          label="Очистить описание проекта"
+          :label="t('contactForm.clearDescription')"
           @clear="description = ''"
         />
         </div>
         <div class="contact-form__description-meta">
-          <span :id="`${props.formId}-description-hint`" class="contact-form__hint">
-            Что вы создаёте и какую задачу должен решить сайт?<br>
-            Достаточно нескольких предложений. Можно добавить голосовое сообщение.
-          </span>
+          <span :id="`${props.formId}-description-hint`" class="contact-form__hint" v-html="t('contactForm.descriptionHint')" />
           <ContactVoiceDeviceSelect v-model="deviceId" class="contact-form__voice-device" :devices="devices" :disabled="formLocked" @refresh="voice.refreshDevices()" />
         </div>
         <ContactVoiceInput :form-id="props.formId" :disabled="submitting" @focus-record-button="modeButtonEl?.focus({ preventScroll: true })" />
@@ -221,7 +553,7 @@ function focusConfirmation() {
         :class="{ 'has-value': contact.length > 0 }"
       >
         <label class="contact-form__field">
-          <span class="contact-form__label">как с вами связаться?</span>
+          <span class="contact-form__label">{{ t('contactForm.contactLabel') }}</span>
           <input
             v-model="contact"
             name="contact"
@@ -229,16 +561,16 @@ function focusConfirmation() {
             autocomplete="email"
             maxlength="500"
             pattern=".*\S.*"
-            title="Укажите контакт, по которому можно связаться с вами."
+            :title="t('contactForm.contactTitle')"
             required
-            placeholder="как с вами связаться?"
+            :placeholder="t('contactForm.contactLabel')"
             :aria-describedby="`${props.formId}-channel-hint`"
           >
-          <span :id="`${props.formId}-channel-hint`" class="contact-form__hint">имя, telegram или email</span>
+          <span :id="`${props.formId}-channel-hint`" class="contact-form__hint">{{ t('contactForm.contactHint') }}</span>
         </label>
         <FieldClearButton
           v-if="contact.length > 0"
-          label="Очистить контактные данные"
+          :label="t('contactForm.clearContact')"
           @clear="contact = ''"
         />
       </div>
@@ -249,32 +581,41 @@ function focusConfirmation() {
             <input v-model="consent" name="consent" type="checkbox" required>
             <span class="contact-form__checkbox" aria-hidden="true" />
             <span>
-              Даю <NuxtLink to="/consent">согласие на обработку персональных данных</NuxtLink>
-              для рассмотрения заявки и ответа на неё.
+              {{ t('contactForm.consentBefore') }} <NuxtLink :to="localePath('/consent')">{{ t('contactForm.consentLink') }}</NuxtLink>
+              {{ t('contactForm.consentAfter') }}
             </span>
           </label>
-          <NuxtLink class="contact-form__policy" to="/privacy">Политика обработки персональных данных</NuxtLink>
+          <NuxtLink class="contact-form__policy" :to="localePath('/privacy')">{{ t('contactForm.policy') }}</NuxtLink>
         </div>
       </div>
 
-      <label class="contact-form__honeypot" aria-hidden="true">Ваш сайт<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
+      <label class="contact-form__honeypot" aria-hidden="true">{{ t('contactForm.honeypot') }}<input name="website" type="text" tabindex="-1" autocomplete="off"></label>
       <div class="contact-form__actions">
-        <button class="contact-form__submit" type="submit" :disabled="formLocked" :aria-label="submitting ? 'Отправляем сообщение' : 'Продолжить разговор'">
-          <span class="contact-form__submit-label">{{ submitting ? 'Отправляем…' : 'Продолжить разговор' }}</span>
+        <button class="contact-form__submit" type="submit" :disabled="formLocked" :aria-label="submitting ? t('contactForm.sendingLabel') : t('contactForm.submit')">
+          <span class="contact-form__submit-label">{{ submitting ? t('contactForm.sending') : t('contactForm.submit') }}</span>
           <span v-if="submitting" class="contact-form__sending" aria-hidden="true" />
         </button>
-        <span class="contact-form__email"><span>Или напишите напрямую:</span> <a href="mailto:hello@kadonext.com">hello@kadonext.com</a></span>
+        <span class="contact-form__email"><span>{{ t('contactForm.emailLead') }}</span> <a href="mailto:hello@kadonext.com">hello@kadonext.com</a></span>
       </div>
       <p v-if="submitError" class="contact-form__error" role="alert">{{ submitError }}</p>
       </fieldset>
       <div v-else class="contact-form__success" tabindex="-1" role="region" :aria-labelledby="`${props.formId}-success-title`">
-        <svg class="contact-form__success-mark" viewBox="0 0 80 80" fill="none" aria-hidden="true">
-          <circle class="contact-form__success-ring" cx="40" cy="40" r="37" pathLength="1" />
-          <path class="contact-form__success-check" d="M23 40.5 35 52 57 29" pathLength="1" />
-        </svg>
-        <span class="contact-form__success-eyebrow">спасибо за рассказ</span>
-        <h3 :id="`${props.formId}-success-title`">Сообщение<br>отправлено.</h3>
-        <p>Прочитаю вводные{{ includedVoiceClips.length ? ', прослушаю сообщения' : '' }} и отвечу лично по указанному контакту.</p>
+        <div
+          class="contact-form__success-content"
+          :class="{ 'is-visible': successReady }"
+        >
+          <div ref="successFrogEl" class="contact-form__success-frog">
+            <ContactVoiceFrog
+              :celebrating="successActive"
+              :entering="successEntering"
+              :flight-frame="successFlightFrame"
+            />
+          </div>
+          <div class="contact-form__success-copy">
+            <h3 ref="successTitleEl" :id="`${props.formId}-success-title`" v-html="t('contactForm.successTitle')" />
+            <p ref="successBodyEl">{{ t('contactForm.successBody', { voice: includedVoiceClips.length ? t('contactForm.successVoice') : '' }) }}</p>
+          </div>
+        </div>
       </div>
       </Transition>
     </form>
@@ -297,8 +638,16 @@ function focusConfirmation() {
   color: var(--palette-ink);
 }
 
+.contact-form-shell.is-submitted {
+  padding-block: clamp(1.5rem, 2.5vw, 2.5rem);
+}
+
 .contact-form {
   grid-column: 4 / span 6;
+}
+
+.contact-form.is-submitted {
+  grid-column: 2 / span 10;
 }
 
 .contact-form,
@@ -384,18 +733,47 @@ function focusConfirmation() {
 .contact-form__error { margin: 1rem 0 0; border-left: 2px solid var(--palette-moss); padding-left: 0.85rem; color: var(--palette-forest); font-size: 0.9rem; line-height: 1.4; }
 .contact-form__honeypot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .contact-form__status { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.contact-form__success { padding-block: 0.5rem 3rem; outline: none; }
-.contact-form__success-mark { display: block; width: clamp(4rem, 6vw, 5rem); height: auto; margin-bottom: 2rem; color: var(--palette-forest); }
-.contact-form__success-ring { stroke: currentColor; stroke-width: 1; transform-origin: center; transform: rotate(-90deg); animation: contact-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.contact-form__success-check { stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; animation: contact-draw 450ms 250ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.contact-form__success-eyebrow { display: block; color: var(--palette-moss); font-size: 0.8rem; }
-.contact-form__success h3 { margin: 1rem 0 1.5rem; font-size: clamp(2.5rem, 4.5vw, 4.5rem); font-weight: 500; letter-spacing: -0.045em; line-height: 1.05; }
+.contact-form__success {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: clamp(1rem, 2vw, 2rem);
+  outline: none;
+}
+.contact-form__success-content {
+  display: grid;
+  width: min(100%, 52rem);
+  grid-template-columns: clamp(9rem, 16vw, 14rem) minmax(0, 30rem);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(2rem, 4vw, 4rem);
+  text-align: left;
+}
+.contact-form__success-frog {
+  min-width: 0;
+  color: var(--palette-forest);
+  opacity: 0;
+}
+.contact-form__success-content.is-visible .contact-form__success-frog {
+  opacity: 1;
+}
+.contact-form__success-frog :deep(.voice-frog) { width: 100%; height: auto; }
+.contact-form__success-copy h3 {
+  opacity: 0;
+}
+.contact-form__success-content.is-visible .contact-form__success-copy h3 {
+  opacity: 1;
+}
+.contact-form__success-copy p {
+  opacity: 0;
+}
+.contact-form__success-content.is-visible .contact-form__success-copy p {
+  opacity: 1;
+}
+.contact-form__success h3 { margin: 0 0 1.5rem; font-size: clamp(2.5rem, 4.5vw, 4.5rem); font-weight: 500; letter-spacing: -0.045em; line-height: 1.05; }
 .contact-form__success p { max-width: 30rem; margin: 0; color: var(--palette-moss); font-size: clamp(1rem, 1.2vw, 1.15rem); line-height: 1.5; }
-.contact-result-leave-active { transition: opacity 200ms ease, transform 200ms ease; }
-.contact-result-enter-active { transition: opacity 450ms ease, transform 600ms cubic-bezier(0.22, 1, 0.36, 1); }
+.contact-result-leave-active { transition: opacity 320ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1); }
 .contact-result-leave-to { opacity: 0; transform: translateY(-0.5rem); }
-.contact-result-enter-from { opacity: 0; transform: translateY(1rem); }
-@keyframes contact-draw { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
 @keyframes contact-orbit { to { transform: rotate(360deg); } }
 .contact-form button:disabled { opacity: 0.4; cursor: default; }
 
@@ -669,6 +1047,17 @@ function focusConfirmation() {
     font-size: 1rem;
   }
 
+  .contact-form.is-submitted { width: 100%; }
+  .contact-form-shell.is-submitted { padding-block: 1.25rem; }
+  .contact-form__success { padding-block: 0.75rem 1.25rem; }
+  .contact-form__success-content {
+    width: 100%;
+    grid-template-columns: clamp(5.5rem, 24vw, 8rem) minmax(0, 1fr);
+    gap: clamp(1.1rem, 5vw, 1.75rem);
+  }
+  .contact-form__success h3 { margin-bottom: 1rem; font-size: clamp(2.15rem, 9.5vw, 3rem); }
+  .contact-form__success p { font-size: 0.95rem; }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -677,10 +1066,15 @@ function focusConfirmation() {
   .contact-form__mode-control,
   .contact-result-enter-active,
   .contact-result-leave-active,
+  .contact-form__success-content,
   .mode-tip-enter-active,
   .mode-tip-leave-active { transition: none; }
-  .contact-form__sending,
-  .contact-form__success-ring,
-  .contact-form__success-check { animation: none; }
+  .contact-form__success-content.is-visible .contact-form__success-frog,
+  .contact-form__success-content.is-visible .contact-form__success-copy h3,
+  .contact-form__success-content.is-visible .contact-form__success-copy p {
+    opacity: 1;
+    animation: none;
+  }
+  .contact-form__sending { animation: none; }
 }
 </style>

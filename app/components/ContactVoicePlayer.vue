@@ -4,6 +4,7 @@ import { voiceExtension, voiceTime } from '~/utils/contactVoice'
 import type { VoiceClip } from '~/utils/contactVoice'
 
 const props = defineProps<{ clip: VoiceClip; label: string; active: boolean; disabled?: boolean }>()
+const { t } = useI18n()
 const emit = defineEmits<{ play: [id: string]; pause: [id: string] }>()
 const audioEl = ref<HTMLAudioElement | null>(null)
 const playing = ref(false)
@@ -65,7 +66,7 @@ onBeforeUnmount(() => {
       class="voice-player__play"
       type="button"
       :disabled="disabled"
-      :aria-label="`${playing ? 'Приостановить' : 'Прослушать'}: ${label}`"
+      :aria-label="`${playing ? t('voice.pause') : t('voice.play')}: ${label}`"
       @click="toggle"
     >
       <IconPlayerPause v-if="playing" :size="20" stroke="1.5" aria-hidden="true" />
@@ -87,8 +88,8 @@ onBeforeUnmount(() => {
         step="0.1"
         :value="current"
         :disabled="disabled || playbackError"
-        :aria-label="`Позиция воспроизведения: ${label}`"
-        :aria-valuetext="`${voiceTime(current)} из ${voiceTime(clip.seconds)}`"
+        :aria-label="t('voice.playbackPosition', { label })"
+        :aria-valuetext="t('voice.timeOf', { current: voiceTime(current), total: voiceTime(clip.seconds) })"
         @input="seek"
       >
     </div>
@@ -98,11 +99,11 @@ onBeforeUnmount(() => {
       class="voice-player__download"
       :href="clip.url"
       :download="`${label}.${voiceExtension(clip.blob.type)}`"
-      :aria-label="`Скачать: ${label}`"
+      :aria-label="t('voice.download', { label })"
     ><IconDownload :size="18" stroke="1.5" aria-hidden="true" /></a></slot>
     </div>
     <p v-if="playbackError" class="voice-player__error" role="status">
-      Не удалось воспроизвести запись. <a :href="clip.url" :download="`${label}.${voiceExtension(clip.blob.type)}`">Скачайте её</a> и прослушайте на устройстве.
+      {{ t('voice.playbackError') }} <a :href="clip.url" :download="`${label}.${voiceExtension(clip.blob.type)}`">{{ t('voice.downloadIt') }}</a> {{ t('voice.playOnDevice') }}
     </p>
   </div>
 </template>

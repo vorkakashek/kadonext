@@ -5,12 +5,15 @@ import {
 } from '../../contact-api/consent.mjs'
 
 const currentYear = new Date().getFullYear()
+const localePath = useLocalePath()
+const { locale } = useI18n()
 </script>
 
 <template>
-  <main class="privacy-page pointer-events-auto">
+  <ConsentEnglish v-if="locale === 'en'" />
+  <main v-else class="privacy-page pointer-events-auto">
     <header class="privacy-page__hero">
-      <NuxtLink class="privacy-page__brand" to="/">KADO</NuxtLink>
+      <NuxtLink class="privacy-page__brand" :to="localePath('/')">KADO</NuxtLink>
       <p class="privacy-page__eyebrow">документы</p>
       <h1>{{ CONTACT_CONSENT_TITLE }}</h1>
       <div class="privacy-page__meta">
@@ -31,7 +34,7 @@ const currentYear = new Date().getFullYear()
         <div class="privacy-page__section-copy">
           <p>
             Общие сведения об обработке и защите данных размещены в
-            <NuxtLink to="/privacy">Политике обработки персональных данных</NuxtLink>.
+            <NuxtLink :to="localePath('/privacy')">Политике обработки персональных данных</NuxtLink>.
           </p>
         </div>
       </section>
@@ -48,7 +51,7 @@ const currentYear = new Date().getFullYear()
 
     <footer class="privacy-page__footer">
       <span>{{ currentYear }} KADO</span>
-      <NuxtLink to="/">на главную</NuxtLink>
+      <NuxtLink :to="localePath('/')">на главную</NuxtLink>
       <a :href="`mailto:${CONTACT_CONSENT_EMAIL}`">{{ CONTACT_CONSENT_EMAIL }}</a>
     </footer>
   </main>

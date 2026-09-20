@@ -5,6 +5,8 @@ const currentYear = new Date().getFullYear()
 const footerEl = ref<HTMLElement | null>(null)
 const photoEl = ref<HTMLElement | null>(null)
 const visualIsActive = ref(false)
+const { t } = useI18n()
+const localePath = useLocalePath()
 
 useFooterPhotoRubberBand(footerEl, photoEl)
 
@@ -27,18 +29,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <footer ref="footerEl" class="home-footer pointer-events-auto" data-lenis-prevent-touch aria-label="Подвал сайта">
+  <footer ref="footerEl" class="home-footer pointer-events-auto" data-lenis-prevent-touch :aria-label="t('footer.label')">
     <div class="home-footer__surface">
       <div class="home-footer__info">
         <p class="home-footer__copyright">{{ currentYear }} KADŌ</p>
-        <button
+        <LanguageSwitch
           class="home-footer__locale"
-          type="button"
-          lang="en"
-          aria-label="Switch language"
-        >
-          en
-        </button>
+        />
 
         <a
           class="home-footer__email"
@@ -55,20 +52,16 @@ onUnmounted(() => {
         <div class="home-footer__legal">
           <NuxtLink
             class="home-footer__legal-title"
-            to="/privacy"
+            :to="localePath('/privacy')"
             @mouseenter="onNavWaveEnter"
             @mouseleave="onNavWaveLeave"
             @focus="onNavWaveEnter"
             @blur="onNavWaveLeave"
           >
-            политика конфиденциальности
+            {{ t('footer.privacy') }}
             <TextLinkWave />
           </NuxtLink>
-          <p class="home-footer__legal-note">
-            *Instagram и Threads принадлежат Meta Platforms Inc. Деятельность
-            Meta Platforms Inc. по реализации Instagram и Facebook признана
-            экстремистской и запрещена на территории РФ.
-          </p>
+          <p class="home-footer__legal-note">{{ t('footer.metaDisclaimer') }}</p>
         </div>
       </div>
     </div>
@@ -105,7 +98,7 @@ onUnmounted(() => {
         >
         <img
           src="/home/kira-photo.webp"
-          alt="Кира, кошка Антона"
+          :alt="t('footer.photoAlt')"
           width="3840"
           height="1482"
           loading="lazy"
@@ -161,13 +154,14 @@ onUnmounted(() => {
   padding: 0.55rem 1.1rem;
   border-radius: 9999px;
   appearance: none;
-  background: transparent;
+  background: color-mix(in srgb, var(--palette-sand) 70%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: inherit;
   cursor: pointer;
   font: inherit;
   letter-spacing: inherit;
   line-height: inherit;
-  transition: background 0.22s ease, backdrop-filter 0.22s ease;
 }
 
 .home-footer__email {
@@ -258,15 +252,6 @@ onUnmounted(() => {
   outline-offset: 4px;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .home-footer__locale:hover,
-  .home-footer__locale:focus-visible {
-    background: color-mix(in srgb, var(--palette-sand) 70%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-}
-
 @media (max-width: 1279.98px) {
   .home-footer__copyright {
     grid-column: 1 / span 2;
@@ -314,12 +299,6 @@ onUnmounted(() => {
   .home-footer__visual-spacer,
   .home-footer__visual {
     aspect-ratio: 4 / 5;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-footer__locale {
-    transition: none;
   }
 }
 

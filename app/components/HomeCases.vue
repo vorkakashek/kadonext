@@ -18,6 +18,7 @@ import {
 import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 const { t } = useI18n()
+const localePath = useLocalePath()
 const homeCases = useHomeCases()
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -132,7 +133,7 @@ function openCaseDetailFromMedia(item: HomeCase) {
   ) ?? media.querySelector<HTMLImageElement>('img')
   const imageRect = paintedImage?.getBoundingClientRect()
   openCaseDetail({
-    to: homeCaseDetailPath(item),
+    to: localePath(homeCaseDetailPath(item)),
     origin: 'home',
     src: item.media.src,
     proxySrc: paintedImage?.currentSrc || undefined,
@@ -153,7 +154,7 @@ function onCaseDetailLink(item: HomeCase, e: MouseEvent) {
 }
 
 function warmCaseDetail(item: HomeCase) {
-  void warmCaseDetailRoute(homeCaseDetailPath(item))
+  void warmCaseDetailRoute(localePath(homeCaseDetailPath(item)))
 }
 
 let caseSwipeStart: { x: number; y: number; pointerId: number } | null = null
@@ -1525,7 +1526,7 @@ onBeforeUnmount(() => {
       >
         <a
           class="cases-case-link"
-          :href="homeCaseDetailPath(activeCase)"
+          :href="localePath(homeCaseDetailPath(activeCase))"
           :aria-label="t('home.cases.openCase', { title: activeCase.title })"
           @pointerenter="warmCaseDetail(activeCase)"
           @focus="warmCaseDetail(activeCase)"

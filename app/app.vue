@@ -1,8 +1,9 @@
 <script setup lang="ts">
 const enhancementsReady = ref(false)
 const route = useRoute()
+const basePath = computed(() => baseRoutePath(route.path))
 const brandPreloaderEnabled = useBrandPreloaderEnabled()
-const initialHomeDocument = route.path === '/'
+const initialHomeDocument = basePath.value === '/'
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const cursorReady = computed(
   () => enhancementsReady.value && (!initialHomeDocument || heroWebglBooted.value),
@@ -10,7 +11,7 @@ const cursorReady = computed(
 
 // Capture only the initial document route. Later SPA navigation is covered by
 // the dedicated page/case transitions and must not remount the brand reveal.
-brandPreloaderEnabled.value = !/^\/projects\/[^/]+$/.test(route.path)
+brandPreloaderEnabled.value = !/^\/projects\/[^/]+$/.test(basePath.value)
 if (import.meta.client && !brandPreloaderEnabled.value) {
   useBrandPreload().bypass()
 }

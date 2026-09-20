@@ -1,12 +1,15 @@
 <script setup lang="ts">
 const currentYear = new Date().getFullYear()
+const localePath = useLocalePath()
+const { locale } = useI18n()
 
 </script>
 
 <template>
-  <main class="privacy-page pointer-events-auto">
+  <PrivacyEnglish v-if="locale === 'en'" />
+  <main v-else class="privacy-page pointer-events-auto">
     <header class="privacy-page__hero">
-      <NuxtLink class="privacy-page__brand" to="/">KADO</NuxtLink>
+      <NuxtLink class="privacy-page__brand" :to="localePath('/')">KADO</NuxtLink>
       <p class="privacy-page__eyebrow">документы</p>
       <h1>Политика в отношении обработки персональных данных</h1>
       <div class="privacy-page__meta">
@@ -330,7 +333,7 @@ const currentYear = new Date().getFullYear()
 
     <footer class="privacy-page__footer">
       <span>{{ currentYear }} KADO</span>
-      <NuxtLink to="/">на главную</NuxtLink>
+      <NuxtLink :to="localePath('/')">на главную</NuxtLink>
       <a href="mailto:hello@kadonext.com">hello@kadonext.com</a>
     </footer>
   </main>

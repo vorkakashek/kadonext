@@ -1,4 +1,5 @@
 import { canonicalPath, isSiteIndexable, serializeJsonLd, siteUrl, SITE_EMAIL, SITE_NAME, SITE_PATHS, SITE_ROBOTS, SITE_URL } from '~/utils/siteSeo'
+import { localizedPath } from '~/utils/localeRouting'
 
 type SeoCopy = { title: string; description: string }
 type JsonLdNode = Record<string, unknown>
@@ -22,9 +23,12 @@ export function useSiteSeo() {
   const cleanText = (text: string) => text.replace(/\s+/g, ' ').trim()
   const title = computed(() => cleanText(copy.value.title))
   const description = computed(() => cleanText(copy.value.description))
-  const canonical = computed(() => siteUrl(path.value))
+  const canonical = computed(() => siteUrl(localizedPath(path.value, locale.value)))
+  const localizedUrl = (targetPath: string) => siteUrl(localizedPath(targetPath, locale.value))
   const image = computed(() => siteUrl(`/og/${item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')}.jpg`))
-  const imageAlt = computed(() => item.value ? `${item.value.title} — кейс дизайна сайта в портфолио KADO` : 'KADO — авторская студия дизайна и разработки сайтов')
+  const imageAlt = computed(() => item.value
+    ? t('seo.caseImageAlt', { title: item.value.title })
+    : t('seo.imageAlt'))
 
   useSeoMeta({
     title: () => title.value,
@@ -32,7 +36,7 @@ export function useSiteSeo() {
     robots: () => indexable.value ? SITE_ROBOTS : 'noindex, follow',
     ogType: 'website',
     ogSiteName: SITE_NAME,
-    ogLocale: () => locale.value === 'ru' ? 'ru_RU' : locale.value,
+    ogLocale: () => locale.value === 'ru' ? 'ru_RU' : 'en_US',
     ogTitle: () => title.value,
     ogDescription: () => description.value,
     ogUrl: () => canonical.value,
@@ -55,12 +59,12 @@ export function useSiteSeo() {
     const nodes: JsonLdNode[] = [
       {
         '@type': 'Organization', '@id': organizationId, name: SITE_NAME,
-        url: siteUrl('/'), email: SITE_EMAIL,
+        url: localizedUrl('/'), email: SITE_EMAIL,
         logo: { '@type': 'ImageObject', url: siteUrl('/brand/kado-logo.png'), width: 512, height: 512 },
         description: cleanText(t('seo.defaultDescription')),
       },
       {
-        '@type': 'WebSite', '@id': websiteId, url: siteUrl('/'), name: SITE_NAME,
+        '@type': 'WebSite', '@id': websiteId, url: localizedUrl('/'), name: SITE_NAME,
         inLanguage: locale.value, publisher: { '@id': organizationId },
       },
       {
@@ -74,8 +78,8 @@ export function useSiteSeo() {
       },
     ]
     if (path.value !== '/') {
-      const crumbs = [{ name: SITE_NAME, url: siteUrl('/') }]
-      if (item.value) crumbs.push({ name: t('projects.catalog.title'), url: siteUrl('/projects') })
+      const crumbs = [{ name: SITE_NAME, url: localizedUrl('/') }]
+      if (item.value) crumbs.push({ name: t('projects.catalog.title'), url: localizedUrl('/projects') })
       crumbs.push({ name: item.value?.title ?? title.value.replace(' — KADO', ''), url: canonical.value })
       nodes.push({
         '@type': 'BreadcrumbList', '@id': `${canonical.value}#breadcrumbs`,
@@ -96,7 +100,7 @@ export function useSiteSeo() {
         '@type': 'ItemList', '@id': `${canonical.value}#catalog`, numberOfItems: cases.value.length,
         itemListElement: cases.value.map((project, index) => ({
           '@type': 'ListItem', position: index + 1,
-          item: { '@type': 'CreativeWork', name: project.title, url: siteUrl(`/projects/${project.id}`), image: siteUrl(project.media.src) },
+          item: { '@type': 'CreativeWork', name: project.title, url: localizedUrl(`/projects/${project.id}`), image: siteUrl(project.media.src) },
         })),
       })
     }
@@ -104,7 +108,7 @@ export function useSiteSeo() {
       const formats = tm('home.formats.items') as Array<{ title: string; description: string }>
       nodes.push(...formats.map((format, index) => ({
         '@type': 'Service', '@id': `${SITE_URL}/#service-${index + 1}`, name: cleanText(format.title),
-        description: cleanText(format.description), provider: { '@id': organizationId }, url: siteUrl('/#services'),
+        description: cleanText(format.description), provider: { '@id': organizationId }, url: localizedUrl('/#services'),
       })))
     }
     return nodes
@@ -112,7 +116,12 @@ export function useSiteSeo() {
 
   useHead(() => ({
     htmlAttrs: { lang: locale.value },
-    link: knownPage.value ? [{ key: 'canonical', rel: 'canonical', href: canonical.value }] : [],
+    link: knownPage.value ? [
+      { key: 'canonical', rel: 'canonical', href: canonical.value },
+      { key: 'alternate-ru', rel: 'alternate', hreflang: 'ru', href: siteUrl(localizedPath(path.value, 'ru')) },
+      { key: 'alternate-en', rel: 'alternate', hreflang: 'en', href: siteUrl(localizedPath(path.value, 'en')) },
+      { key: 'alternate-default', rel: 'alternate', hreflang: 'x-default', href: siteUrl(path.value) },
+    ] : [],
     script: knownPage.value ? [{ key: 'site-schema', type: 'application/ld+json', innerHTML: serializeJsonLd({ '@context': 'https://schema.org', '@graph': graph.value }) }] : [],
   }))
 }

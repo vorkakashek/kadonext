@@ -88,6 +88,7 @@ function shouldSkip(
   if (reducedMotion()) return true
   if (caseDetailTransitionActive.value) return true
   if (surfaceOn.value) return true
+  if (document.documentElement.classList.contains('language-switch-lock')) return true
   if (document.documentElement.classList.contains('page-canvas-surface')) return true
   if (document.documentElement.classList.contains('preload-lock')) return true
   return false
@@ -342,7 +343,7 @@ onMounted(() => {
   window.addEventListener('popstate', onPopState, true)
 
   stopBefore = router.beforeEach(async (to, from) => {
-    const detailId = /^\/projects\/([^/]+)$/.exec(from.path)?.[1]
+    const detailId = /^\/projects\/([^/]+)$/.exec(baseRoutePath(from.path))?.[1]
     const homeTopRequested =
       !popNav
       && originEl instanceof Element
@@ -353,7 +354,7 @@ onMounted(() => {
       // proxy here would place it above the menu and make both transitions run
       // in sequence for the same navigation.
       && !surfaceOn.value
-      && to.path === '/'
+      && baseRoutePath(to.path) === '/'
       // Section links keep their destination instead of returning to the
       // case's recorded origin (home Cases or the project catalog).
       && (!to.hash || to.hash === '#cases')

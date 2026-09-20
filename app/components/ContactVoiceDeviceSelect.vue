@@ -4,6 +4,7 @@ import { IconCheck, IconChevronDown } from '@tabler/icons-vue'
 const props = defineProps<{ modelValue: string; devices: MediaDeviceInfo[]; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string]; refresh: [] }>()
 const { raiseAbovePopover } = useSiteCursor()
+const { t } = useI18n()
 const triggerEl = ref<HTMLButtonElement | null>(null)
 const menuEl = ref<HTMLDivElement | null>(null)
 const open = ref(false)
@@ -12,11 +13,11 @@ const activeIndex = ref(0)
 const menuId = `voice-devices-${useId()}`
 const menuStyle = ref<Record<string, string>>({})
 const options = computed(() => [
-  { value: '', label: 'По умолчанию' },
+  { value: '', label: t('voice.defaultDevice') },
   ...props.devices.filter(device => device.deviceId && device.deviceId !== 'default')
-    .map((device, index) => ({ value: device.deviceId, label: device.label || `Микрофон ${index + 1}` })),
+    .map((device, index) => ({ value: device.deviceId, label: device.label || t('voice.microphone', { number: index + 1 }) })),
 ])
-const selectedLabel = computed(() => options.value.find(option => option.value === props.modelValue)?.label || 'По умолчанию')
+const selectedLabel = computed(() => options.value.find(option => option.value === props.modelValue)?.label || t('voice.defaultDevice'))
 let search = ''
 let lastSearchAt = 0
 
@@ -170,7 +171,7 @@ onBeforeUnmount(() => { closeMenu(); listen(false) })
       type="button"
       class="voice-device-select__trigger"
       role="combobox"
-      :aria-label="`Микрофон для записи: ${selectedLabel}`"
+      :aria-label="t('voice.deviceWithName', { name: selectedLabel })"
       aria-haspopup="listbox"
       :aria-expanded="open"
       :aria-controls="menuId"
@@ -194,7 +195,7 @@ onBeforeUnmount(() => { closeMenu(); listen(false) })
         class="voice-device-select__menu"
         :popover="topLayer ? 'manual' : undefined"
         role="listbox"
-        aria-label="Микрофон для записи"
+        :aria-label="t('voice.device')"
         :style="menuStyle"
         data-lenis-prevent
       >

@@ -37,7 +37,7 @@ const onCanvas = computed(() => canvasSurface.value)
 const route = useRoute()
 const activeCase = computed(() => {
   const id = typeof route.params.id === 'string' ? route.params.id : ''
-  return route.path.startsWith('/projects/')
+  return baseRoutePath(route.path).startsWith('/projects/')
     ? homeCases.value.find((caseItem) => caseItem.id === id)
     : undefined
 })

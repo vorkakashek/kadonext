@@ -7,6 +7,7 @@ const props = defineProps<{
 
 const { openCanvas } = usePageCanvas()
 const { t } = useI18n()
+const localePath = useLocalePath()
 
 useSeoMeta({
   title: () => `${props.title} — KADO`,
@@ -24,7 +25,7 @@ useSeoMeta({
         {{ t('pages.stubNote') }}
       </p>
       <div class="page-stub__actions">
-        <NuxtLink class="page-stub__link" to="/">
+        <NuxtLink class="page-stub__link" :to="localePath('/')">
           {{ t('common.home') }}
         </NuxtLink>
         <button type="button" class="page-stub__link page-stub__link--btn" @click="openCanvas">

@@ -192,6 +192,8 @@ export function createContactHandler(options = {}) {
   const deliver = options.deliver ?? (options.send ? smtpDelivery(env, options.send) : configuredDelivery(env))
   const normalise = options.normalise ?? (files => normaliseAudio(files, env))
   const allowedOrigins = new Set((env.CONTACT_ALLOWED_ORIGINS || 'https://kadonext.com,https://www.kadonext.com').split(',').map(value => value.trim()).filter(Boolean))
+  // TODO(pre-production): restore CONTACT_RATE_LIMIT_ENABLED=true after form QA.
+  const rateLimitEnabled = env.CONTACT_RATE_LIMIT_ENABLED === 'true'
   const rate = new Map()
   let inFlight = 0
 
@@ -206,12 +208,14 @@ export function createContactHandler(options = {}) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...headers, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'Content-Type', 'access-control-max-age': '600' } })
     if (request.method !== 'POST') return response(405, { message: 'Метод не поддерживается.' })
     if (!deliver) return response(503, { message: 'Отправка формы пока не подключена. Текст и записи остались на странице. Напишите на hello@kadonext.com; записи можно скачать.' })
-    const now = Date.now()
-    for (const [ip, entry] of rate) if (entry.reset < now) rate.delete(ip)
-    const entry = rate.get(clientIp) ?? { count: 0, reset: now + 3600000 }
-    if (entry.count >= 10 || rate.size > 10000) return response(429, { message: 'Слишком много попыток отправки. Попробуйте позже или напишите на hello@kadonext.com.' })
-    entry.count++
-    rate.set(clientIp, entry)
+    if (rateLimitEnabled) {
+      const now = Date.now()
+      for (const [ip, entry] of rate) if (entry.reset < now) rate.delete(ip)
+      const entry = rate.get(clientIp) ?? { count: 0, reset: now + 3600000 }
+      if (entry.count >= 10 || rate.size > 10000) return response(429, { message: 'Слишком много попыток отправки. Попробуйте позже или напишите на hello@kadonext.com.' })
+      entry.count++
+      rate.set(clientIp, entry)
+    }
     if (inFlight >= 2) return response(503, { message: 'Сейчас обрабатываем другие заявки. Повторите отправку через минуту; записи сохранены.' })
     inFlight++
     try {

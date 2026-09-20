@@ -1,5 +1,7 @@
 /** Primary site routes + Page Canvas frames (spec §9.2). */
 
+import { stripLocalePrefix } from './localeRouting'
+
 export type SiteNavFrameKind = 'page'
 
 export interface SiteNavFrame {
@@ -100,7 +102,7 @@ export const canvasFrames: SiteNavFrame[] = [
 ]
 
 export function matchFramePath(path: string): string {
-  const clean = path.replace(/\/+$/, '') || '/'
+  const clean = stripLocalePrefix(path).replace(/\/+$/, '') || '/'
   const exact = canvasFrames.find((f) => clean === f.to)
   if (exact) return exact.id
   if (clean === '/') return 'home'
