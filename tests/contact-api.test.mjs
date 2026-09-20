@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createContactHandler, normaliseAudio, MAX_BODY_BYTES } from '../contact-api/handler.mjs'
+import { contactDevMockMode, createContactDevMockOptions } from '../contact-api/dev-mock.mjs'
 import { CONTACT_CONSENT_VERSION, CONTACT_CONSENT_CHECKBOX, contactConsentSnapshot } from '../contact-api/consent.mjs'
 
 const run = promisify(execFile)
@@ -19,6 +20,20 @@ function request(data = form(), options = {}) {
   return new Request('http://localhost/api/contact', { method: 'POST', headers: { origin: 'https://kadonext.com', ...options }, body: data })
 }
 const accepted = async () => ({ accepted: ['hello@kadonext.com'], rejected: [] })
+
+test('development contact mocks preview success and error but are disabled in production', async () => {
+  const successEnv = { ...env, NODE_ENV: 'development', CONTACT_DEV_MOCK: 'success', CONTACT_DEV_MOCK_DELAY_MS: '0' }
+  assert.equal(contactDevMockMode(successEnv), 'success')
+  const success = createContactHandler({ env: successEnv, ...createContactDevMockOptions(successEnv) })
+  assert.equal((await success(request())).status, 200)
+
+  const errorEnv = { ...successEnv, CONTACT_DEV_MOCK: 'error' }
+  const failure = createContactHandler({ env: errorEnv, ...createContactDevMockOptions(errorEnv) })
+  assert.equal((await failure(request())).status, 502)
+
+  assert.equal(contactDevMockMode({ ...successEnv, NODE_ENV: 'production' }), null)
+  assert.equal(createContactDevMockOptions({ ...successEnv, NODE_ENV: 'production' }), null)
+})
 
 test('SMTP absence and delivery rejection never produce a success response', async () => {
   const unavailable = createContactHandler({ env })
