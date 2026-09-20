@@ -5,6 +5,8 @@ const props = defineProps<{
   alt: string
   poster?: string
   mobilePoster?: string
+  width?: number
+  height?: number
 }>()
 
 const videoEl = ref<HTMLVideoElement | null>(null)
@@ -89,7 +91,7 @@ onBeforeUnmount(() => {
       class="case-autoplay-video__poster"
     >
       <source :srcset="mobilePoster" type="image/webp" media="(max-width: 767.98px)">
-      <img :src="poster" alt="" aria-hidden="true">
+      <img :src="poster" alt="" aria-hidden="true" :width="width" :height="height" decoding="async">
     </picture>
     <video
       :key="activeSrc"

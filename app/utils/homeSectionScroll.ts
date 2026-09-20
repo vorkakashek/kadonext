@@ -2,6 +2,7 @@ import { isThumbNav } from '~/utils/mobileViewport'
 
 /** Resolve home anchors in the layout Cases will have after its mobile exit. */
 export function homeSectionScrollTop(target: HTMLElement) {
+  if (target === document.documentElement) return 0
   const footerAnchor = target.id === 'contact' && !isThumbNav()
     ? document.querySelector<HTMLElement>('[data-contact-photo-boundary]')
     : null

@@ -5,10 +5,6 @@ import {
 } from '../../contact-api/consent.mjs'
 
 const currentYear = new Date().getFullYear()
-useSeoMeta({
-  title: `${CONTACT_CONSENT_TITLE} — KADO`,
-  description: 'Согласие на обработку данных заявки, отправленной через форму на сайте kadonext.com.',
-})
 </script>
 
 <template>

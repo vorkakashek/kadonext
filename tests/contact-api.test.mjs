@@ -35,9 +35,11 @@ test('development contact mocks preview success and error but are disabled in pr
   assert.equal(createContactDevMockOptions({ ...successEnv, NODE_ENV: 'production' }), null)
 })
 
-test('SMTP absence and delivery rejection never produce a success response', async () => {
+test('missing delivery configuration and SMTP rejection never produce a success response', async () => {
   const unavailable = createContactHandler({ env })
   assert.equal((await unavailable(request())).status, 503)
+  const telegramUnavailable = createContactHandler({ env: { ...env, CONTACT_DELIVERY: 'telegram' } })
+  assert.equal((await telegramUnavailable(request())).status, 503)
   const rejected = createContactHandler({ env, send: async () => ({ accepted: [], rejected: ['hello@kadonext.com'] }) })
   assert.equal((await rejected(request())).status, 502)
 })
@@ -56,7 +58,7 @@ test('validated text is sent only to the configured recipient; subject cannot in
   assert.ok(message.text.includes(contactConsentSnapshot()))
 })
 
-test('consent, empty briefing, duplicate fields, honeypot and oversized bodies are rejected before SMTP', async () => {
+test('consent, empty briefing, duplicate fields, honeypot and oversized bodies are rejected before delivery', async () => {
   let sends = 0
   const handle = createContactHandler({ env, send: async () => { sends++; return accepted() } })
   for (const overrides of [{ consent: 'false' }, { consentVersion: '' }, { consentVersion: 'outdated' }, { description: ' ' }, { website: 'bot' }, { materials: 'javascript:alert(1)' }, { stage: 'invalid' }, { contact: ' ' }]) {

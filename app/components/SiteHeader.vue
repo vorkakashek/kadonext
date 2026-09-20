@@ -15,6 +15,7 @@ const {
   pageIrisLive,
 } = usePageCanvas()
 const route = useRoute()
+const nuxtApp = useNuxtApp()
 const { t } = useI18n()
 const homeCases = useHomeCases()
 const links = headerLinks
@@ -184,12 +185,11 @@ async function onLogoClick(event: MouseEvent) {
   }
 
   event.preventDefault()
-  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
-
   // Drop a stale section hash as well, so reload/back keeps the home hero.
-  if (route.fullPath !== '/') {
+  if (route.hash) {
     await navigateTo('/', { replace: true })
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  } else {
+    nuxtApp.$scrollToSection(document.documentElement)
   }
 }
 

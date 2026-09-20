@@ -6,6 +6,7 @@
  *   node scripts/capture-previews.mjs --bw-only   (bake *-bw.jpg from existing color shots)
  *   node scripts/capture-previews.mjs --mobile    (phone shots only)
  *   node scripts/capture-previews.mjs --desktop   (desktop shots only)
+ *   node scripts/capture-previews.mjs --pages=about,contact (selected sections only)
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -20,13 +21,20 @@ const wantDesktop = !flags.has('--mobile')
 const wantMobile = !flags.has('--desktop')
 const base = (args[0] || 'http://localhost:3000').replace(/\/+$/, '')
 
-const pages = [
+const allPages = [
   { id: 'home', path: '/', selector: '.hero-swarm canvas' },
   { id: 'projects', path: '/projects', selector: '.projects-catalog__title' },
   { id: 'services', path: '/#services', selector: '#services' },
   { id: 'about', path: '/#about', selector: '#about' },
   { id: 'contact', path: '/#contact', selector: '#contact' },
 ]
+
+const pageFilter = [...flags].find((flag) => flag.startsWith('--pages='))
+const selectedIds = pageFilter?.slice('--pages='.length).split(',').filter(Boolean)
+if (selectedIds && (!selectedIds.length || selectedIds.some((id) => !allPages.some((page) => page.id === id)))) {
+  throw new Error(`--pages must contain IDs from: ${allPages.map((page) => page.id).join(', ')}`)
+}
+const pages = selectedIds ? allPages.filter((page) => selectedIds.includes(page.id)) : allPages
 
 const DESK = { width: 1440, height: 900, suffix: '', mobile: false }
 const PHONE = { width: 390, height: 844, suffix: '-m', mobile: true }
@@ -120,6 +128,17 @@ async function capturePass(spec) {
     // Let route alignment, Surface boot and entrance motion finish naturally.
     await page.waitForTimeout(4500)
     if (item.path.includes('#')) {
+      // Initial hash alignment can run before the home layout has settled.
+      // Use the same anchor positioning contract as navigation, including the
+      // desktop contact offset and mobile Cases tail collapse.
+      await page.evaluate((selector) => {
+        const target = document.querySelector(selector)
+        const nuxt = document.querySelector('#__nuxt')?.__vue_app__?.config.globalProperties.$nuxt
+        if (!target) throw new Error(`Missing preview section: ${selector}`)
+        if (nuxt?.$scrollToSection) nuxt.$scrollToSection(target, true)
+        else target.scrollIntoView({ behavior: 'instant', block: 'start' })
+      }, item.selector)
+      await page.waitForTimeout(4500)
       await page.waitForFunction((selector) => {
         const rect = document.querySelector(selector)?.getBoundingClientRect()
         return rect && rect.top < window.innerHeight && rect.bottom > 0
@@ -127,7 +146,9 @@ async function capturePass(spec) {
     }
     await page.waitForFunction(() => [...document.images].every((image) => {
       const rect = image.getBoundingClientRect()
-      const visible = rect.width > 0 && rect.height > 0
+      const visible = !!image.currentSrc
+        && image.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        && rect.width > 0 && rect.height > 0
         && rect.bottom > 0 && rect.top < window.innerHeight
       return !visible || (image.complete && image.naturalWidth > 0)
     }), null, { timeout: 20_000 })

@@ -1,7 +1,8 @@
 import { isThumbNav } from '~/utils/mobileViewport'
 import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
+import { isHomeAnchorTarget } from '~/utils/homeAnchorMotion'
 
-/** Keep Nuxt's page/history scrolling; ease only the two home-section links. */
+/** Keep Nuxt's page/history scrolling; ease home anchors and returns to the top. */
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook('app:mounted', () => {
     const router = useRouter()
@@ -9,11 +10,12 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     const scrollBehavior: NonNullable<typeof defaultScrollBehavior> = async (to, from, savedPosition) => {
       const sectionLink = to.path === '/' && from.path === '/'
-        && (to.hash === '#services' || to.hash === '#contact')
+        && isHomeAnchorTarget(to.hash.slice(1))
+      const homeTopLink = to.path === '/' && from.path === '/' && !to.hash && !!from.hash
       const locked = ['preload-lock', 'page-canvas-lock', 'page-iris-lock'].some(
         name => document.documentElement.classList.contains(name),
       )
-      if (!sectionLink || savedPosition || locked) {
+      if ((!sectionLink && !homeTopLink) || savedPosition || locked) {
         const position = await defaultScrollBehavior?.(to, from, savedPosition) ?? false
         if (position && !savedPosition && to.path === '/' && to.hash === '#contact' && !isThumbNav()) {
           const target = document.getElementById('contact')
@@ -24,7 +26,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       await nextTick()
       if (router.currentRoute.value.fullPath !== to.fullPath) return false
-      const target = document.getElementById(to.hash.slice(1))
+      const target = homeTopLink ? document.documentElement : document.getElementById(to.hash.slice(1))
       if (!target) return defaultScrollBehavior?.(to, from, savedPosition) ?? false
       nuxtApp.$scrollToSection(target)
       return false

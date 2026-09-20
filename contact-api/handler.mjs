@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CONTACT_CONSENT_VERSION, CONTACT_CONSENT_CHECKBOX, contactConsentSnapshot } from './consent.mjs'
+import { createTelegramDelivery } from './telegram.mjs'
 
 const run = promisify(execFile)
 export const MAX_BODY_BYTES = 13 * 1024 * 1024
@@ -161,9 +162,34 @@ function smtpSender(env) {
   return message => transport.sendMail(message)
 }
 
+function smtpDelivery(env, send = smtpSender(env)) {
+  if (!send) return null
+  return async ({ fields, attachments }) => {
+    const result = await send({
+      from: env.CONTACT_MAIL_FROM || 'KADO <hello@kadonext.com>',
+      to: env.CONTACT_MAIL_TO || 'hello@kadonext.com',
+      subject: `Новый проект — ${fields.projectType.replace(/[\r\n]/g, ' ').slice(0, 160)}`,
+      text: emailText(fields, attachments),
+      attachments: attachments.map(({ seconds, ...attachment }) => attachment),
+    })
+    if (!result?.accepted?.length || result.rejected?.length) throw new Error('SMTP did not accept the recipient')
+  }
+}
+
+function configuredDelivery(env) {
+  const channel = (env.CONTACT_DELIVERY || 'smtp').trim().toLowerCase()
+  if (channel === 'telegram') return createTelegramDelivery({
+    token: env.CONTACT_TELEGRAM_BOT_TOKEN || '',
+    chatId: env.CONTACT_TELEGRAM_CHAT_ID || '',
+    messageThreadId: env.CONTACT_TELEGRAM_MESSAGE_THREAD_ID || '',
+  })
+  if (channel === 'smtp') return smtpDelivery(env)
+  return null
+}
+
 export function createContactHandler(options = {}) {
   const env = options.env ?? process.env
-  const send = options.send ?? smtpSender(env)
+  const deliver = options.deliver ?? (options.send ? smtpDelivery(env, options.send) : configuredDelivery(env))
   const normalise = options.normalise ?? (files => normaliseAudio(files, env))
   const allowedOrigins = new Set((env.CONTACT_ALLOWED_ORIGINS || 'https://kadonext.com,https://www.kadonext.com').split(',').map(value => value.trim()).filter(Boolean))
   const rate = new Map()
@@ -179,7 +205,7 @@ export function createContactHandler(options = {}) {
     if (!allowed) return response(403, { message: 'Отправка с этого адреса сайта не разрешена.' })
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...headers, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'Content-Type', 'access-control-max-age': '600' } })
     if (request.method !== 'POST') return response(405, { message: 'Метод не поддерживается.' })
-    if (!send) return response(503, { message: 'Отправка формы пока не подключена. Текст и записи остались на странице. Напишите на hello@kadonext.com; записи можно скачать.' })
+    if (!deliver) return response(503, { message: 'Отправка формы пока не подключена. Текст и записи остались на странице. Напишите на hello@kadonext.com; записи можно скачать.' })
     const now = Date.now()
     for (const [ip, entry] of rate) if (entry.reset < now) rate.delete(ip)
     const entry = rate.get(clientIp) ?? { count: 0, reset: now + 3600000 }
@@ -197,20 +223,13 @@ export function createContactHandler(options = {}) {
       catch { throw new ContactError(400, 'Не удалось прочитать заявку.') }
       const { fields, audio } = validateForm(form)
       const attachments = await normalise(audio)
-      const result = await send({
-        from: env.CONTACT_MAIL_FROM || 'KADO <hello@kadonext.com>',
-        to: env.CONTACT_MAIL_TO || 'hello@kadonext.com',
-        subject: `Новый проект — ${fields.projectType.replace(/[\r\n]/g, ' ').slice(0, 160)}`,
-        text: emailText(fields, attachments),
-        attachments: attachments.map(({ seconds, ...attachment }) => attachment),
-      })
-      if (!result?.accepted?.length || result.rejected?.length) throw new Error('SMTP did not accept the recipient')
+      await deliver({ fields, attachments })
       return response(200, { ok: true })
     } catch (cause) {
       if (cause instanceof ContactError) return response(cause.status, { message: cause.message })
-      // Log only an error code, never contact fields, recordings or SMTP credentials.
+      // Log only an error code, never contact fields, recordings or delivery credentials.
       console.error('Contact delivery failed:', cause?.code || 'DELIVERY_ERROR')
-      return response(502, { message: 'Почтовый сервис не принял заявку. Текст и записи сохранены — повторите отправку позже или напишите на hello@kadonext.com.' })
+      return response(502, { message: 'Сервис доставки не принял заявку. Текст и записи сохранены — повторите отправку позже или напишите на hello@kadonext.com.' })
     } finally { inFlight-- }
   }
 }

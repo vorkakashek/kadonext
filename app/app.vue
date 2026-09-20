@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const enhancementsReady = ref(false)
 const route = useRoute()
-const { locale, t } = useI18n()
 const brandPreloaderEnabled = useBrandPreloaderEnabled()
 const initialHomeDocument = route.path === '/'
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
@@ -16,11 +15,7 @@ if (import.meta.client && !brandPreloaderEnabled.value) {
   useBrandPreload().bypass()
 }
 
-useHead(() => ({ htmlAttrs: { lang: locale.value } }))
-useSeoMeta({
-  title: () => t('seo.defaultTitle'),
-  description: () => t('seo.defaultDescription'),
-})
+useSiteSeo()
 
 if (import.meta.client && 'scrollRestoration' in history) {
   history.scrollRestoration = 'manual'
@@ -53,6 +48,7 @@ onMounted(() => {
     </div>
     <SiteHeader />
     <ClientOnly>
+      <LazyCookieNotice />
       <LazyCaseDetailTransition v-if="enhancementsReady" />
       <LazyPageCanvas v-if="enhancementsReady" />
       <LazyPageIris v-if="enhancementsReady" />

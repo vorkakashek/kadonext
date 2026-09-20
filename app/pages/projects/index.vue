@@ -373,6 +373,7 @@ function openCase(item: HomeCase, event: MouseEvent) {
     <div class="projects-catalog__inner">
       <header ref="projectsHeaderEl" class="projects-catalog__header">
         <h1 class="projects-catalog__title" :aria-label="projectsCatalogTitle">
+          <span class="sr-only">{{ projectsCatalogTitle }}</span>
           <span
             v-for="(char, index) in projectsCatalogTitle"
             :key="`${char}-${index}`"
@@ -421,6 +422,7 @@ function openCase(item: HomeCase, event: MouseEvent) {
                 <span class="projects-card__number projects-card__detail-motion">{{ String(index + 1).padStart(3, '0') }}</span>
               </span>
               <span class="projects-card__title" :aria-label="item.title">
+                <span class="sr-only">{{ item.title }}</span>
                 <span
                   v-for="(char, titleIndex) in item.title"
                   :key="`${char}-${titleIndex}`"

@@ -57,6 +57,13 @@ import {
   mobileHeroSurfaceMorphStartScrollY,
   readMobileHeroCopyLayout,
 } from '~/utils/mobileHeroCopyMotion'
+import {
+  registerHomeAnchorMotion,
+  HOME_ANCHOR_DESTINATIONS,
+  HOME_ANCHOR_TIMING,
+  isHomeAnchorTarget,
+  type HomeAnchorTarget,
+} from '~/utils/homeAnchorMotion'
 
 /** The site's minimal mode keeps the core Surface choreography intact. */
 function systemReducedMotion() {
@@ -442,6 +449,26 @@ let lastCaseSectionTop: number | null = null
 let scrubTargetP = 0
 let scrubLiveP = 0
 let liveBox: SurfaceBox | null = null
+/** Anchor trips hold a viewport pose, then fly directly to the current scroll pose. */
+let anchorMotion: {
+  phase: 'scroll' | 'settle'
+  from: SurfaceBox
+  morph: number
+  tone: string
+  contactProgress: number
+  aboutOpacity: number
+  elapsed: number
+  updatedAt: number
+  targetId: HomeAnchorTarget | null
+  scrollComplete: boolean
+  startScrollY: number
+  forward: boolean
+  scrollTop: number
+  fromScrollY: number
+} | null = null
+let anchorSample: { box: SurfaceBox | null; morph: number; aboutOpacity: number } | null = null
+let removeAnchorMotionOwner: (() => void) | null = null
+const ANCHOR_SURFACE_DURATION_MS = HOME_ANCHOR_TIMING.morphDurationMs
 /** Stable compositor basis for the expensive mobile Kado → Cases flight. */
 let mobileCaseTransformBasis: SurfaceBox | null = null
 /** Snapshot used as hop tween start (destination tracks live each frame). */
@@ -834,6 +861,11 @@ function viewportToDoc(box: SurfaceBox): SurfaceBox {
 }
 
 function paintBox(box: SurfaceBox, morph: number) {
+  if (anchorSample) {
+    anchorSample.box = box
+    anchorSample.morph = morph
+    return
+  }
   if (!frame.value || pinTo.value || proxyParked.value) return
   const next = morphBox(box)
   // Desktop keeps the Hero stage in one stable viewport pose while the Surface
@@ -936,6 +968,11 @@ function pinMobileHeroRevealFrame(pose?: SurfaceBox | null) {
   if (!host || !el) return
   const box = pose ?? readBox(host)
   if (!box) return
+  if (anchorSample) {
+    syncStageRest(box)
+    paintBox(box, 0)
+    return
+  }
 
   syncStageRest(box)
   el.style.setProperty('--hero-stage-top', '0px')
@@ -1112,6 +1149,7 @@ function paintCaseMediaFlight(
   _caseBox: SurfaceBox,
   opacity: number,
 ) {
+  if (anchorSample) return
   const media = getCaseMediaFlightEl()
   const host = props.caseMediaEl
   const visible = opacity > 0.002
@@ -1217,6 +1255,10 @@ let lastAboutTitleClip = ''
 let lastAboutTitleOpacity = ''
 
 function clearAboutTitleContrast() {
+  if (anchorSample) {
+    anchorSample.aboutOpacity = 0
+    return
+  }
   const el = props.aboutTitleEl
   const clip = 'inset(0 100% 0 0)'
   if (!el || lastAboutTitleClip === clip) return
@@ -1238,6 +1280,10 @@ function paintAboutTitleOpacity(opacity: number) {
  * This keeps both halves legible while the moving edge is still crossing text.
  */
 function paintAboutTitleContrast(surface: SurfaceBox, opacity = 1) {
+  if (anchorSample) {
+    anchorSample.aboutOpacity = opacity
+    return
+  }
   const el = props.aboutTitleEl
   const title = readBox(el)
   if (!el || !title) {
@@ -1318,8 +1364,6 @@ function computeDesktopTarget(): number {
 }
 
 function paintHeroToKadoSegment(t: number) {
-  if (paintHeroReveal()) return
-  paintKadoSurfaceTone()
   setContactStageProgress(0)
   clearAboutTitleContrast()
   if (
@@ -1334,6 +1378,8 @@ function paintHeroToKadoSegment(t: number) {
     setCaseMediaVisible(false)
     clearCaseMediaFlight()
   }
+  if (paintHeroReveal()) return
+  paintKadoSurfaceTone()
 
   const { h, v } = targetsFromScrollProgress(props.plan, t, parseEase ?? ((_) => (u) => u))
   live.h = h
@@ -1814,6 +1860,7 @@ function mobileCaseHopOwnsFrame() {
 }
 
 function paintDesktop(s = desktopLiveS) {
+  if (anchorMotion && !anchorSample) return
   if (mobileActive) return
   if (hopTween) return
 
@@ -1955,6 +2002,7 @@ function mobileCorridorTargetAt(scrollY: number) {
 }
 
 function prepareMobileScrollFlight(useCaseTransform = false) {
+  if (anchorSample) return
   clearCaseMediaReveal()
   if (frameDocked()) unpinFrame()
   proxyParked.value = false
@@ -2005,6 +2053,7 @@ function mobileCorridorSettledAt(segment: number) {
 function paintMobileScrollCorridor(
   scrollY = window.scrollY,
 ) {
+  if (anchorMotion && !anchorSample) return
   if (!mobileActive || !frame.value) return
   if (mobileScrollBounds) {
     if (mobileCorridorLastY !== null) {
@@ -2456,6 +2505,10 @@ function parkFrameOnProxy(
   kind: SurfaceProxyKind,
   box: SurfaceBox,
 ) {
+  if (anchorSample) {
+    paintBox(box, 1)
+    return
+  }
   endMobileCaseTransformPaint()
   if (pinTo.value) unpinFrame()
   if (proxyHost && proxyHost !== host) {
@@ -2488,6 +2541,10 @@ function parkMobileCaseFrame(
 function pinCaseFrame() {
   const dest = caseMediaPose()
   if (!dest) return
+  if (anchorSample) {
+    paintSurfaceUnderCaseMedia(dest, 1)
+    return
+  }
   if (mobileActive) {
     parkMobileCaseFrame(dest, false)
     return
@@ -2571,6 +2628,11 @@ function pinContactFrame() {
   const host = props.contactSurfaceEl
   const el = frame.value
   if (!host || !el) return
+  if (anchorSample) {
+    const box = contactSurfacePose()
+    if (box) paintBox(box, 1)
+    return
+  }
   setCaseMediaVisible(false)
   clearCaseMediaFlight()
   setContactStageProgress(1)
@@ -3046,9 +3108,190 @@ function reconcileFromScroll() {
   paintMobileScrollCorridor(lastScrollY)
 }
 
+/** Every navigation destination supplies one pose, never an intermediate corridor. */
+function paintAnchorDestination(targetId: HomeAnchorTarget) {
+  caseMediaActive = false
+  setSurfaceDocked(false)
+  setSurfaceReady(false)
+  setCaseMediaVisible(false)
+  clearCaseMediaFlight()
+  setContactStageProgress(0)
+  clearAboutTitleContrast()
+  if (targetId === 'contact') {
+    paintAboutToContactSegment(1)
+    return
+  }
+  if (targetId === 'about') {
+    paintFormatsToAboutSegment(1)
+    const box = aboutSurfacePose()
+    if (!anchorSample && mobileActive && box) parkMobileAboutWaypoint(box)
+    return
+  }
+  paintAboutSurfaceTone(0)
+  if (targetId === 'services') {
+    const track = mobileActive ? readBox(props.formatsSurfaceEl) : null
+    const box = mobileActive && track ? mobileFormatsSettledBox(track) : formatsSurfacePose()
+    if (box) paintBox(box, 1)
+    return
+  }
+  const box = heroLivePose()
+  if (!box) return
+  syncStageRest(box)
+  if (!anchorSample && mobileActive) pinMobileHeroRevealFrame(box)
+  else paintBox(box, 0)
+}
+
+function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
+  if (!isHomeAnchorTarget(targetId)) return null
+  if (!keepAliveActive || morphBooting || !frame.value || !liveBox) return null
+  if (systemReducedMotion()) return null
+  const source = proxyPose() ?? (pinTo.value ? readBox(frame.value) : liveBox)
+  if (!source) return null
+  const morph = flowSurfaceMask.morph
+  const motion: NonNullable<typeof anchorMotion> = {
+    phase: 'scroll',
+    from: { ...source },
+    morph,
+    tone: frame.value.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)',
+    contactProgress: contactStageProgress.value,
+    aboutOpacity: Number.parseFloat(lastAboutTitleOpacity) || 0,
+    elapsed: 0,
+    updatedAt: 0,
+    targetId,
+    scrollComplete: false,
+    startScrollY: window.scrollY,
+    forward: scrollTop > window.scrollY,
+    scrollTop,
+    fromScrollY: window.scrollY,
+  }
+  anchorMotion = motion
+  if (raf) cancelAnimationFrame(raf)
+  raf = 0
+  killHopTween()
+  killCaseSettleTween()
+  killFormatsSettleTween()
+  killAboutSettleTween()
+  clearCaseMediaReveal()
+  endMobileCaseTransformPaint()
+  unpinFrame(morph)
+  proxyParked.value = false
+  caseMediaActive = false
+  setSurfaceDocked(false)
+  setSurfaceReady(false)
+  setCaseMediaVisible(false)
+  clearCaseMediaFlight()
+  paintBox(motion.from, morph)
+  const approach = (top = motion.scrollTop) => {
+    if (anchorMotion !== motion || motion.phase === 'settle') return
+    motion.scrollTop = top
+    motion.fromScrollY = window.scrollY
+    if (!mobileActive) {
+      const longTrip = Math.abs(motion.scrollTop - motion.startScrollY) > stableViewportHeight() * 0.75
+      if (longTrip) {
+        // Follow navigation direction after the source has left with the page.
+        motion.from.top = motion.forward ? -motion.from.height - 24 : stableViewportHeight() + 24
+      } else if (liveBox) {
+        motion.from = { ...liveBox }
+      }
+    }
+    motion.phase = 'settle'
+    motion.updatedAt = performance.now()
+    capturePoses()
+    stMod?.ScrollTrigger.update()
+    ensureTick()
+  }
+  const settle = (top = window.scrollY) => {
+    if (anchorMotion !== motion) return
+    motion.scrollTop = top
+    motion.scrollComplete = true
+    approach()
+    ensureTick()
+  }
+  const cancel = () => {
+    if (anchorMotion !== motion) return
+    if (motion.phase === 'settle' && liveBox && frame.value) {
+      motion.from = { ...liveBox }
+      motion.fromScrollY = window.scrollY
+      motion.morph = flowSurfaceMask.morph
+      motion.tone = frame.value.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)'
+      motion.contactProgress = contactStageProgress.value
+      motion.aboutOpacity = Number.parseFloat(lastAboutTitleOpacity) || 0
+      motion.elapsed = 0
+      motion.updatedAt = performance.now()
+    }
+    motion.targetId = null
+    settle()
+  }
+  return { approach, settle, cancel }
+}
+
+/** Ask the existing corridor for its endpoint without docking or painting it. */
+function paintAnchorSurfaceHandoff(now: number) {
+  const motion = anchorMotion
+  const el = frame.value
+  if (!motion || !el || motion.phase === 'scroll') return
+  const sample = { box: null as SurfaceBox | null, morph: 1, aboutOpacity: 0 }
+  anchorSample = sample
+  try {
+    if (motion.targetId) paintAnchorDestination(motion.targetId)
+    else if (mobileActive) paintMobileScrollCorridor(window.scrollY)
+    else paintDesktop(computeDesktopTarget())
+  } finally {
+    anchorSample = null
+  }
+  if (!mobileActive && motion.targetId && sample.box) {
+    // Aim at the landing viewport pose, not a moving endpoint during Lenis's tail.
+    sample.box = { ...sample.box, top: sample.box.top - (motion.scrollTop - window.scrollY) }
+  }
+  if (motion.targetId === 'home' && sample.box) syncStageRest(sample.box)
+  const destinationTone = el.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)'
+  const destinationContactProgress = contactStageProgress.value
+  setSurfaceReady(false)
+  setCaseMediaVisible(false)
+  motion.elapsed += Math.min(64, Math.max(0, now - motion.updatedAt))
+  motion.updatedAt = now
+  if (systemReducedMotion()) motion.elapsed = ANCHOR_SURFACE_DURATION_MS
+  const progress = clampUnit(motion.elapsed / ANCHOR_SURFACE_DURATION_MS)
+  const eased = smoothUnit(progress)
+  const documentSpace = mobileActive && (!motion.targetId
+    || HOME_ANCHOR_DESTINATIONS[motion.targetId].mobileSpace === 'document')
+  const from = documentSpace
+    ? { ...motion.from, top: motion.from.top - (window.scrollY - motion.fromScrollY) }
+    : motion.from
+  const box = sample.box ? lerpBox(from, sample.box, eased) : from
+  paintBox(box, motion.morph + (sample.morph - motion.morph) * eased)
+  paintAboutTitleContrast(box, motion.aboutOpacity + (sample.aboutOpacity - motion.aboutOpacity) * eased)
+  const tone = `color-mix(in srgb, ${motion.tone} ${(1 - eased) * 100}%, ${destinationTone} ${eased * 100}%)`
+  el.style.setProperty('--flow-surface-tone', tone)
+  lastCaseToneCss = tone
+  setContactStageProgress(motion.contactProgress
+    + (destinationContactProgress - motion.contactProgress) * eased)
+  if (progress < 1) {
+    raf = requestAnimationFrame(tick)
+    return
+  }
+  // Keep the named destination until the scroll driver's last correction is done.
+  if (!motion.scrollComplete) return
+  capturePoses()
+  stMod?.ScrollTrigger.update()
+  anchorMotion = null
+  desktopLiveS = motion.targetId
+    ? HOME_ANCHOR_DESTINATIONS[motion.targetId].desktopProgress
+    : computeDesktopTarget()
+  if (motion.targetId) {
+    paintAnchorDestination(motion.targetId)
+  } else if (mobileActive) paintMobileScrollCorridor(window.scrollY)
+  else paintDesktop(desktopLiveS)
+}
+
 function tick(now: number) {
   raf = 0
   if (!keepAliveActive) return
+  if (anchorMotion) {
+    if (document.hidden) return
+    paintAnchorSurfaceHandoff(now)
+    return
+  }
   if (!lastTs) lastTs = now
   const dt = Math.min(0.064, Math.max(0, (now - lastTs) / 1000))
   lastTs = now
@@ -3103,6 +3346,8 @@ function ensureTick() {
 }
 
 function killMorph() {
+  anchorMotion = null
+  anchorSample = null
   caseHopGen += 1
   formatsHopGen += 1
   aboutHopGen += 1
@@ -3533,6 +3778,14 @@ function onResize() {
 
 function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
   if (!keepAliveActive) return
+  if (anchorMotion) {
+    if (anchorMotion.phase === 'scroll' && !mobileActive) {
+      const offset = scrollFrame.y - anchorMotion.startScrollY
+      const box = { ...anchorMotion.from, top: anchorMotion.from.top - offset }
+      paintBox(box, anchorMotion.morph)
+    } else ensureTick()
+    return
+  }
   if (mobileActive) {
     paintMobileScrollCorridor(scrollFrame.y)
     return
@@ -3542,6 +3795,12 @@ function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
     return
   }
   if (mobileActive || hopTween) return
+  ensureTick()
+}
+
+function onAnchorVisibilityChange() {
+  if (document.hidden || anchorMotion?.phase !== 'settle') return
+  anchorMotion.updatedAt = performance.now()
   ensureTick()
 }
 
@@ -3567,6 +3826,8 @@ onMounted(async () => {
     if (liveBox) liveBox = { ...liveBox, top: liveBox.top + deltaY }
   })
   removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedSurfaceFrame)
+  removeAnchorMotionOwner = registerHomeAnchorMotion(beginAnchorSurfaceTrip)
+  document.addEventListener('visibilitychange', onAnchorVisibilityChange)
   // Paint the real Hero surface and copy before loading the scroll engine.
   // This hands off the SSR primer without putting GSAP on the LCP path.
   bootAlignHeroVisibility()
@@ -3579,6 +3840,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   hostUnmounted = true
+  removeAnchorMotionOwner?.()
+  removeAnchorMotionOwner = null
+  document.removeEventListener('visibilitychange', onAnchorVisibilityChange)
   poseResizeObserver?.disconnect()
   poseResizeObserver = null
   if (contactResizeTimer) window.clearTimeout(contactResizeTimer)
@@ -3625,6 +3889,7 @@ onUnmounted(() => {
 
 onDeactivated(() => {
   keepAliveActive = false
+  anchorMotion = null
   if (raf) cancelAnimationFrame(raf)
   raf = 0
 })

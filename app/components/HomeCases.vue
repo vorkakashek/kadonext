@@ -1451,6 +1451,7 @@ onBeforeUnmount(() => {
           class="cases-intro__title"
           :aria-label="`${casesIntroTitle}: ${homeCases.length}`"
         >
+          <span class="sr-only">{{ casesIntroTitle }}</span>
           <span
             v-for="(line, lineIndex) in casesIntroTitleLines"
             :key="lineIndex"
@@ -1530,7 +1531,7 @@ onBeforeUnmount(() => {
           @focus="warmCaseDetail(activeCase)"
           @pointerdown="warmCaseDetail(activeCase)"
           @click="onCaseDetailLink(activeCase, $event)"
-        />
+        ><span class="sr-only">{{ t('home.cases.openCase', { title: activeCase.title }) }}</span></a>
         <div class="cases-stage__visual">
           <figure
             ref="mediaEl"
@@ -1585,13 +1586,13 @@ onBeforeUnmount(() => {
                       v-if="activeCase.media.avifSrcset"
                       type="image/avif"
                       :srcset="activeCase.media.avifSrcset"
-                      sizes="(max-width: 767px) 92vw, 42vw"
+                      :sizes="activeCase.id === 'baltika' ? '(max-width: 767px) 92vw, 58vw' : '(max-width: 767px) 92vw, 42vw'"
                     >
                     <source
                       v-if="activeCase.media.webpSrcset"
                       type="image/webp"
                       :srcset="activeCase.media.webpSrcset"
-                      sizes="(max-width: 767px) 92vw, 42vw"
+                      :sizes="activeCase.id === 'baltika' ? '(max-width: 767px) 92vw, 58vw' : '(max-width: 767px) 92vw, 42vw'"
                     >
                     <img
                       :src="activeCase.media.src"
@@ -2834,12 +2835,15 @@ onBeforeUnmount(() => {
   }
 
   .home-cases[data-case-id='baltika'] .cases-media {
-    grid-column: 6 / span 5;
-    justify-self: end;
+    grid-column: 2 / span 7;
+    justify-self: start;
+    width: 100%;
   }
   .home-cases[data-case-id='baltika'] .cases-blurb {
-    grid-column: 2 / span 4;
-    align-self: end;
+    grid-column: 9 / -2;
+    align-self: start;
+    /* Header is 1920 × 1090: offset copy by 30% of its rendered height. */
+    margin-top: calc(var(--layout-span-7) * 1090 / 1920 * 0.3);
     margin-bottom: 0;
   }
 
@@ -2862,8 +2866,6 @@ onBeforeUnmount(() => {
 
   .home-cases[data-case-id='keys-store'] .cases-media { grid-column: 3 / span 8; }
   .home-cases[data-case-id='keys-store'] .cases-blurb { grid-column: 4 / span 4; }
-
-  .home-cases[data-case-id='baltika'] .cases-blurb { grid-column: 3 / span 3; }
 
   .home-cases[data-case-id='schmidt'] .cases-media { grid-column: 3 / span 8; }
   .home-cases[data-case-id='schmidt'] .cases-blurb { grid-column: 7 / -2; }

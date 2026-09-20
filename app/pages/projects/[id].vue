@@ -728,9 +728,6 @@ if (!item.value) {
   throw createError({ statusCode: 404, statusMessage: t('projects.detail.notFound') })
 }
 
-useHead(() => ({
-  title: t('seo.caseTitle', { title: item.value?.title ?? t('projects.detail.fallbackTitle') }),
-}))
 </script>
 
 <template>

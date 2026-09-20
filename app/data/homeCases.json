@@ -37,17 +37,17 @@
     "collaboration": "BOSON GROUP",
     "wash": "var(--palette-milk)",
     "media": {
-      "src": "/home/cases/baltika/baltika-detail-header-vertical.webp",
-      "webpSrcset": "/home/cases/baltika/baltika-detail-header-vertical-480.webp 480w, /home/cases/baltika/baltika-detail-header-vertical-960.webp 960w, /home/cases/baltika/baltika-detail-header-vertical-1440.webp 1440w",
-      "avifSrcset": "/home/cases/baltika/baltika-detail-header-vertical-480.avif 480w, /home/cases/baltika/baltika-detail-header-vertical-960.avif 960w, /home/cases/baltika/baltika-detail-header-vertical-1440.avif 1440w",
+      "src": "/home/cases/baltika/baltika-detail-header-1920.webp",
+      "webpSrcset": "/home/cases/baltika/baltika-detail-header-480.webp 480w, /home/cases/baltika/baltika-detail-header-960.webp 960w, /home/cases/baltika/baltika-detail-header-1440.webp 1440w, /home/cases/baltika/baltika-detail-header-1920.webp 1920w",
+      "avifSrcset": "/home/cases/baltika/baltika-detail-header-480.avif 480w, /home/cases/baltika/baltika-detail-header-960.avif 960w, /home/cases/baltika/baltika-detail-header-1440.avif 1440w, /home/cases/baltika/baltika-detail-header-1920.avif 1920w",
       "mobileSrc": "/home/cases/baltika/baltika-detail-header-vertical.webp",
       "mobileWebpSrcset": "/home/cases/baltika/baltika-detail-header-vertical-480.webp 480w, /home/cases/baltika/baltika-detail-header-vertical-960.webp 960w, /home/cases/baltika/baltika-detail-header-vertical-1440.webp 1440w",
       "mobileAvifSrcset": "/home/cases/baltika/baltika-detail-header-vertical-480.avif 480w, /home/cases/baltika/baltika-detail-header-vertical-960.avif 960w, /home/cases/baltika/baltika-detail-header-vertical-1440.avif 1440w",
-      "width": 1440,
-      "height": 1800,
+      "width": 1920,
+      "height": 1090,
       "mobileWidth": 1440,
       "mobileHeight": 1800,
-      "orientation": "portrait"
+      "orientation": "landscape"
     }
   },
   {

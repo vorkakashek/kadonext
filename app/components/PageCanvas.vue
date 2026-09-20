@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { canvasFrames, matchFramePath, type SiteNavFrame } from '~/utils/siteNav'
 import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
+import { isHomeAnchorTarget } from '~/utils/homeAnchorMotion'
 import { isNarrowViewport, isThumbNav } from '~/utils/mobileViewport'
 import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 import {
@@ -1095,7 +1096,7 @@ async function goToFrame(frame: SiteNavFrame) {
 
   // Home anchors should travel through the page after restoring the menu's
   // saved scroll position, rather than jump to the section under the iris.
-  if (route.path === '/' && (frame.id === 'services' || frame.id === 'contact')) {
+  if (route.path === '/' && frame.id !== 'home' && isHomeAnchorTarget(frame.id)) {
     navFromCanvas = true
     navHopActive.value = true
     try {

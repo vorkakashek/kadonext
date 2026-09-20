@@ -481,6 +481,7 @@ onUnmounted(() => {
           class="work-formats__title"
           :aria-label="formatsTitle"
         >
+          <span class="sr-only">{{ formatsTitle }}</span>
           <span
             v-for="(word, wordIndex) in formatsTitleWords"
             :key="`${word.join('')}-${wordIndex}`"
@@ -581,11 +582,12 @@ onUnmounted(() => {
             :key="item.preview"
             class="work-formats__picture"
             :class="{ 'is-active': activeIndex === index }"
+            aria-hidden="true"
           >
             <source type="image/avif" :srcset="item.previewAvif">
             <img
               :src="item.preview"
-              alt=""
+              :alt="item.alt"
               width="960"
               height="960"
               loading="lazy"

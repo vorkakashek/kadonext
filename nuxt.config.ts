@@ -18,6 +18,8 @@ export default defineNuxtConfig({
       // Static hosting proxies this path to the separate SMTP gateway.
       // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
       contactEndpoint: '/api/contact',
+      // Set false for preview builds; static hosts must publish a fresh build.
+      siteIndexable: process.env.NUXT_PUBLIC_SITE_INDEXABLE !== 'false' && process.env.NODE_ENV !== 'development',
     },
   },
 
@@ -109,14 +111,25 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      htmlAttrs: { lang: 'ru' },
+      charset: 'utf-8',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'robots', content: 'noindex, nofollow' },
+        { name: 'theme-color', content: '#ece7dd' },
+        // Error documents don't mount app.vue. Content pages override this via useSiteSeo.
+        { name: 'robots', content: 'noindex, follow' },
       ],
       link: [
-        { key: 'favicon-ico', rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 96x96' },
-        { key: 'favicon-png', rel: 'icon', href: '/favicon-96.png', type: 'image/png', sizes: '96x96' },
+        { key: 'favicon-ico', rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 96x96', media: '(prefers-color-scheme: light)' },
+        { key: 'favicon-png', rel: 'icon', href: '/favicon-96.png', type: 'image/png', sizes: '96x96', media: '(prefers-color-scheme: light)' },
+        { key: 'favicon-dark-ico', rel: 'icon', href: '/favicon-dark.ico', sizes: '16x16 32x32 48x48 96x96', media: '(prefers-color-scheme: dark)' },
+        { key: 'favicon-dark-png', rel: 'icon', href: '/favicon-dark-96.png', type: 'image/png', sizes: '96x96', media: '(prefers-color-scheme: dark)' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
       ],
+      noscript: [{
+        key: 'static-content-fallback',
+        innerHTML: '<style>.brand-preload{display:none!important}.home-hero__copy--intro-hidden,.case-detail--entering h1,.case-detail--entering .case-detail__meta,.case-detail--entering .case-detail__media{opacity:1!important;visibility:visible!important;transform:none!important}</style>',
+      }],
       // Before first paint: warm revisit shows full black macron, not empty gray track.
       script: [
         {
@@ -143,7 +156,7 @@ export default defineNuxtConfig({
     // without doing compression work at request time.
     compressPublicAssets: true,
     prerender: {
-      routes: homeCaseIds.map(id => `/projects/${id}`),
+      routes: ['/', '/projects', '/privacy', '/consent', '/robots.txt', '/sitemap.xml', ...homeCaseIds.map(id => `/projects/${id}`)],
     },
   },
 

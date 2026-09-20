@@ -187,6 +187,7 @@ defineExpose({ section, surfaceSlot })
           class="home-hero__title"
           :aria-label="heroTitleLines.join(' ')"
         >
+          <span class="sr-only">{{ heroTitleLines.join(' ') }}</span>
           <span
             v-for="(lineWords, lineIndex) in heroTitleLineWords"
             :key="lineIndex"
@@ -400,23 +401,23 @@ defineExpose({ section, surfaceSlot })
     margin-left: 0;
   }
 
-  .home-hero__title-line-mask:first-child .home-hero__title-word-mask:first-child {
+  .home-hero__title-line-mask[data-hero-title-line="0"] .home-hero__title-word-mask:first-child {
     grid-column: 1 / -1;
     grid-row: 1;
     justify-self: center;
   }
 
-  .home-hero__title-line-mask:first-child .home-hero__title-word-mask:last-child {
+  .home-hero__title-line-mask[data-hero-title-line="0"] .home-hero__title-word-mask:last-child {
     grid-column: 1;
     grid-row: 2;
   }
 
-  .home-hero__title-line-mask:last-child .home-hero__title-word-mask:first-child {
+  .home-hero__title-line-mask[data-hero-title-line="1"] .home-hero__title-word-mask:first-child {
     grid-column: 2;
     grid-row: 2;
   }
 
-  .home-hero__title-line-mask:last-child .home-hero__title-word-mask:last-child {
+  .home-hero__title-line-mask[data-hero-title-line="1"] .home-hero__title-word-mask:last-child {
     grid-column: 1 / -1;
     grid-row: 3;
     justify-self: center;

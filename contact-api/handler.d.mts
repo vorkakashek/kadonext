@@ -9,5 +9,6 @@ export function normaliseAudio(files: File[], env?: NodeJS.ProcessEnv): Promise<
 export function createContactHandler(options?: {
   env?: NodeJS.ProcessEnv
   send?: (message: object) => Promise<{ accepted: string[]; rejected?: string[] }>
+  deliver?: (submission: { fields: Record<string, string>; attachments: AudioAttachment[] }) => Promise<void>
   normalise?: (files: File[]) => Promise<AudioAttachment[]>
 }): (request: Request, clientIp?: string) => Promise<Response>

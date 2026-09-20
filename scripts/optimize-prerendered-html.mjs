@@ -37,6 +37,11 @@ async function visit(directory) {
     const source = await readFile(path, 'utf8')
     const matches = source.match(modulePreloadPattern)
     let result = source.replace(modulePreloadPattern, '')
+    // Nuxt's static fallbacks are not content pages and must never enter search.
+    if (directory === outputRoot && ['200.html', '404.html'].includes(entry.name)) {
+      result = result.replace(/<meta\b(?=[^>]*\bname="robots")[^>]*>\s*/g, '')
+        .replace('</head>', '<meta name="robots" content="noindex, follow"></head>')
+    }
     const stylesheetMatches = [...result.matchAll(criticalStylesheetPattern)]
     for (const match of stylesheetMatches) {
       const css = await readFile(join(outputRoot, match[1].slice(1)), 'utf8')

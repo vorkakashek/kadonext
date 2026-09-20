@@ -13,6 +13,8 @@ defineProps<{
     :mobile-src="media.mobileSrc"
     :poster="media.poster"
     :mobile-poster="media.mobilePoster"
+    :width="media.width"
+    :height="media.height"
     :alt="media.alt"
     :class="`project-story__image--${media.shape ?? 'wide'}`"
     :style="{

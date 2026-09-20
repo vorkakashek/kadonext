@@ -111,6 +111,8 @@
           {
             "type": "video",
             "src": "/home/cases/audience/audience-vid-1.mp4",
+            "width": 1920,
+            "height": 1080,
             "mobileSrc": "/home/cases/audience/audience-vid-1-mobile.mp4",
             "poster": "/home/cases/audience/audience-vid-1-poster.webp",
             "mobilePoster": "/home/cases/audience/audience-vid-1-mobile-poster.webp",
@@ -293,6 +295,8 @@
         "media": [
           {
             "src": "/home/cases/baltika/baltika-1-1920.webp",
+            "width": 1920,
+            "height": 1251,
             "shape": "wide",
             "webpSrcset": "/home/cases/baltika/baltika-1-480.webp 480w, /home/cases/baltika/baltika-1-960.webp 960w, /home/cases/baltika/baltika-1-1440.webp 1440w, /home/cases/baltika/baltika-1-1920.webp 1920w, /home/cases/baltika/baltika-1-2640.webp 2640w",
             "avifSrcset": "/home/cases/baltika/baltika-1-480.avif 480w, /home/cases/baltika/baltika-1-960.avif 960w, /home/cases/baltika/baltika-1-1440.avif 1440w, /home/cases/baltika/baltika-1-1920.avif 1920w, /home/cases/baltika/baltika-1-2640.avif 2640w",
@@ -300,6 +304,8 @@
           },
           {
             "src": "/home/cases/baltika/baltika-2-1920.webp",
+            "width": 1920,
+            "height": 1320,
             "shape": "landscape",
             "webpSrcset": "/home/cases/baltika/baltika-2-480.webp 480w, /home/cases/baltika/baltika-2-960.webp 960w, /home/cases/baltika/baltika-2-1440.webp 1440w, /home/cases/baltika/baltika-2-1920.webp 1920w, /home/cases/baltika/baltika-2-2640.webp 2640w",
             "avifSrcset": "/home/cases/baltika/baltika-2-480.avif 480w, /home/cases/baltika/baltika-2-960.avif 960w, /home/cases/baltika/baltika-2-1440.avif 1440w, /home/cases/baltika/baltika-2-1920.avif 1920w, /home/cases/baltika/baltika-2-2640.avif 2640w",
@@ -316,6 +322,8 @@
         "id": "baltika-label",
         "media": {
             "src": "/home/cases/baltika/baltika-3-1920.webp",
+            "width": 1920,
+            "height": 1440,
             "mobileSrc": "/home/cases/baltika/baltika-3-vertical.webp",
             "mobileWebpSrcset": "/home/cases/baltika/baltika-3-vertical-480.webp 480w, /home/cases/baltika/baltika-3-vertical-960.webp 960w, /home/cases/baltika/baltika-3-vertical-1440.webp 1440w",
             "mobileAvifSrcset": "/home/cases/baltika/baltika-3-vertical-480.avif 480w, /home/cases/baltika/baltika-3-vertical-960.avif 960w, /home/cases/baltika/baltika-3-vertical-1440.avif 1440w",
@@ -334,6 +342,8 @@
         "media": [
           {
             "src": "/home/cases/baltika/baltika-6-1920.webp",
+            "width": 1920,
+            "height": 1240,
             "shape": "wide",
             "webpSrcset": "/home/cases/baltika/baltika-6-480.webp 480w, /home/cases/baltika/baltika-6-960.webp 960w, /home/cases/baltika/baltika-6-1440.webp 1440w, /home/cases/baltika/baltika-6-1920.webp 1920w, /home/cases/baltika/baltika-6-2640.webp 2640w",
             "avifSrcset": "/home/cases/baltika/baltika-6-480.avif 480w, /home/cases/baltika/baltika-6-960.avif 960w, /home/cases/baltika/baltika-6-1440.avif 1440w, /home/cases/baltika/baltika-6-1920.avif 1920w, /home/cases/baltika/baltika-6-2640.avif 2640w",
@@ -341,6 +351,8 @@
           },
           {
             "src": "/home/cases/baltika/baltika-5-1920.webp",
+            "width": 1920,
+            "height": 1508,
             "shape": "landscape",
             "webpSrcset": "/home/cases/baltika/baltika-5-480.webp 480w, /home/cases/baltika/baltika-5-960.webp 960w, /home/cases/baltika/baltika-5-1440.webp 1440w, /home/cases/baltika/baltika-5-1920.webp 1920w, /home/cases/baltika/baltika-5-2640.webp 2640w",
             "avifSrcset": "/home/cases/baltika/baltika-5-480.avif 480w, /home/cases/baltika/baltika-5-960.avif 960w, /home/cases/baltika/baltika-5-1440.avif 1440w, /home/cases/baltika/baltika-5-1920.avif 1920w, /home/cases/baltika/baltika-5-2640.avif 2640w",
@@ -348,6 +360,8 @@
           },
           {
             "src": "/home/cases/baltika/baltika-7-1920.webp",
+            "width": 1920,
+            "height": 1356,
             "shape": "landscape",
             "webpSrcset": "/home/cases/baltika/baltika-7-480.webp 480w, /home/cases/baltika/baltika-7-960.webp 960w, /home/cases/baltika/baltika-7-1440.webp 1440w, /home/cases/baltika/baltika-7-1920.webp 1920w, /home/cases/baltika/baltika-7-2640.webp 2640w",
             "avifSrcset": "/home/cases/baltika/baltika-7-480.avif 480w, /home/cases/baltika/baltika-7-960.avif 960w, /home/cases/baltika/baltika-7-1440.avif 1440w, /home/cases/baltika/baltika-7-1920.avif 1920w, /home/cases/baltika/baltika-7-2640.avif 2640w",
@@ -355,6 +369,8 @@
           },
           {
             "src": "/home/cases/baltika/baltika-4-1920.webp",
+            "width": 1920,
+            "height": 1251,
             "shape": "wide",
             "webpSrcset": "/home/cases/baltika/baltika-4-480.webp 480w, /home/cases/baltika/baltika-4-960.webp 960w, /home/cases/baltika/baltika-4-1440.webp 1440w, /home/cases/baltika/baltika-4-1920.webp 1920w, /home/cases/baltika/baltika-4-2640.webp 2640w",
             "avifSrcset": "/home/cases/baltika/baltika-4-480.avif 480w, /home/cases/baltika/baltika-4-960.avif 960w, /home/cases/baltika/baltika-4-1440.avif 1440w, /home/cases/baltika/baltika-4-1920.avif 1920w, /home/cases/baltika/baltika-4-2640.avif 2640w",
@@ -380,6 +396,8 @@
             "type": "video",
             "mobileAspectRatio": "1 / 1",
             "poster": "/home/cases/baltika/baltika-motion-poster.webp",
+            "width": 1440,
+            "height": 810,
             "mobilePoster": "/home/cases/baltika/baltika-motion-mobile-poster.webp"
           }
         ],
@@ -393,6 +411,8 @@
         "id": "baltika-data",
         "media": {
             "src": "/home/cases/baltika/baltika-8-1920.webp",
+            "width": 1920,
+            "height": 1440,
             "shape": "landscape",
             "aspectRatio": "2760 / 2070",
             "webpSrcset": "/home/cases/baltika/baltika-8-480.webp 480w, /home/cases/baltika/baltika-8-960.webp 960w, /home/cases/baltika/baltika-8-1440.webp 1440w, /home/cases/baltika/baltika-8-1920.webp 1920w, /home/cases/baltika/baltika-8-2760.webp 2760w",
@@ -407,6 +427,8 @@
         "media": [
           {
             "src": "/home/cases/baltika/baltika-9-1440.webp",
+            "width": 1440,
+            "height": 960,
             "shape": "wide",
             "aspectRatio": "3750 / 2500",
             "webpSrcset": "/home/cases/baltika/baltika-9-480.webp 480w, /home/cases/baltika/baltika-9-960.webp 960w, /home/cases/baltika/baltika-9-1440.webp 1440w",
@@ -425,6 +447,8 @@
         "id": "baltika-responsive",
         "media": {
             "src": "/home/cases/baltika/baltika-11-1920.webp",
+            "width": 1920,
+            "height": 1440,
             "shape": "landscape",
             "aspectRatio": "4 / 3",
             "webpSrcset": "/home/cases/baltika/baltika-11-480.webp 480w, /home/cases/baltika/baltika-11-960.webp 960w, /home/cases/baltika/baltika-11-1440.webp 1440w, /home/cases/baltika/baltika-11-1920.webp 1920w, /home/cases/baltika/baltika-11-2760.webp 2760w",
@@ -439,6 +463,8 @@
     ],
     "closing": {
       "src": "/home/cases/baltika/baltika-12-2080.webp",
+      "width": 2080,
+      "height": 1234,
       "shape": "wide",
       "aspectRatio": "1040 / 617",
       "webpSrcset": "/home/cases/baltika/baltika-12-480.webp 480w, /home/cases/baltika/baltika-12-960.webp 960w, /home/cases/baltika/baltika-12-1440.webp 1440w, /home/cases/baltika/baltika-12-2080.webp 2080w",

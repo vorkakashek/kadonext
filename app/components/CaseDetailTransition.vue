@@ -6,6 +6,7 @@ const router = useRouter()
 const {
   request,
   active,
+  origin,
   revealDetailContent,
   completeCaseDetailEntry,
   completeCaseDetailExit,
@@ -39,6 +40,43 @@ type ImagePose = { x: number; y: number; scale: number; width: number; height: n
 const OPEN_FILL_DURATION = 0.54
 const OPEN_OVERSHOOT_DURATION = 0.62
 const OPEN_OVERSHOOT_SCALE = 1.15
+const RETURN_FLIGHT_DURATION = 0.72
+const HOME_CORNER_CORRIDOR = 0.2
+
+function homeMediaRadius(target: HTMLElement) {
+  const clip = target.querySelector<HTMLElement>('[data-case-local-media]') ?? target
+  return Number.parseFloat(getComputedStyle(clip).borderTopLeftRadius) || 0
+}
+
+function setFrameRadius(frame: HTMLElement, radius: number) {
+  // Clip the composited image explicitly, rather than relying on overflow's
+  // rounded border to mask its independently transformed raster.
+  const mask = `inset(0px round ${radius}px)`
+  frame.style.clipPath = mask
+  frame.style.webkitClipPath = mask
+}
+
+function animateHomeCorners(
+  timeline: gsap.core.Timeline,
+  frame: HTMLElement,
+  radius: number,
+  duration: number,
+  opening: boolean,
+) {
+  const route = { progress: 0 }
+  timeline.to(route, {
+    progress: 1,
+    duration,
+    ease: 'power3.inOut',
+    onUpdate: () => {
+      // Follow the same eased geometry as the photo, not elapsed time.
+      const cornerProgress = opening
+        ? 1 - Math.min(1, route.progress / HOME_CORNER_CORRIDOR)
+        : Math.max(0, (route.progress - (1 - HOME_CORNER_CORRIDOR)) / HOME_CORNER_CORRIDOR)
+      setFrameRadius(frame, radius * cornerProgress)
+    },
+  }, 0)
+}
 
 /** Uniformly fit the decoded raster behind a clipped box without resizing it. */
 function coverPose(
@@ -253,9 +291,21 @@ watch(request, async (next) => {
   const viewportBox = { top: 0, left: 0, width: viewport.width, height: viewport.height }
   const fullscreenPose = coverPose(image, viewportBox)
   gsap.set(root, { opacity: 1 })
+  // The proxy is reused across routes; never retain the previous home radius.
+  gsap.set(frame, { borderRadius: 0 })
+  setFrameRadius(frame, 0)
+  let sourceRadius = 0
   if (next.direction === 'open' && next.rect) {
     gsap.set(backdrop, { opacity: 0 })
     gsap.set(frame, next.rect)
+    if (origin.value === 'home') {
+      const source = Array.from(document.querySelectorAll<HTMLElement>('[data-case-media]'))
+        .find(target => target.dataset.caseMedia === next.src)
+      if (source) {
+        sourceRadius = homeMediaRadius(source)
+        setFrameRadius(frame, sourceRadius)
+      }
+    }
     gsap.set(image, {
       ...poseWithinFrame(
         coverPose(image, next.rect, next.imageRect ?? next.rect),
@@ -308,6 +358,9 @@ watch(request, async (next) => {
         duration: OPEN_FILL_DURATION,
         ease: 'power3.inOut',
       }, 0)
+      if (origin.value === 'home') {
+        animateHomeCorners(fill, frame, sourceRadius, OPEN_FILL_DURATION, true)
+      }
       fill.to(
         image,
         {
@@ -395,14 +448,17 @@ watch(request, async (next) => {
       const flight = gsap.timeline()
       flight.to(frame, {
         ...targetBox,
-        duration: 0.72,
+        duration: RETURN_FLIGHT_DURATION,
         ease: 'power3.inOut',
       }, 0)
+      if (next.to.split('#')[0] === '/' && targetEl.hasAttribute('data-case-media')) {
+        animateHomeCorners(flight, frame, homeMediaRadius(targetEl), RETURN_FLIGHT_DURATION, false)
+      }
       flight.to(image, {
         x: targetLocalPose.x,
         y: targetLocalPose.y,
         scale: targetLocalPose.scale,
-        duration: 0.72,
+        duration: RETURN_FLIGHT_DURATION,
         ease: 'power3.inOut',
         overwrite: 'auto',
       }, 0)

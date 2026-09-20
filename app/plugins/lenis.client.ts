@@ -5,6 +5,8 @@ import {
 import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
 import { createFormSwipeGuard } from '~/utils/formSwipeGuard'
 import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
+import { isThumbNav } from '~/utils/mobileViewport'
+import { beginHomeAnchorMotion, HOME_ANCHOR_TIMING, isHomeAnchorTarget } from '~/utils/homeAnchorMotion'
 import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 import {
   CASE_RAIL_TOUCH_EVENT,
@@ -307,6 +309,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   function syncRunState() {
+    if (document.hidden || pageIsLocked()) cancelSectionScroll?.()
     if (!lenis) return
     if (document.hidden || pageIsLocked()) {
       cancelRailTouch()
@@ -417,37 +420,79 @@ export default defineNuxtPlugin((nuxtApp) => {
       return
     }
     const reducedMotion = immediate || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const top = homeSectionScrollTop(target)
+    const targetId = target === document.documentElement ? 'home' : target.id
+    const thumb = isThumbNav()
+    const approachDistance = Math.max(HOME_ANCHOR_TIMING.minimumApproachPx,
+      window.innerHeight * HOME_ANCHOR_TIMING.mobileApproachViewport)
+    const surfaceMotion = !reducedMotion && isHomeAnchorTarget(targetId)
+      ? beginHomeAnchorMotion(targetId, top)
+      : null
     let settleTimer = 0
+    let approachTimer = 0
+    let surfaceApproaching = false
     let active = true
-    const cancel = () => {
+    const cleanup = () => {
       active = false
       window.clearTimeout(settleTimer)
+      window.clearTimeout(approachTimer)
       window.removeEventListener('scroll', onNativeScroll)
       window.removeEventListener('scrollend', finish)
       window.removeEventListener('pointerdown', cancel, true)
+      window.removeEventListener('touchstart', cancel, true)
       window.removeEventListener('wheel', cancel, true)
       window.removeEventListener('keydown', cancel, true)
       if (cancelSectionScroll === cancel) cancelSectionScroll = null
     }
+    const cancel = () => {
+      if (!active) return
+      cleanup()
+      // Stop the programmed trip before handing control back to the gesture.
+      if (lenis) {
+        const top = window.scrollY
+        lenis.stop()
+        if (!document.hidden && !pageIsLocked()) lenis.start()
+        lenis.scrollTo(top, { immediate: true, force: true })
+        removeTicker()
+      } else window.scrollTo({ top: window.scrollY, left: 0, behavior: 'instant' })
+      surfaceMotion?.cancel()
+    }
     const finish = () => {
       if (!active) return
-      cancel()
-      if (!target.isConnected || pageIsLocked()) return
+      cleanup()
+      if (!target.isConnected || pageIsLocked()) {
+        surfaceMotion?.cancel()
+        return
+      }
       // Browser chrome can resize during the trip; reconcile once at rest.
       const top = homeSectionScrollTop(target)
-      if (Math.abs(window.scrollY - top) <= 1) return
-      if (lenis) lenis.scrollTo(top, { immediate: true })
-      else window.scrollTo({ top, left: 0, behavior: 'instant' })
+      if (Math.abs(window.scrollY - top) > 1) {
+        if (lenis) lenis.scrollTo(top, { immediate: true })
+        else window.scrollTo({ top, left: 0, behavior: 'instant' })
+      }
+      surfaceMotion?.settle(top)
+    }
+    const beginApproach = () => {
+      if (!active || !surfaceMotion || surfaceApproaching || !target.isConnected || pageIsLocked()) return
+      surfaceApproaching = true
+      surfaceMotion.approach(homeSectionScrollTop(target))
     }
     const onNativeScroll = () => {
+      if (Math.abs(window.scrollY - top) <= approachDistance) beginApproach()
+      if (lenis) return
       window.clearTimeout(settleTimer)
       settleTimer = window.setTimeout(finish, 150)
     }
     cancelSectionScroll = cancel
     window.addEventListener('pointerdown', cancel, { capture: true, passive: true })
+    window.addEventListener('touchstart', cancel, { capture: true, passive: true })
     window.addEventListener('wheel', cancel, { capture: true, passive: true })
     window.addEventListener('keydown', cancel, { capture: true })
-    const top = homeSectionScrollTop(target)
+    window.addEventListener('scroll', onNativeScroll, { passive: true })
+    if (surfaceMotion && !thumb) {
+      // A fixed early beat replaces a distance threshold tied to Lenis's long tail.
+      approachTimer = window.setTimeout(beginApproach, HOME_ANCHOR_TIMING.desktopStartDelayMs)
+    }
     if (lenis) {
       // Replace wheel/release inertia and explicitly wake the otherwise idle RAF.
       lenis.resize()
@@ -460,7 +505,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       })
       requestTicker()
     } else {
-      window.addEventListener('scroll', onNativeScroll, { passive: true })
       window.addEventListener('scrollend', finish, { once: true })
       window.scrollTo({
         top,
