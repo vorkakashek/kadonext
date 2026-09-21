@@ -33,6 +33,7 @@ test('reverse routes use the same coalescing rule', () => {
 test('snapshot interpolation continues from the actually painted frame', () => {
   const from = {
     box: { top: 20, left: 10, width: 100, height: 80 },
+    stage: { top: 30, left: 20, width: 120, height: 90 },
     morph: 0.2,
     horizontalMorph: 0.4,
     tone: 'green',
@@ -41,6 +42,7 @@ test('snapshot interpolation continues from the actually painted frame', () => {
   }
   const to = {
     box: { top: 100, left: 50, width: 500, height: 400 },
+    stage: { top: 70, left: 40, width: 320, height: 210 },
     morph: 1,
     horizontalMorph: 1,
     tone: 'stone',
@@ -49,6 +51,7 @@ test('snapshot interpolation continues from the actually painted frame', () => {
   }
   const mixed = mixSurfaceVisualSnapshot(from, to, 0.5)
   assert.deepEqual(mixed.box, { top: 60, left: 30, width: 300, height: 240 })
+  assert.deepEqual(mixed.stage, { top: 50, left: 30, width: 220, height: 150 })
   assert.ok(Math.abs(mixed.morph - 0.6) < 0.000001)
   assert.equal(mixed.horizontalMorph, 0.7)
   assert.equal(mixed.aboutOpacity, 0.5)
@@ -59,6 +62,7 @@ test('snapshot interpolation continues from the actually painted frame', () => {
 test('missing destination geometry never discards the visible source box', () => {
   const from = {
     box: { top: 20, left: 10, width: 100, height: 80 },
+    stage: { top: 30, left: 20, width: 120, height: 90 },
     morph: 0,
     horizontalMorph: 0,
     tone: 'green',

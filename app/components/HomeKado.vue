@@ -453,7 +453,10 @@ async function setupSectionParallax() {
             start: 'center bottom',
             endTrigger: host,
             end: 'bottom top',
-            scrub: 0.24,
+            // Lenis already supplies the scroll easing and FlowSurface owns its
+            // own bounded lag. A third scrub tail moves the waypoint after the
+            // Surface has sampled it, producing the visible under-run at KADO.
+            scrub: true,
             invalidateOnRefresh: true,
           },
         },

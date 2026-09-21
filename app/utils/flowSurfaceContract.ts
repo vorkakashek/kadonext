@@ -73,6 +73,8 @@ export function planSurfaceRoute(
  */
 export type SurfaceVisualSnapshot = {
   box: SurfaceBox | null
+  /** Viewport basis of the Hero scene rendered inside the moving crop. */
+  stage: SurfaceBox | null
   morph: number
   horizontalMorph: number
   tone: string
@@ -104,9 +106,13 @@ export function mixSurfaceVisualSnapshot(
   const box = from.box && to.box
     ? lerpBox(from.box, to.box, t)
     : (to.box ?? from.box)
+  const stage = from.stage && to.stage
+    ? lerpBox(from.stage, to.stage, t)
+    : (to.stage ?? from.stage)
 
   return {
     box,
+    stage,
     morph: mixNumber(from.morph, to.morph, t),
     horizontalMorph: mixNumber(from.horizontalMorph, to.horizontalMorph, t),
     tone: mixTone(from.tone, to.tone, t),

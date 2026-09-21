@@ -19,6 +19,8 @@ function harness() {
     'currentSurfaceTone',
     'publishSurfaceTone',
     'publishHeroHorizontalMorph',
+    'stageRestBox',
+    'syncStageRest',
     'captureCurrentSurfaceSnapshot',
     'paintAnchorDestination',
     'beginAnchorSurfaceTrip',
@@ -41,6 +43,7 @@ function harness() {
     serviceDestination: { top: 100, left: 50, width: 500, height: 400 },
     homeDestination: { top: 150, left: 10, width: 1000, height: 700 },
     destinationS: 5, desktopLiveS: 0,
+    stageRest: { top: 20, left: 10, w: 100, h: 100 },
     anchorMotion: null, anchorSample: null, raf: 0, lastTs: 0,
     keepAliveActive: true, morphBooting: false, mobileActive: false, pinTo: { value: null },
     flowSurfaceMask: { morph: 0, heroHorizontalMorph: 0, heroReturning: false }, proxyParked: { value: false },
@@ -57,7 +60,7 @@ function harness() {
     clearCaseMediaReveal: noop, endMobileCaseTransformPaint: noop, unpinFrame: noop,
     setSurfaceDocked: noop, setSurfaceReady: noop, setCaseMediaVisible: noop, clearCaseMediaFlight: noop,
     paintAboutTitleContrast: noop, lerpBox, mixSurfaceVisualSnapshot, planSurfaceRoute,
-    clearAboutTitleContrast: noop, syncStageRest: noop,
+    clearAboutTitleContrast: noop,
     parkMobileAboutWaypoint: noop, pinMobileHeroRevealFrame: noop,
     clampUnit: value => Math.max(0, Math.min(1, value)),
     smoothUnit: value => value * value * (3 - 2 * value),
@@ -72,12 +75,13 @@ function harness() {
   context.setContactStageProgress = progress => { context.contactStageProgress.value = progress }
   context.paintBox = (box, morph) => {
     if (context.anchorSample) { Object.assign(context.anchorSample, { box, morph }); return }
-    paints.push({ ...box, morph })
+    paints.push({ ...box, morph, stageTop: context.stageRest.top })
     context.liveBox = { ...box }
     context.flowSurfaceMask.morph = morph
   }
   context.paintDesktop = () => {
     if (context.anchorMotion && !context.anchorSample) return
+    context.syncStageRest(context.destination)
     context.paintBox(context.destination, 1)
     style.set('--flow-surface-tone', 'var(--palette-stone)')
     context.setContactStageProgress(1)
@@ -113,9 +117,11 @@ test('cancel samples the actual corridor and tracks layout changes during its ha
   motion.cancel()
   for (let i = 0; i < 24; i++) h.advance(15)
   assert.equal(h.paints.at(-1).width, 150)
+  assert.equal(h.paints.at(-1).stageTop, 60)
   h.context.destination.width = 220
   for (let i = 0; i < 24; i++) h.advance(15)
   assert.equal(h.paints.at(-1).width, 220)
+  assert.equal(h.paints.at(-1).stageTop, 100)
   assert.equal(h.context.desktopLiveS, 3)
 })
 
@@ -250,10 +256,11 @@ test('logo return morphs directly to Hero without the scroll corridor taking ove
   assert.ok(h.context.anchorMotion)
   h.context.window.scrollY = 0
   h.context.homeDestination.top = 150
+  h.context.destinationS = -0.42
   motion.settle(0)
   for (let i = 0; i < 24; i++) h.advance(15)
   assert.equal(h.paints.at(-1).morph, 0)
-  assert.equal(h.context.desktopLiveS, 0)
+  assert.equal(h.context.desktopLiveS, -0.42)
 })
 
 test('About shares the named-pose handoff rather than sampling a previous segment', () => {

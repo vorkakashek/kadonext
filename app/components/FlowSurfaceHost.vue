@@ -547,10 +547,23 @@ function heroRevealScrollY(section: HTMLElement) {
 }
 
 function syncStageRest(pose: SurfaceBox) {
+  if (anchorSample) {
+    anchorSample.stage = { ...pose }
+    return
+  }
   stageRest.top = pose.top
   stageRest.left = pose.left
   stageRest.w = Math.max(1, pose.width)
   stageRest.h = Math.max(1, pose.height)
+}
+
+function stageRestBox(): SurfaceBox {
+  return {
+    top: stageRest.top,
+    left: stageRest.left,
+    width: stageRest.w,
+    height: stageRest.h,
+  }
 }
 
 function roundBox(box: SurfaceBox): SurfaceBox {
@@ -1948,6 +1961,11 @@ function paintDesktop(s = desktopLiveS) {
     return
   }
 
+  // Every morphed desktop segment keeps the Hero scene on the canonical fixed
+  // viewport basis. Publish it explicitly so destination sampling cannot
+  // inherit a stale Hero-rest basis from an interrupted anchor handoff.
+  if (fromPose) syncStageRest(fromPose)
+
   const { segmentIndex, localT } = resolveCorridorSegment(s, 5)
   if (segmentIndex > 0) publishHeroHorizontalMorph(1)
   if (segmentIndex === 4) {
@@ -3230,6 +3248,7 @@ function paintAnchorDestination(targetId: HomeAnchorTarget) {
 function captureCurrentSurfaceSnapshot(box: SurfaceBox): SurfaceVisualSnapshot {
   return {
     box: { ...box },
+    stage: stageRestBox(),
     morph: flowSurfaceMask.morph,
     horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
     tone: currentSurfaceTone(),
@@ -3329,6 +3348,7 @@ function paintAnchorSurfaceHandoff(now: number) {
   if (!motion || !el || motion.phase === 'scroll') return
   const sample = {
     box: null as SurfaceBox | null,
+    stage: stageRestBox(),
     morph: 1,
     horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
     tone: currentSurfaceTone(),
@@ -3347,7 +3367,7 @@ function paintAnchorSurfaceHandoff(now: number) {
     // Aim at the landing viewport pose, not a moving endpoint during Lenis's tail.
     sample.box = { ...sample.box, top: sample.box.top - (motion.scrollTop - window.scrollY) }
   }
-  if (motion.targetId === 'home' && sample.box) syncStageRest(sample.box)
+  if (motion.targetId === 'home' && sample.box) sample.stage = { ...sample.box }
   setSurfaceReady(false)
   setCaseMediaVisible(false)
   motion.elapsed += Math.min(64, Math.max(0, now - motion.updatedAt))
@@ -3367,6 +3387,7 @@ function paintAnchorSurfaceHandoff(now: number) {
       }
     : motion.from
   const mixed = mixSurfaceVisualSnapshot(from, sample, eased)
+  if (mixed.stage) syncStageRest(mixed.stage)
   if (mixed.box) {
     paintBox(mixed.box, mixed.morph)
     paintAboutTitleContrast(mixed.box, mixed.aboutOpacity)
@@ -3383,7 +3404,10 @@ function paintAnchorSurfaceHandoff(now: number) {
   capturePoses()
   stMod?.ScrollTrigger.update()
   anchorMotion = null
-  desktopLiveS = motion.targetId
+  // Home has a pre-morph scroll corridor below zero. Its visible rest pose at
+  // scrollY=0 is not waypoint 0 (the Hero -> Kado morph start), so commit the
+  // real scroll clock before returning ownership to ordinary scrolling.
+  desktopLiveS = motion.targetId && motion.targetId !== 'home'
     ? HOME_ANCHOR_DESTINATIONS[motion.targetId].desktopProgress
     : computeDesktopTarget()
   if (motion.targetId) {
