@@ -1,8 +1,20 @@
 /** Primary site routes + Page Canvas frames (spec §9.2). */
 
+import type { LocaleCode } from '~/generated/locales/manifest'
 import { stripLocalePrefix } from './localeRouting'
 
 export type SiteNavFrameKind = 'page'
+
+export interface SiteNavPreviewSet {
+  /** Static color viewport shot (desktop). */
+  desktop: string
+  /** Baked grayscale sibling for `desktop`. */
+  desktopBw: string
+  /** Phone viewport color shot. */
+  mobile: string
+  /** Baked grayscale sibling for `mobile`. */
+  mobileBw: string
+}
 
 export interface SiteNavFrame {
   id: string
@@ -15,14 +27,8 @@ export interface SiteNavFrame {
   index: string
   /** Preview motif class key for CSS miniature (fallback if shot missing). */
   motif: 'home' | 'projects' | 'services' | 'about' | 'contact'
-  /** Static color viewport shot (desktop). */
-  preview: string
-  /** Baked grayscale sibling — no CSS filter on the tile. */
-  previewBw: string
-  /** Phone viewport color shot — used on thumb tiles, not a crop of `preview`. */
-  previewM: string
-  /** Baked grayscale sibling for `previewM`. */
-  previewMBw: string
+  /** Locale-specific viewport shots used by Page Canvas. */
+  previews: Record<LocaleCode, SiteNavPreviewSet>
 }
 
 /** Header shortcuts (subset). */
@@ -42,10 +48,7 @@ export const canvasFrames: SiteNavFrame[] = [
     blurbKey: 'navigation.frames.home.blurb',
     index: '01',
     motif: 'home',
-    preview: '/previews/home.jpg',
-    previewBw: '/previews/home-bw.jpg',
-    previewM: '/previews/home-m.jpg',
-    previewMBw: '/previews/home-m-bw.jpg',
+    previews: previewSet('home'),
   },
   {
     id: 'projects',
@@ -55,10 +58,7 @@ export const canvasFrames: SiteNavFrame[] = [
     blurbKey: 'navigation.frames.projects.blurb',
     index: '02',
     motif: 'projects',
-    preview: '/previews/projects.jpg',
-    previewBw: '/previews/projects-bw.jpg',
-    previewM: '/previews/projects-m.jpg',
-    previewMBw: '/previews/projects-m-bw.jpg',
+    previews: previewSet('projects'),
   },
   {
     id: 'services',
@@ -68,10 +68,7 @@ export const canvasFrames: SiteNavFrame[] = [
     blurbKey: 'navigation.frames.services.blurb',
     index: '03',
     motif: 'services',
-    preview: '/previews/services.jpg',
-    previewBw: '/previews/services-bw.jpg',
-    previewM: '/previews/services-m.jpg',
-    previewMBw: '/previews/services-m-bw.jpg',
+    previews: previewSet('services'),
   },
   {
     id: 'about',
@@ -81,10 +78,7 @@ export const canvasFrames: SiteNavFrame[] = [
     blurbKey: 'navigation.frames.about.blurb',
     index: '04',
     motif: 'about',
-    preview: '/previews/about.jpg',
-    previewBw: '/previews/about-bw.jpg',
-    previewM: '/previews/about-m.jpg',
-    previewMBw: '/previews/about-m-bw.jpg',
+    previews: previewSet('about'),
   },
   {
     id: 'contact',
@@ -94,12 +88,23 @@ export const canvasFrames: SiteNavFrame[] = [
     blurbKey: 'navigation.frames.contact.blurb',
     index: '05',
     motif: 'contact',
-    preview: '/previews/contact.jpg',
-    previewBw: '/previews/contact-bw.jpg',
-    previewM: '/previews/contact-m.jpg',
-    previewMBw: '/previews/contact-m-bw.jpg',
+    previews: previewSet('contact'),
   },
 ]
+
+function previewSet(id: string): Record<LocaleCode, SiteNavPreviewSet> {
+  const paths = (prefix: string): SiteNavPreviewSet => ({
+    desktop: `${prefix}/${id}.jpg`,
+    desktopBw: `${prefix}/${id}-bw.jpg`,
+    mobile: `${prefix}/${id}-m.jpg`,
+    mobileBw: `${prefix}/${id}-m-bw.jpg`,
+  })
+
+  return {
+    ru: paths('/previews'),
+    en: paths('/previews/en'),
+  }
+}
 
 export function matchFramePath(path: string): string {
   const clean = stripLocalePrefix(path).replace(/\/+$/, '') || '/'

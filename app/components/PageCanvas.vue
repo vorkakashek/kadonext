@@ -330,7 +330,8 @@ async function scrollToHomeAnchor(to: string) {
 }
 
 function frameShot(frame: SiteNavFrame) {
-  return isThumb.value ? frame.previewM : frame.preview
+  const shots = frame.previews[locale.value]
+  return isThumb.value ? shots.mobile : shots.desktop
 }
 
 function linkIsHot(frame: SiteNavFrame) {
