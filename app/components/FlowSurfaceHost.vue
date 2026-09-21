@@ -76,7 +76,7 @@ import {
 /** The site's minimal mode keeps the core Surface choreography intact. */
 function systemReducedMotion() {
   return import.meta.client
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && prefersReducedMotion()
 }
 
 type MobileHop = 'term' | 'word'
@@ -2758,7 +2758,7 @@ function parkMobileCaseFrame(
   scheduleCaseMediaReveal(delayMedia ? MOBILE_CASE_MEDIA_REVEAL_DELAY_MS : 0)
 }
 
-/** Compatibility entry for direct/reduced-motion mobile docks. */
+/** Compatibility entry for direct mobile docks. */
 function pinCaseFrame() {
   const dest = caseMediaPose()
   if (!dest) return

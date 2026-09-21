@@ -130,5 +130,5 @@ button:disabled { opacity: 0.4; cursor: default; }
   .voice-player { grid-template-columns: 2.75rem minmax(0, 1fr) auto; }
   .voice-player__actions { grid-column: 1 / -1; justify-content: flex-end; margin-left: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .voice-player__play, .voice-player__download { transition: none; } }
+@media not all { .voice-player__play, .voice-player__download { transition: none; } }
 </style>

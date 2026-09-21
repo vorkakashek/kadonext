@@ -215,7 +215,7 @@ onMounted(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .cookie-notice-enter-active,
   .cookie-notice-leave-active,
   .cookie-notice__button {

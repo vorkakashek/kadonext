@@ -24,7 +24,7 @@ watch(motionActive, (active) => {
 }, { immediate: true })
 
 function scrollToTop() {
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion = prefersReducedMotion()
   window.scrollTo({ top: 0, left: 0, behavior: reducedMotion ? 'auto' : 'smooth' })
 }
 </script>
@@ -85,7 +85,7 @@ function scrollToTop() {
   outline-offset: 3px;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .case-scroll-top { transition: none; }
 }
 </style>

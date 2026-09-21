@@ -1367,7 +1367,7 @@ function destroyRenderer() {
 
 onMounted(() => {
   scopeEl = canvasEl.value?.parentElement ?? null
-  mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)')
+  mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)')
   mediaQuery.addEventListener('change', handleMediaPreferenceChange)
   scopeEl?.addEventListener('pointerover', handlePointerOver)
   scopeEl?.addEventListener('pointermove', handlePointerMove)

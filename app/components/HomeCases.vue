@@ -337,7 +337,7 @@ function selectAdjacentCase(direction: 1 | -1) {
 function prefersReduce() {
   return (
     typeof window !== 'undefined'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && prefersReducedMotion()
   )
 }
 
@@ -2102,7 +2102,7 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .cases-rail,
   .cases-blurb {
     transition: none;
@@ -2702,7 +2702,7 @@ onBeforeUnmount(() => {
   object-fit: cover;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .cases-media__local,
   .cases-media__layer,
   .cases-media-swap-enter-active,

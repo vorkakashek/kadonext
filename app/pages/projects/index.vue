@@ -36,10 +36,6 @@ watch(pageRevealReady, (ready) => {
   if (ready) playInitialCardReveal()
 }, { flush: 'post' })
 
-function prefersReducedMotion() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
 async function setupCatalogRevealMotion() {
   const catalog = projectsCatalogEl.value
   const header = projectsHeaderEl.value
@@ -196,7 +192,7 @@ const PROJECT_CARD_POSITION_BLEND_IN_MS = 1800
 function projectCardMotionEnabled(event: PointerEvent) {
   return event.pointerType !== 'touch'
     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
-    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && !prefersReducedMotion()
 }
 
 function animateProjectCard(card: HTMLElement, motion: ProjectCardMotion, now: number) {
@@ -468,6 +464,6 @@ function openCase(item: HomeCase, event: MouseEvent) {
 .projects-card__year { font-size: var(--type-body); }
 @supports (text-box-trim: trim-start) { .projects-card__title { text-box-trim: trim-start; text-box-edge: cap alphabetic; } .projects-card__detail-mask:first-child { margin-top: 0; } }
 @media (hover: hover) and (pointer: fine) { .projects-card__cover img { filter: grayscale(.68) sepia(.3) saturate(.68) contrast(.94) brightness(1.02); transition: filter .9s cubic-bezier(.22, 1, .36, 1); } .projects-card:hover .projects-card__cover img, .projects-card:focus-visible .projects-card__cover img { filter: none; } }
-@media (prefers-reduced-motion: reduce) { .projects-card__cover img { transition: none; } }
+@media not all { .projects-card__cover img { transition: none; } }
 @media (max-width: 767px) { .projects-catalog__header { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); } .projects-catalog__title { grid-column: 1; } .projects-catalog__count { grid-column: 2; } .projects-catalog__grid { grid-template-columns: 1fr; } .projects-card__cover { height: 68vw; } }
 </style>

@@ -208,7 +208,7 @@ watch(
 )
 
 onMounted(() => {
-  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  reducedMotion = prefersReducedMotion()
   metrics()
   thumbY.value = targetY
   window.addEventListener('scroll', onScroll, { passive: true })
@@ -321,7 +321,7 @@ onUnmounted(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .custom-scrollbar {
     transition: none;
   }

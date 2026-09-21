@@ -524,7 +524,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .privacy-page a {
     transition: none;
   }

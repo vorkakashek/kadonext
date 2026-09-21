@@ -53,7 +53,7 @@ let stopAfter: (() => void) | null = null
 let stopError: (() => void) | null = null
 
 function reducedMotion() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  return prefersReducedMotion()
 }
 
 function captureOrigin(e: Event) {

@@ -429,7 +429,7 @@ async function morphDesktopMotionIcon(sceneEnabled: boolean) {
     : DESKTOP_PLAY_ICON_PATH
   desktopIconMorph?.kill()
   desktopIconMorph = null
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (prefersReducedMotion()) {
     path.setAttribute('d', target)
     return
   }
@@ -652,7 +652,7 @@ async function bootScene() {
   const preload = useBrandPreload()
   if (!firstSceneReady) preload.setSceneProgress(0.06)
 
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reduced = prefersReducedMotion()
   const isCoarse = isCoarsePointer()
   const isMobile = isNarrowViewport()
   const isIOS = isAppleTouchDevice()
@@ -2525,7 +2525,7 @@ async function bootScene() {
 
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .motion-control {
     transition: none;
   }
@@ -2608,7 +2608,7 @@ async function bootScene() {
   text-align: left;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .motion-intro,
   .motion-intro-enter-active,
   .motion-intro-leave-active {

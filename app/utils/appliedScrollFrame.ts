@@ -40,7 +40,7 @@ export function appliedScrollInputRevision() {
 
 /**
  * Lenis is the authoritative publisher while connected. Native scroll remains
- * the fallback for reduced motion and environments where Lenis is disabled.
+ * the fallback for environments where Lenis is disabled.
  */
 export function isAppliedScrollDriverConnected() {
   return lenisConnected

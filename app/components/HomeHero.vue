@@ -457,7 +457,7 @@ defineExpose({ section, surfaceSlot })
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .home-hero__title-block {
     transform: none !important;
   }

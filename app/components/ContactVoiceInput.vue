@@ -107,5 +107,5 @@ button:disabled { opacity: 0.35; cursor: default; }
   .voice-input__time { grid-column: 1 / -1; }
   .voice-input__meter { justify-content: flex-start; }
 }
-@media (prefers-reduced-motion: reduce) { .voice-input__round-button { transition: none; } }
+@media not all { .voice-input__round-button { transition: none; } }
 </style>

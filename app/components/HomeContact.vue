@@ -375,7 +375,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .home-contact__reveal,
   .home-contact__lead,
   .home-contact__task,

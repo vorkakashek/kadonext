@@ -16,13 +16,13 @@ import {
 } from '~/utils/caseRailTouch'
 
 const SMOOTH_WHEEL_ENABLED =
-  '(prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine)'
+  '(hover: hover) and (pointer: fine)'
 
 const CONTROLLED_TOUCH_ENABLED =
-  '(prefers-reduced-motion: no-preference) and (pointer: coarse)'
+  '(pointer: coarse)'
 
 const NARROW_TOUCH_ENABLED =
-  '(prefers-reduced-motion: no-preference) and (max-width: 767.98px)'
+  '(max-width: 767.98px)'
 
 // Keep section navigation's existing Lenis easing independent of wheel tuning.
 const sectionScrollEasing = (t: number) => Math.min(1, 1.001 - 2 ** (-10 * t))
@@ -418,7 +418,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       easing: wheelEasing,
       wheelMultiplier: 1,
       stopInertiaOnNavigate: true,
-      respectReducedMotion: true,
+      respectReducedMotion: false,
     })
 
     lenis.on('virtual-scroll', ({ event }) => {
@@ -466,7 +466,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       }
       return
     }
-    const reducedMotion = immediate || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reducedMotion = immediate
     const top = homeSectionScrollTop(target)
     const targetId = target === document.documentElement ? 'home' : target.id
     const thumb = isThumbNav()

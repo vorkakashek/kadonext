@@ -44,7 +44,7 @@ export async function onNavWaveEnter(e: NavWaveEvent) {
   const parts = navWaveParts(e.currentTarget)
   if (!parts) return
   const { path, reveal, root } = parts
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (prefersReducedMotion()) {
     applyWaveAmp(root, path, 0)
     reveal.setAttribute('x', '0')
     reveal.setAttribute('width', String(NAV_WAVE_VB_W))

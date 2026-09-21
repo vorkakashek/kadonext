@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
   0%, 100% { transform: scaleY(0.36); }
   50% { transform: scaleY(1); }
 }
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .voice-frog__mouth, .voice-frog__lids, .voice-frog__particle, .voice-frog__jump-legs { display: none; }
   .voice-frog__glyph { animation: none; }
 }

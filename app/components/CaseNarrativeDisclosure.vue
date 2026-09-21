@@ -15,7 +15,7 @@ const open = ref(false)
 async function toggle() {
   open.value = !open.value
   await nextTick()
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (prefersReducedMotion()) {
     emit('layoutChange')
   }
 }
@@ -213,7 +213,7 @@ function handleTransition(event: TransitionEvent) {
   .case-disclosure__body p:only-child { grid-column: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .case-disclosure__pill,
   .case-disclosure__body { transition: none; }
 }

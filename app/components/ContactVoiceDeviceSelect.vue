@@ -234,5 +234,5 @@ onBeforeUnmount(() => { closeMenu(); listen(false) })
 .voice-device-select__option :deep(svg) { flex: none; }
 .voice-device-select__option.is-selected { font-weight: 500; }
 .voice-device-select__option.is-active { background: var(--palette-forest); color: var(--palette-sand); }
-@media (prefers-reduced-motion: reduce) { .voice-device-select__trigger :deep(svg) { transition: none; } }
+@media not all { .voice-device-select__trigger :deep(svg) { transition: none; } }
 </style>

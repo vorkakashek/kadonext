@@ -632,7 +632,7 @@ onMounted(async () => {
   }
   preload.begin()
   reduced.value =
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    prefersReducedMotion()
   const mobileLite =
     window.innerWidth < 900
     || window.matchMedia('(pointer: coarse)').matches

@@ -999,7 +999,7 @@ onMounted(async () => {
   syncGrainScale()
   window.addEventListener('resize', syncGrainScale, { passive: true })
 
-  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  motionQuery = reducedMotionMediaQuery()
   await nextTick()
   syncGrainMotion()
   motionQuery.addEventListener('change', syncGrainMotion)

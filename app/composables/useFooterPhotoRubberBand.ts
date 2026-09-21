@@ -363,7 +363,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     if (!mounted || active) return
     active = true
     measure()
-    reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    reducedMotion = reducedMotionMediaQuery()
     reducedMotion.addEventListener('change', syncAvailability)
     resizeObserver = new ResizeObserver(measure)
     resizeObserver.observe(document.documentElement)

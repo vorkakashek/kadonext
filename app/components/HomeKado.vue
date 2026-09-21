@@ -199,7 +199,7 @@ async function setupLineFill(force = false) {
   const trigger = bodyFocusEl.value
   if (!host || !trigger) return
 
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (prefersReducedMotion()) {
     host.textContent = bodyText.value
     host.style.color = 'var(--palette-ink)'
     kadoWord.value = null
@@ -283,7 +283,7 @@ async function setupStoneLevitation() {
   if (levitateCtx || levitationSetupBusy) return
 
   if (typeof window === 'undefined') return
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (prefersReducedMotion()) return
   const el = stoneEl.value
   if (!el) return
 
@@ -392,7 +392,7 @@ async function setupSectionParallax() {
 
   parallaxMatchMedia = gsap.matchMedia()
   parallaxMatchMedia.add(
-    '(min-width: 768px) and (prefers-reduced-motion: no-preference)',
+    '(min-width: 768px)',
     () => {
       const corridorProgressAtSurfaceDock = (startY: number) => {
         const viewportHeight = Math.max(1, window.innerHeight)
@@ -755,7 +755,7 @@ onUnmounted(() => {
   }
 }
 
-@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+@media (min-width: 768px) {
   .kado {
     /* The slower copy column owns the visual bottom edge of the section. */
     margin-bottom: calc(-1 * var(--kado-word-compensation));

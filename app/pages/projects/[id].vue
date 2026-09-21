@@ -198,7 +198,7 @@ async function refreshAudienceScrollPositions() {
 
 async function setupMediaParallax() {
   const media = mediaParallaxEl.value
-  if (!media || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!media || prefersReducedMotion()) return
   const mobileHeaderParallax = window.matchMedia('(max-width: 767.98px)').matches
   const parallaxHeaderMedia = mobileHeaderParallax
     || item.value?.id === 'audience'
@@ -251,7 +251,7 @@ async function setupHeaderScroll() {
     || !title
     || !meta
     || !media
-    || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || prefersReducedMotion()
   ) return
 
   const gsap = (await import('gsap')).default
@@ -293,7 +293,7 @@ async function setupDetailReveals() {
   // it can remain genuinely edge-to-edge. Use the main case element as the
   // reveal scope so full-bleed sections participate in the same motion system.
   const root = detailContentEl.value?.parentElement
-  if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!root || prefersReducedMotion()) return
 
   const textTargets = Array.from(root.querySelectorAll<HTMLElement>([
     '.case-detail__hero h1',
@@ -441,7 +441,7 @@ async function setupAudienceTextFill() {
   const hosts = Array.from(
     root?.querySelectorAll<HTMLElement>('.case-text-fill') ?? [],
   )
-  if (!hosts.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!hosts.length || prefersReducedMotion()) return
 
   // Build immediately so a fast scroll cannot outrun the effect while the
   // webfont is still loading. Rebuild once after the final metrics settle.
@@ -598,7 +598,7 @@ async function rebuildAudienceTextFillAfterLocaleChange() {
 async function setupNextProjectParallax() {
   const content = nextProjectContentEl.value
   const block = content?.parentElement
-  if (!block || !content || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (!block || !content || prefersReducedMotion()) return
 
   const gsap = (await import('gsap')).default
   const { ScrollTrigger } = await import('gsap/ScrollTrigger')
@@ -1367,7 +1367,7 @@ h1 {
   .case-detail__next-name { max-width: 100%; font-size: clamp(3rem, 13vw, 5rem); }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   h1,
   .case-detail__meta,
   .case-detail__media {

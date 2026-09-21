@@ -40,7 +40,7 @@ function onVisibilityChange() {
 }
 
 onMounted(() => {
-  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  motionQuery = reducedMotionMediaQuery()
   motionQuery.addEventListener('change', syncMotionPreference)
 
   observer = new IntersectionObserver(

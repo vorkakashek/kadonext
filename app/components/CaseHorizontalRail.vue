@@ -77,7 +77,7 @@ function startViewportInertia() {
     !viewport
     || !motionActive.value
     || Math.abs(viewportDragVelocity) < 0.015
-    || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || prefersReducedMotion()
   ) return
 
   let lastTime = performance.now()

@@ -447,7 +447,7 @@ onDeactivated(() => {
 onMounted(async () => {
   hoverMedia = window.matchMedia('(hover: hover) and (pointer: fine)')
   mobileThumbMedia = window.matchMedia('(max-width: 767.98px)')
-  reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotionMedia = reducedMotionMediaQuery()
   syncHoverPreviewMode()
   hoverMedia.addEventListener('change', syncHoverPreviewMode)
   mobileThumbMedia.addEventListener('change', onMotionMediaChange)
@@ -1113,7 +1113,7 @@ onUnmounted(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .work-formats__item,
   .work-formats__number,
   .work-formats__arrow,

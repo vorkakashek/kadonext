@@ -201,7 +201,7 @@
   animation: chip-press 0.58s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .chip-scale-bg {
     transform: none;
     opacity: 0;

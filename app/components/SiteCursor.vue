@@ -300,7 +300,7 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .site-cursor {
     transition: none;
   }

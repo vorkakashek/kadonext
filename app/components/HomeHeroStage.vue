@@ -548,7 +548,7 @@ async function setupExitMotion(sectionEl: HTMLElement) {
   await nextTick()
 
   ctx = gsap.context(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     if (reduced) return
 
     ScrollTrigger.config({ ignoreMobileResize: true })
@@ -935,7 +935,7 @@ onMounted(() => {
   if (fromNav) skipHeroIntro.value = false
   const animateSceneEntry = !fromNav
     && sceneOpacity.value > SCENE_LIVE_OPACITY
-    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && !prefersReducedMotion()
   sceneEntryArmed.value = animateSceneEntry
   sceneEntryRunning.value = false
   emit('sceneEntryChange', animateSceneEntry)
@@ -1332,7 +1332,7 @@ onUnmounted(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .hero-scene-scroll-shell,
   .hero-copy-shell {
     transition: none;

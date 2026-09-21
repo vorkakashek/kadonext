@@ -214,7 +214,7 @@ async function onMotionMediaChange() {
 
 onMounted(async () => {
   mobileMedia = window.matchMedia('(max-width: 767.98px)')
-  reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotionMedia = reducedMotionMediaQuery()
   mobileMedia.addEventListener('change', onMotionMediaChange)
   reducedMotionMedia.addEventListener('change', onMotionMediaChange)
   await setupBiographyMotion()
@@ -581,7 +581,7 @@ onUnmounted(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .home-about__surface.is-surface-ready {
     background: var(--hero-scene-forest);
   }

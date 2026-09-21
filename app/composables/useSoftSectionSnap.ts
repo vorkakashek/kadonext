@@ -110,7 +110,7 @@ export function useSoftSectionSnap(options: {
 
     const start = readScroll()
     const dist = Math.abs(y - start)
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
 
     animating = true
     locked.value = true

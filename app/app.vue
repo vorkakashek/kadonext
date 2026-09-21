@@ -43,10 +43,10 @@ onMounted(() => {
     <div class="pc-live-stack">
       <div class="page-shell">
         <div class="page-shell__paint">
-          <!-- Locale prefixes are aliases of the same page. Keep one page
-               instance while only the copy and URL change, otherwise every
-               language switch remounts the full motion scene. -->
-          <NuxtPage :page-key="basePath" />
+          <!-- Keep Nuxt's native route-key contract. Combining a custom
+               page-key with the Home page's per-route KeepAlive corrupts the
+               production activation context during SPA navigation. -->
+          <NuxtPage />
         </div>
       </div>
     </div>

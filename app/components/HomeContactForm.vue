@@ -217,7 +217,7 @@ async function revealSuccess() {
   const frog = successFrogEl.value
   const title = successTitleEl.value
   const body = successBodyEl.value
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion = prefersReducedMotion()
   if (reducedMotion || !frog || !title || !body) {
     successEntering.value = false
     successFlightFrame.value = false
@@ -345,7 +345,7 @@ async function collapseSubmittedForm() {
     // instead of pushing it farther back into the About→Contact morph.
     const minimumSettledScroll = Math.min(fromScroll, contactDockScroll)
     const toScroll = Math.max(minimumSettledScroll, requestedScroll)
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reducedMotion = prefersReducedMotion()
     successCollapsePending = false
 
     if (sectionDelta <= 1 || reducedMotion) {
@@ -1060,7 +1060,7 @@ function focusConfirmation() {
 
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .contact-form__label,
   .contact-form__submit,
   .contact-form__mode-control,

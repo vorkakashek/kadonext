@@ -1264,7 +1264,7 @@ watch(locale, async () => {
 }, { flush: 'post' })
 
 onMounted(() => {
-  reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  reducedMotion.value = prefersReducedMotion()
   const syncChromeMode = () => {
     isNarrow.value = isNarrowViewport()
     isThumb.value = isThumbNav()
@@ -1846,7 +1846,7 @@ onUnmounted(() => {
   color: var(--palette-milk);
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .pc-link__label,
   .pc-link__index {
     transition: none;
@@ -1925,7 +1925,7 @@ onUnmounted(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .pc-preview,
   .pc-preview__shot {
     transition: none;

@@ -106,7 +106,7 @@ const interactive = computed(() => props.progress > 0.985)
   pointer-events: auto;
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .home-contact-stage { will-change: auto; }
 }
 </style>

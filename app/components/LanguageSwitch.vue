@@ -123,7 +123,7 @@ async function switchLanguage() {
   if (switching.value) return
   const targetLocale = nextLocale.value
   const targetPath = localizedPath(route.fullPath, targetLocale)
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion = prefersReducedMotion()
   switching.value = true
   document.documentElement.classList.add('language-switch-lock')
   try {

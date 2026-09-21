@@ -45,7 +45,7 @@ export function useViewportFocus(
   let ctx: { revert: () => void } | null = null
 
   onMounted(async () => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     const targets = getTargets().filter((el): el is HTMLElement => !!el)
     if (!targets.length) return
 

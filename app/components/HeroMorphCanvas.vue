@@ -27,7 +27,7 @@ onMounted(() => {
   const host = canvasHost.value
   if (!host) return
 
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reduced = prefersReducedMotion()
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 40)

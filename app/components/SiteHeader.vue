@@ -460,7 +460,7 @@ async function animateDesktopLogo(compact: boolean, immediate = false) {
   const compactX = logoMarkExpandedX()
   const compactWidth = frame.offsetHeight
   const expandedWidth = frame.offsetHeight * LOGO_VIEWBOX_WIDTH / LOGO_VIEWBOX_HEIGHT
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reduce = prefersReducedMotion()
   if (immediate || reduce) {
     g.set(frame, { width: compact ? compactWidth : expandedWidth })
     g.set(letters, { autoAlpha: compact ? 0 : 1 })
@@ -625,7 +625,7 @@ async function morph(animate: boolean, onComplete?: () => void) {
   const width = m.collapseSides ? m.collapsed : m.expanded
   const reduce =
     typeof window !== 'undefined'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && prefersReducedMotion()
   const snap = !animate || reduce || boxNear(
     bar,
     width,
@@ -878,7 +878,7 @@ async function fitFabLabel(on: boolean, instant = false) {
   const label = fab.querySelector('.menu-sizer-menu') as HTMLElement | null
   if (!word || !label) return
   const g = await gsap()
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reduced = prefersReducedMotion()
   const labelW = Math.ceil(label.scrollWidth)
   document.documentElement.style.setProperty(
     '--menu-fab-expanded-width',
@@ -2161,7 +2161,7 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
   transform: translateY(var(--header-text-optical-y));
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .menu-fab,
   .menu-fab-word,
   .menu-dots {

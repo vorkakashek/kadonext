@@ -63,7 +63,7 @@ onMounted(() => {
   sourceQuery.addEventListener('change', syncVideoSource)
   void syncVideoSource()
 
-  motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  motionQuery = reducedMotionMediaQuery()
   motionQuery.addEventListener('change', syncMotionPreference)
 
   observer = new IntersectionObserver(([entry]) => {

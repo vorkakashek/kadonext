@@ -128,7 +128,7 @@ const { t } = useI18n()
   to { transform: scaleY(0.9); }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media not all {
   .ambient-sound,
   .ambient-sound::before {
     transition: none;
