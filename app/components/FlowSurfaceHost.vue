@@ -2871,7 +2871,7 @@ function killHopTween() {
  */
 function requestStage(next: MobileStage, animate: boolean) {
   if (mobileCaseHopOwnsFrame()) return
-  if (!stageChangesAllowed() && next !== 'scrub') {
+  if (!stageChangesAllowed()) {
     // During quiet boot only allow snapping back to scrub paint — never pin.
     if (next === 'scrub' && mobileStage !== 'scrub') {
       mobileStage = 'scrub'
@@ -3603,7 +3603,8 @@ function beginMorphQuiet(ms = 1600) {
 }
 
 function safeRefresh(ScrollTrigger: typeof import('gsap/ScrollTrigger').ScrollTrigger) {
-  if (ScrollTrigger.isRefreshing || refreshDepth > 0) {
+  const refreshing = (ScrollTrigger as typeof ScrollTrigger & { isRefreshing?: boolean }).isRefreshing
+  if (refreshing || refreshDepth > 0) {
     return
   }
   refreshDepth += 1

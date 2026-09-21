@@ -270,7 +270,6 @@ let mobileHeroVisualsVisible = true
 let ctx: { revert: () => void } | null = null
 let gsapRef: typeof import('gsap').default | null = null
 let stRef: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
-let mediaFadeTween: { kill: () => void } | null = null
 let sceneReleaseTimer = 0
 /** Locked vh for slogan parallax — ignore mobile chrome show/hide (innerHeight jumps). */
 let copyParallaxVh = 0
@@ -628,7 +627,7 @@ watch(
   { immediate: true },
 )
 
-let introTl: { kill: () => void } | null = null
+let introTl: { kill: () => void; pause: () => void; resume: () => void } | null = null
 let introGen = 0
 
 const swarmMount = ref(false)
@@ -716,10 +715,10 @@ function scheduleSwarmMount(fromNavigation: boolean) {
       swarmIdleId = null
       if (!stageUnmounted) preloadHomeSceneAssets('mobile')
     }
-    if ('requestIdleCallback' in window) {
+    if (typeof window.requestIdleCallback === 'function') {
       swarmIdleId = window.requestIdleCallback(warmMobileScene, { timeout: 320 })
     } else {
-      swarmFallbackTimer = globalThis.setTimeout(() => {
+      swarmFallbackTimer = window.setTimeout(() => {
         swarmFallbackTimer = 0
         warmMobileScene()
       }, 120)
@@ -735,7 +734,7 @@ function scheduleSwarmMount(fromNavigation: boolean) {
       const warmThree = () => {
         if (!stageUnmounted) void preloadThreeBundle()
       }
-      if ('requestIdleCallback' in window) {
+      if (typeof window.requestIdleCallback === 'function') {
         window.requestIdleCallback(warmThree, { timeout: 450 })
       } else {
         window.setTimeout(warmThree, 120)
@@ -769,7 +768,7 @@ function scheduleSwarmMount(fromNavigation: boolean) {
         swarmIntentPending = false
         requestAnimationFrame(() => {
           if (stageUnmounted || swarmMount.value) return
-          if ('requestIdleCallback' in window) {
+          if (typeof window.requestIdleCallback === 'function') {
             swarmIdleId = window.requestIdleCallback(mount, { timeout: 500 })
           } else {
             window.setTimeout(mount, 80)
@@ -783,7 +782,7 @@ function scheduleSwarmMount(fromNavigation: boolean) {
         if (stageUnmounted || swarmMount.value) return
         swarmFallbackTimer = window.setTimeout(() => {
           swarmFallbackTimer = 0
-          if ('requestIdleCallback' in window) {
+          if (typeof window.requestIdleCallback === 'function') {
             swarmIdleId = window.requestIdleCallback(mount, { timeout: 350 })
           } else mount()
         }, delay)
@@ -1108,7 +1107,6 @@ onUnmounted(() => {
   glCoverHopSession.value = false
   finishHeroRevealQuiet()
   setFrozen(false)
-  mediaFadeTween?.kill()
   if (sceneReleaseTimer) window.clearTimeout(sceneReleaseTimer)
   sceneReleaseTimer = 0
   ctx?.revert()

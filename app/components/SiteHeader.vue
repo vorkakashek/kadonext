@@ -123,7 +123,7 @@ let lastDesktopLogoScrollY: number | null = null
 let desktopLogoCollapsePending = false
 let desktopLogoWantsCompact = false
 
-function onChipPointer(e: PointerEvent) {
+function onChipPointer(e: PointerEvent | FocusEvent) {
   const el = e.currentTarget
   if (el instanceof HTMLElement) setChipBgOrigin(el, e)
 }

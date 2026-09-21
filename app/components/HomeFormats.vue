@@ -198,6 +198,7 @@ function onPointerLeave(event?: PointerEvent) {
 
   const list = event?.currentTarget
   if (list instanceof HTMLElement) {
+    if (!event) return
     const bounds = list.getBoundingClientRect()
     const position = resolvePreviewPosition(
       Math.min(bounds.right, Math.max(bounds.left, event.clientX)),

@@ -53,7 +53,7 @@ function setFrameRadius(frame: HTMLElement, radius: number) {
   // rounded border to mask its independently transformed raster.
   const mask = `inset(0px round ${radius}px)`
   frame.style.clipPath = mask
-  frame.style.webkitClipPath = mask
+  frame.style.setProperty('-webkit-clip-path', mask)
 }
 
 function animateHomeCorners(

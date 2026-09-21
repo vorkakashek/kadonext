@@ -51,7 +51,6 @@ export default defineNuxtConfig({
   // Bind on all interfaces so phone can open the LAN IP.
   // Device motion on iOS: use a public HTTPS tunnel (see preview:tunnel), not LAN HTTP.
   devServer: {
-    host: '0.0.0.0',
     port: 3000,
   },
 
@@ -64,7 +63,6 @@ export default defineNuxtConfig({
       alias: [{ find: /^three$/, replacement: threeSourceEntry }],
     },
     server: {
-      host: true,
       strictPort: true,
       // Case detail is a frequent but route-lazy page. Transform it at dev
       // startup so the first animated navigation cannot hit a cold waterfall.

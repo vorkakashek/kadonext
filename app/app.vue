@@ -29,10 +29,10 @@ onMounted(() => {
   // Closed overlays and decorative controls are not part of the first frame.
   // Load them during the first idle window, with a bounded fallback so the
   // menu and route transitions are ready before a typical first interaction.
-  if ('requestIdleCallback' in window) {
+  if (typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(mountEnhancements, { timeout: 1200 })
   } else {
-    window.setTimeout(mountEnhancements, 400)
+    globalThis.setTimeout(mountEnhancements, 400)
   }
 })
 </script>

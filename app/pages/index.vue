@@ -6,12 +6,34 @@ import { heroToKadoPlan } from '~/utils/flowSurfaceMorph'
 // instead of disposing and rebuilding the whole experience on the main thread.
 definePageMeta({ keepalive: true })
 
-const hero = useTemplateRef('hero')
-const kado = useTemplateRef('kado')
-const cases = useTemplateRef('cases')
-const formats = useTemplateRef('formats')
-const about = useTemplateRef('about')
-const contact = useTemplateRef('contact')
+interface HeroExpose { surfaceSlot: HTMLElement | null }
+interface KadoExpose {
+  surfaceTarget: HTMLElement | null
+  stoneEl: HTMLElement | null
+  termTarget: HTMLElement | null
+  kadoWord: HTMLElement | null
+  bodyFocusEl: HTMLElement | null
+}
+interface CasesExpose { rootEl: HTMLElement | null; mediaEl: HTMLElement | null }
+interface FormatsExpose { rootEl: HTMLElement | null; surfaceEl: HTMLElement | null }
+interface AboutExpose {
+  rootEl: HTMLElement | null
+  surfaceEl: HTMLElement | null
+  titleEl: HTMLElement | null
+  contentEndEl: HTMLElement | null
+}
+interface ContactExpose {
+  rootEl: HTMLElement | null
+  surfaceEl: HTMLElement | null
+  fieldsEl: HTMLElement | null
+}
+
+const hero = useTemplateRef<HeroExpose>('hero')
+const kado = useTemplateRef<KadoExpose>('kado')
+const cases = useTemplateRef<CasesExpose>('cases')
+const formats = useTemplateRef<FormatsExpose>('formats')
+const about = useTemplateRef<AboutExpose>('about')
+const contact = useTemplateRef<ContactExpose>('contact')
 const surfaceReady = ref(false)
 
 const fromEl = computed(() => hero.value?.surfaceSlot ?? null)

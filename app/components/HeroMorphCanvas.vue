@@ -13,7 +13,7 @@ import {
 
 const canvasHost = ref<HTMLElement | null>(null)
 
-const CYCLE: HeroMorphShape[] = ['cube', 'sphere', 'liquid']
+const CYCLE = ['cube', 'sphere', 'liquid'] as const satisfies readonly HeroMorphShape[]
 const HOLD_MS = 1400
 const MORPH_MS = 1600
 
@@ -92,8 +92,8 @@ onMounted(() => {
   resizeObserver.observe(host)
 
   let shapeIndex = 0
-  let fromWeights = morphWeightsFor(CYCLE[0])
-  let toWeights = morphWeightsFor(CYCLE[0])
+  let fromWeights = morphWeightsFor(CYCLE[0]!)
+  let toWeights = morphWeightsFor(CYCLE[0]!)
   let phase: 'hold' | 'morph' = 'hold'
   let phaseStart = performance.now()
 
@@ -114,9 +114,9 @@ onMounted(() => {
         if (elapsed >= HOLD_MS) {
           phase = 'morph'
           phaseStart = now
-          fromWeights = morphWeightsFor(CYCLE[shapeIndex])
+          fromWeights = morphWeightsFor(CYCLE[shapeIndex]!)
           shapeIndex = (shapeIndex + 1) % CYCLE.length
-          toWeights = morphWeightsFor(CYCLE[shapeIndex])
+          toWeights = morphWeightsFor(CYCLE[shapeIndex]!)
         }
       } else {
         const t = Math.min(1, elapsed / MORPH_MS)

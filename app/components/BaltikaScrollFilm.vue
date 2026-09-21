@@ -45,6 +45,7 @@ onMounted(() => {
 
   observer = new IntersectionObserver(
     ([entry]) => {
+      if (!entry) return
       inView = entry.isIntersecting
       syncPlayback()
     },

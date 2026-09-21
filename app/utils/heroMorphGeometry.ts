@@ -128,12 +128,12 @@ export function createHeroMorphGeometry(segments = 96) {
 function normalizePositionsToRadius(positions: Float32Array, radius: number) {
   let maxLen = 0
   for (let i = 0; i < positions.length; i += 3) {
-    const len = Math.hypot(positions[i], positions[i + 1], positions[i + 2])
+    const len = Math.hypot(positions[i]!, positions[i + 1]!, positions[i + 2]!)
     if (len > maxLen) maxLen = len
   }
   if (maxLen < 1e-6) return
   const scale = radius / maxLen
-  for (let i = 0; i < positions.length; i++) positions[i] *= scale
+  for (let i = 0; i < positions.length; i++) positions[i] = positions[i]! * scale
 }
 
 /** Morph weights for sphere / cube / liquid (sum of cube+liquid influences vs base). */

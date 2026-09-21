@@ -237,7 +237,7 @@ async function settleAndExit(opts?: { skipSpin?: boolean }) {
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(() => resolve(), { timeout: 160 })
     } else {
-      window.setTimeout(resolve, 48)
+      globalThis.setTimeout(resolve, 48)
     }
   })
   // Commit two quiet paints before the expand beat.

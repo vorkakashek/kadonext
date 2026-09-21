@@ -152,17 +152,17 @@ const DESKTOP_ICON_MORPH_S = 0.38
 const DESKTOP_PAUSE_ICON_PATH = 'M6 6a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -12 M14 6a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -12'
 const DESKTOP_PLAY_ICON_PATH = 'M7 4v16l13 -8l-13 -8'
 
-function lerpStops(x: number, stops: number[], values: number[]) {
-  if (x <= stops[0]) return values[0]
+function lerpStops(x: number, stops: number[], values: number[]): number {
+  if (x <= stops[0]!) return values[0]!
   const last = stops.length - 1
-  if (x >= stops[last]) return values[last]
+  if (x >= stops[last]!) return values[last]!
   for (let i = 0; i < last; i++) {
-    if (x <= stops[i + 1]) {
-      const t = (x - stops[i]) / (stops[i + 1] - stops[i])
-      return values[i] + (values[i + 1] - values[i]) * t
+    if (x <= stops[i + 1]!) {
+      const t = (x - stops[i]!) / (stops[i + 1]! - stops[i]!)
+      return values[i]! + (values[i + 1]! - values[i]!) * t
     }
   }
-  return values[last]
+  return values[last]!
 }
 
 /**
@@ -375,6 +375,7 @@ function observeMotionIntroHero() {
 
   motionIntroHeroObserver = new IntersectionObserver(
     ([entry]) => {
+      if (!entry) return
       motionIntroInHero.value = entry.isIntersecting
     },
     { threshold: 0.01 },
@@ -872,7 +873,7 @@ async function bootScene() {
   balls = []
 
   for (let i = 0; i < ballCount; i++) {
-    const material = materialPlan[i % materialPlan.length].clone()
+    const material = materialPlan[i % materialPlan.length]!.clone()
     const mesh = new Mesh(sharedGeometry, material)
     mesh.renderOrder = material.transparent ? 2 : 1
     scene.add(mesh)
@@ -1304,10 +1305,10 @@ async function bootScene() {
         .negate()
       const n = balls.length
       const scatterRatio = lite ? ENTRY_SCATTER_RATIO_MOBILE : ENTRY_SCATTER_RATIO
-      const scatterR = Math.max(ringRadius * scatterRatio, balls[0]?.radius * 6 || 1)
+      const scatterR = Math.max(ringRadius * scatterRatio, (balls[0]?.radius ?? 0) * 6 || 1)
       const depthMax = ringRadius * LITE_DEPTH_MAX_RATIO
       for (let i = 0; i < n; i++) {
-        const ball = balls[i]
+        const ball = balls[i]!
         pointOnOrbit(ball.angle, ball.phase, seat)
         moveOutsideFocus(seat, ball.radius)
         ball.seat.copy(seat)
@@ -1425,7 +1426,7 @@ async function bootScene() {
     ringRadius = radius * ringScale * (lite ? MOBILE_ROUTE_SCALE : 1)
 
     for (let i = 0; i < balls.length; i++) {
-      const ball = balls[i]
+      const ball = balls[i]!
       ball.radius = radius
       ball.mesh.scale.setScalar(radius)
     }
@@ -1752,7 +1753,7 @@ async function bootScene() {
       }
 
       for (let i = 0; i < balls.length; i++) {
-        const ball = balls[i]
+        const ball = balls[i]!
         if (!reduced) ball.angle += ORBIT_SPEED * step
         pointOnOrbit(ball.angle, ball.phase, seat)
         moveOutsideFocus(seat, ball.radius)
@@ -1818,7 +1819,7 @@ async function bootScene() {
         ball.velocity.addScaledVector(seatPull, (returnForce + leashSpring) * step)
 
         for (let j = i + 1; j < balls.length; j++) {
-          const other = balls[j]
+          const other = balls[j]!
           tmp.copy(ball.position).sub(other.position)
           const sx = tmp.dot(camRight)
           const sy = tmp.dot(camUp)
@@ -1913,7 +1914,7 @@ async function bootScene() {
       return
     }
 
-    const softBound = balls[0].radius * SOFT_BOUND_SCALE
+    const softBound = balls[0]!.radius * SOFT_BOUND_SCALE
     const settling = settleLeft > 0
     if (settling) settleLeft = Math.max(0, settleLeft - dt)
     hapticAlive.clear()
@@ -1931,7 +1932,7 @@ async function bootScene() {
     const tanHalfFov = Math.tan(MathUtils.degToRad(camera.fov) * 0.5)
 
     for (let i = 0; i < balls.length; i++) {
-      const ball = balls[i]
+      const ball = balls[i]!
 
       if (!reduced) ball.angle += ORBIT_SPEED * step
       pointOnOrbit(ball.angle, ball.phase, seat)
@@ -2123,7 +2124,7 @@ async function bootScene() {
       ball.velocity.addScaledVector(seatPull, (returnForce + leashSpring) * step)
 
       for (let j = i + 1; j < balls.length; j++) {
-        const other = balls[j]
+        const other = balls[j]!
         tmp.copy(ball.position).sub(other.position)
         const dist = tmp.length()
         const minDist = ball.radius + other.radius + SEPARATION_PAD

@@ -528,7 +528,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       requestAnimationFrame(() => void loadRuntime())
       // Hydration and the first visual response keep priority. A short timeout
       // still makes wheel smoothing ready before normal desktop interaction.
-      if ('requestIdleCallback' in window) {
+      if (typeof window.requestIdleCallback === 'function') {
         idleId = window.requestIdleCallback(activate, { timeout: 1200 })
       } else {
         window.setTimeout(activate, 350)

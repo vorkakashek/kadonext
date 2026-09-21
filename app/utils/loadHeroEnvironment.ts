@@ -12,15 +12,15 @@ type HeroEnvironmentGrade = {
 }
 
 function gradeEnvironment(texture: Texture, grade: HeroEnvironmentGrade) {
-  const pixels = texture.image?.data
+  const pixels = (texture.image as { data?: unknown } | undefined)?.data
   if (!(pixels instanceof Float32Array)) return
 
   const surroundingsExposure = grade.surroundingsExposure ?? 0.16
 
   for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i]
-    const g = pixels[i + 1]
-    const b = pixels[i + 2]
+    const r = pixels[i]!
+    const g = pixels[i + 1]!
+    const b = pixels[i + 2]!
     // Darken the studio room and floor, but preserve high-energy softboxes.
     // Glossy balls then catch deliberate white shapes without a bright halo
     // around every grazing angle — closer to a black-card product-light setup.

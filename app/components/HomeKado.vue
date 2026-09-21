@@ -50,7 +50,7 @@ useViewportFocusRefs([stoneEl], {
 let fillCtx: { revert: () => void } | null = null
 let levitateCtx: { revert: () => void } | null = null
 let levitationSetupBusy = false
-let parallaxMatchMedia: { revert: () => void } | null = null
+let parallaxMatchMedia: gsap.MatchMedia | null = null
 let gsapMod: typeof import('gsap').default | null = null
 let stMod: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
 let resizeObserver: ResizeObserver | null = null
@@ -82,7 +82,7 @@ async function waitForHeroIntro(maxMs = 4200) {
 
 async function waitForEnhancementIdle() {
   await new Promise<void>((resolve) => {
-    if ('requestIdleCallback' in window) {
+    if (typeof window.requestIdleCallback === 'function') {
       window.requestIdleCallback(() => resolve(), { timeout: 900 })
     } else {
       window.setTimeout(resolve, 120)

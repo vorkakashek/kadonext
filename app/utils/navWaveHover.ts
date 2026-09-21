@@ -38,7 +38,9 @@ export function navWaveParts(el: EventTarget | null) {
   return { path, reveal, root: el }
 }
 
-export async function onNavWaveEnter(e: Event) {
+type NavWaveEvent = Pick<Event, 'currentTarget'>
+
+export async function onNavWaveEnter(e: NavWaveEvent) {
   const parts = navWaveParts(e.currentTarget)
   if (!parts) return
   const { path, reveal, root } = parts
@@ -73,7 +75,7 @@ export async function onNavWaveEnter(e: Event) {
   })
 }
 
-export async function onNavWaveLeave(e: Event) {
+export async function onNavWaveLeave(e: NavWaveEvent) {
   const parts = navWaveParts(e.currentTarget)
   if (!parts) return
   const { path, reveal, root } = parts

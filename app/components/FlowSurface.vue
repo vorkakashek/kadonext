@@ -243,8 +243,8 @@ function smoothAxisEdge(pts: Pt[], axis: 'h' | 'v'): string {
   if (pts.length < 2) return ''
   const parts: string[] = []
   for (let i = 0; i < pts.length - 1; i++) {
-    const p1 = pts[i]
-    const p2 = pts[i + 1]
+    const p1 = pts[i]!
+    const p2 = pts[i + 1]!
     if (axis === 'h') {
       const dx = (p2.x - p1.x) / 3
       parts.push(`C ${p1.x + dx} ${p1.y} ${p2.x - dx} ${p2.y} ${p2.x} ${p2.y}`)
@@ -516,8 +516,8 @@ function pinEdgeEnds(pts: Pt[], rest: Pt[], a: Pt, b: Pt) {
   rest[n - 1] = { x: b.x, y: b.y }
   for (let i = 1; i <= blend; i++) {
     const t = smootherstep(i / (blend + 1)) ** 2
-    const from = pts[i]
-    const fromB = pts[n - 1 - i]
+    const from = pts[i]!
+    const fromB = pts[n - 1 - i]!
     const restA = rest[i] ?? from
     const restB = rest[n - 1 - i] ?? fromB
     pts[i] = {
@@ -610,22 +610,22 @@ function buildPath(w: number, h: number, topBleed = 0, t = 0, live = true) {
     for (const p of pts) shift(p)
   }
   // Keep fillet anchors identical to shifted edge ends (no second overscan).
-  topA.x = top[0].x
-  topA.y = top[0].y
-  topB.x = top[top.length - 1].x
-  topB.y = top[top.length - 1].y
-  rightA.x = right[0].x
-  rightA.y = right[0].y
-  rightB.x = right[right.length - 1].x
-  rightB.y = right[right.length - 1].y
-  bottomA.x = bottom[0].x
-  bottomA.y = bottom[0].y
-  bottomB.x = bottom[bottom.length - 1].x
-  bottomB.y = bottom[bottom.length - 1].y
-  leftA.x = left[0].x
-  leftA.y = left[0].y
-  leftB.x = left[left.length - 1].x
-  leftB.y = left[left.length - 1].y
+  topA.x = top[0]!.x
+  topA.y = top[0]!.y
+  topB.x = top[top.length - 1]!.x
+  topB.y = top[top.length - 1]!.y
+  rightA.x = right[0]!.x
+  rightA.y = right[0]!.y
+  rightB.x = right[right.length - 1]!.x
+  rightB.y = right[right.length - 1]!.y
+  bottomA.x = bottom[0]!.x
+  bottomA.y = bottom[0]!.y
+  bottomB.x = bottom[bottom.length - 1]!.x
+  bottomB.y = bottom[bottom.length - 1]!.y
+  leftA.x = left[0]!.x
+  leftA.y = left[0]!.y
+  leftB.x = left[left.length - 1]!.x
+  leftB.y = left[left.length - 1]!.y
 
   const k = 0.5522847498307936
   const krTR = k * rTR

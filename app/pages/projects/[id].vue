@@ -651,7 +651,7 @@ function removeScheduledId(collection: number[], id: number) {
 }
 
 function scheduleDetailEnhancement(delay: number, task: () => void | Promise<void>) {
-  const timer = globalThis.setTimeout(() => {
+  const timer = window.setTimeout(() => {
     removeScheduledId(detailEnhancementTimers, timer)
     if (detailPageUnmounted || !detailMotionActive.value) return
 

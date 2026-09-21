@@ -315,7 +315,7 @@ function revealActiveCaseUnderline() {
     '.cases-rail__btn--active',
   )
   if (!active) return
-  void onNavWaveEnter({ currentTarget: active } as Event)
+  void onNavWaveEnter({ currentTarget: active })
 }
 
 function hideActiveCaseUnderline() {
@@ -323,7 +323,7 @@ function hideActiveCaseUnderline() {
     '.cases-rail__btn--active',
   )
   if (!active) return
-  void onNavWaveLeave({ currentTarget: active } as Event)
+  void onNavWaveLeave({ currentTarget: active })
 }
 
 function selectAdjacentCase(direction: 1 | -1) {
@@ -441,7 +441,7 @@ function scheduleFirstCaseWarm() {
   if ('requestIdleCallback' in window) {
     window.requestIdleCallback(warm, { timeout: 1200 })
   } else {
-    window.setTimeout(warm, 250)
+    globalThis.setTimeout(warm, 250)
   }
 }
 
@@ -957,11 +957,7 @@ watch([caseSurfaceReturning, caseSurfaceDocked], ([returning, docked]) => {
   else if (docked) playCasesEnterMotion?.()
 }, { flush: 'sync' })
 
-function waitTimeline(tl: {
-  totalDuration?: () => number
-  progress?: () => number
-  eventCallback: (type: string, callback: (() => void) | null) => unknown
-}) {
+function waitTimeline(tl: gsap.core.Animation) {
   return new Promise<void>((resolve) => {
     let done = false
     const finish = () => {
@@ -1554,7 +1550,7 @@ onBeforeUnmount(() => {
                 'cases-media__local--visible': showLocalCaseMedia,
                 'cases-media__local--return-docked': caseDetailHomeReturnActive && homeReturnMediaDocked,
               }"
-              :aria-hidden="(!showLocalCaseMedia).toString()"
+              :aria-hidden="!showLocalCaseMedia"
             >
               <Transition name="cases-media-swap">
                 <div
