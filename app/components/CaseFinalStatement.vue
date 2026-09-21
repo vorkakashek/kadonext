@@ -12,7 +12,7 @@ withDefaults(defineProps<{
     class="project-story project-story--final"
     :class="{ 'project-story--final-editorial audience-case audience-case--final': variant === 'editorial' }"
   >
-    <p class="case-text-fill">{{ text }}</p>
+    <p class="case-text-fill" :data-fill-source="text">{{ text }}</p>
   </section>
 </template>
 

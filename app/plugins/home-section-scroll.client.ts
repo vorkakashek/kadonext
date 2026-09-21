@@ -10,6 +10,17 @@ export default defineNuxtPlugin((nuxtApp) => {
     const defaultScrollBehavior = router.options.scrollBehavior
 
     const scrollBehavior: NonNullable<typeof defaultScrollBehavior> = async (to, from, savedPosition) => {
+      const samePage = baseRoutePath(to.path) === baseRoutePath(from.path)
+      // A language switch changes only the locale alias and copy. Returning
+      // Nuxt's default position here used to move the locked document to the
+      // top; menu close then restored the saved Y and every scrubbed timeline
+      // visibly replayed Hero → Kado while catching up. Keep the live page at
+      // its current position for the whole covered language transition.
+      if (
+        samePage
+        && document.documentElement.classList.contains('language-switch-lock')
+      ) return false
+
       const homeToHome = baseRoutePath(to.path) === '/' && baseRoutePath(from.path) === '/'
       const sectionLink = homeToHome
         && isHomeAnchorTarget(to.hash.slice(1))

@@ -3,9 +3,15 @@ import { homeCaseDetailPath } from '~/utils/homeCases'
 import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 const route = useRoute()
-const { t } = useI18n()
+const { locale, t } = useI18n()
 const localePath = useLocalePath()
 const { scrollRevision } = useMotionRuntime()
+const {
+  open: pageCanvasOpen,
+  busy: pageCanvasBusy,
+  surfaceOn: pageCanvasSurfaceOn,
+  canvasMotionPaused,
+} = usePageCanvas()
 const homeCases = useHomeCases()
 const projectCaseDetails = await useProjectCaseDetails()
 const item = computed(() =>
@@ -48,6 +54,7 @@ let caseMediaPreloadObserver: IntersectionObserver | null = null
 let caseMediaDecodeObserver: IntersectionObserver | null = null
 let audienceTextRebuildTimer = 0
 let audienceFontReadyRefreshQueued = false
+let audienceLocaleFillRebuildPending = false
 const audienceTextFillLayouts = new WeakMap<HTMLElement, string>()
 let directRevealFrame = 0
 let directRevealReadyTimer = 0
@@ -453,7 +460,13 @@ async function setupAudienceTextFill() {
       : Array.from(host.querySelectorAll('p'))
     const inks: HTMLElement[] = []
     for (const paragraph of paragraphs) {
-      const text = paragraph.dataset.fillText ?? paragraph.textContent?.trim() ?? ''
+      // data-fill-source is rendered by Vue from the current locale. Unlike
+      // textContent it never contains both the ash and ink copies after this
+      // function has enhanced the paragraph, so rebuilding is idempotent.
+      const text = paragraph.dataset.fillSource
+        ?? paragraph.dataset.fillText
+        ?? paragraph.textContent?.trim()
+        ?? ''
       if (!text) continue
       paragraph.dataset.fillText = text
       paragraph.textContent = ''
@@ -555,6 +568,31 @@ async function setupAudienceTextFill() {
   })
 
   requestAnimationFrame(() => ScrollTrigger.refresh())
+}
+
+function clearAudienceTextFillSources() {
+  const root = detailContentEl.value
+  for (const paragraph of root?.querySelectorAll<HTMLElement>('[data-fill-text]') ?? []) {
+    delete paragraph.dataset.fillText
+  }
+}
+
+async function rebuildAudienceTextFillAfterLocaleChange() {
+  if (detailPageUnmounted) return
+  await nextTick()
+  if (detailPageUnmounted) return
+
+  // The localized components have now restored their plain translated text.
+  // Drop the source cache so the fill measures that text instead of the copy
+  // from the previous locale.
+  clearAudienceTextFillSources()
+  if (canvasMotionPaused()) {
+    audienceLocaleFillRebuildPending = true
+    return
+  }
+
+  audienceLocaleFillRebuildPending = false
+  await setupAudienceTextFill()
 }
 
 async function setupNextProjectParallax() {
@@ -695,6 +733,29 @@ onMounted(() => {
     }
   })
 })
+
+watch(locale, () => {
+  // Project-detail translations load asynchronously after the locale ref
+  // changes. Mark the existing fill as stale; projectDetail triggers the real
+  // rebuild when the translated block payload arrives.
+  audienceLocaleFillRebuildPending = true
+})
+
+watch(projectDetail, (nextDetail, previousDetail) => {
+  if (nextDetail === previousDetail) return
+  audienceLocaleFillRebuildPending = true
+  void rebuildAudienceTextFillAfterLocaleChange()
+}, { flush: 'post' })
+
+watch(
+  () => pageCanvasOpen.value || pageCanvasBusy.value || pageCanvasSurfaceOn.value,
+  (active) => {
+    if (active || !audienceLocaleFillRebuildPending) return
+    requestAnimationFrame(() => {
+      void rebuildAudienceTextFillAfterLocaleChange()
+    })
+  },
+)
 
 onBeforeUnmount(() => {
   detailPageUnmounted = true

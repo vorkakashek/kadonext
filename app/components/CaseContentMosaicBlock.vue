@@ -19,7 +19,10 @@ function rowItems(row: ProjectCaseMosaicRow) {
       <CaseResponsivePicture :media="props.block.lead.media" class="audience-case__menu-lead-media" />
       <p>{{ props.block.lead.text }}</p>
     </div>
-    <p class="audience-case__menu-secondary case-text-fill">{{ props.block.fillText }}</p>
+    <p
+      class="audience-case__menu-secondary case-text-fill"
+      :data-fill-source="props.block.fillText"
+    >{{ props.block.fillText }}</p>
     <div class="audience-case__media-mosaic">
       <div
         v-for="(row, rowIndex) in props.block.rows"

@@ -43,7 +43,10 @@ onMounted(() => {
     <div class="pc-live-stack">
       <div class="page-shell">
         <div class="page-shell__paint">
-          <NuxtPage />
+          <!-- Locale prefixes are aliases of the same page. Keep one page
+               instance while only the copy and URL change, otherwise every
+               language switch remounts the full motion scene. -->
+          <NuxtPage :page-key="basePath" />
         </div>
       </div>
     </div>

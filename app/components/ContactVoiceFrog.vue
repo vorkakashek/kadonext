@@ -137,20 +137,20 @@ onBeforeUnmount(() => {
       </clipPath>
     </defs>
     <g v-if="flightFrame" class="voice-frog__jump-legs" shape-rendering="crispEdges">
-      <path d="M360 760H520V850H553V1015H520V1048H454V1015H421V850H360Z" fill="#343c48" />
-      <path d="M397 760H487V866H520V982H487V1015H454V982H454V866H397Z" fill="#7daf57" />
-      <path d="M734 760H894V850H861V1015H828V1048H762V1015H729V850H734Z" fill="#343c48" />
-      <path d="M767 760H857V866H824V982H800V1015H767V982H734V866H767Z" fill="#7daf57" />
+      <path d="M360 760H520V850H553V1015H520V1048H454V1015H421V850H360Z" fill="#171915" />
+      <path d="M397 760H487V866H520V982H487V1015H454V982H454V866H397Z" fill="#718563" />
+      <path d="M734 760H894V850H861V1015H828V1048H762V1015H729V850H734Z" fill="#171915" />
+      <path d="M767 760H857V866H824V982H800V1015H767V982H734V866H767Z" fill="#718563" />
     </g>
-    <image href="/images/contact/voice-frog-rounded.webp" width="1254" height="1254" />
+    <image href="/images/contact/voice-frog-muted-v2.webp" width="1254" height="1254" />
     <g v-if="lidHeight > 0" class="voice-frog__lids" :clip-path="`url(#${eyeClipId})`" shape-rendering="crispEdges">
-      <rect x="323" y="397" width="617" :height="lidHeight" fill="#7daf57" />
-      <rect x="323" :y="397 + lidHeight - 11" width="617" height="11" fill="#343c48" />
+      <rect x="323" y="397" width="617" :height="lidHeight" fill="#718563" />
+      <rect x="323" :y="397 + lidHeight - 11" width="617" height="11" fill="#171915" />
     </g>
     <g v-if="mouthRows" class="voice-frog__mouth" shape-rendering="crispEdges">
-      <rect x="542" y="555" width="170" height="104" fill="#7daf57" />
-      <path :d="mouthPath" fill="#343c48" />
-      <path v-if="mouthRows > 1" :d="tonguePath" fill="#ff8b91" />
+      <rect x="542" y="555" width="170" height="104" fill="#718563" />
+      <path :d="mouthPath" fill="#171915" />
+      <path v-if="mouthRows > 1" :d="tonguePath" fill="#d7675f" />
     </g>
     <g v-for="glyph in glyphs" :key="glyph.id" :transform="`translate(627 ${glyph.y})`" class="voice-frog__particle">
       <g class="voice-frog__glyph" :style="{ '--drift-x': `${glyph.dx}px`, '--drift-y': `${glyph.dy}px` }" @animationend="removeGlyph(glyph.id)">
@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
 <style scoped>
 /* Match the timer's visible numeral height, without transparent image margins. */
 .voice-frog { display: block; width: auto; height: 0.75em; height: 1cap; aspect-ratio: 1005 / 571; flex: none; overflow: visible; pointer-events: none; }
-.voice-frog__glyph { fill: #343c48; opacity: 0; animation: voice-frog-glyph 0.85s ease-out both; }
+.voice-frog__glyph { fill: #171915; opacity: 0; animation: voice-frog-glyph 0.85s ease-out both; }
 .voice-frog__jump-legs {
   opacity: 1;
 }

@@ -56,6 +56,7 @@ let stMod: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
 let resizeObserver: ResizeObserver | null = null
 let rebuildTimer = 0
 let componentUnmounted = false
+let localeFillRebuildPending = false
 
 async function waitForHeroIntro(maxMs = 4200) {
   if (heroIntroSettled.value) return
@@ -531,7 +532,12 @@ watch(
     if (active) return
     await nextTick()
     requestAnimationFrame(() => {
-      void ensureLineFill()
+      if (localeFillRebuildPending) {
+        localeFillRebuildPending = false
+        void setupLineFill(true).then(() => stMod?.refresh())
+      } else {
+        void ensureLineFill()
+      }
       void setupStoneLevitation()
     })
   },
@@ -541,6 +547,15 @@ watch(bodyText, async () => {
   if (componentUnmounted || typeof window === 'undefined') return
   await nextTick()
   if (componentUnmounted) return
+  // The menu pins the page by moving the body and resetting window.scrollY.
+  // Building ScrollTrigger in that temporary coordinate space produces wrong
+  // line progress. Vue has already replaced the old imperative spans, so the
+  // close watcher above can safely rebuild once the real scroll is restored.
+  if (canvasMotionPaused()) {
+    localeFillRebuildPending = true
+    return
+  }
+  localeFillRebuildPending = false
   await setupLineFill(true)
   if (componentUnmounted) return
   stMod?.refresh()
