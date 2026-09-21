@@ -1,4 +1,5 @@
 import {
+  markAppliedScrollInput,
   publishAppliedScrollFrame,
   setAppliedScrollDriverConnected,
 } from '~/utils/appliedScrollFrame'
@@ -42,6 +43,16 @@ const SCROLL_LOCKS = [
   'page-iris-lock',
 ] as const
 
+const SCROLL_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  ' ',
+])
+
 /**
  * iOS keeps native scrolling and release inertia, including iPadOS desktop mode.
  * Smooth stepped wheel input on desktop. On other touch-first devices Lenis
@@ -77,6 +88,42 @@ export default defineNuxtPlugin((nuxtApp) => {
   let ownsTouchScroll = createTouchScrollOwnership()
   let nativeTouchActive = false
   const formSwipeGuard = createFormSwipeGuard<HTMLElement>()
+
+  function inputConsumesScrollKey(target: EventTarget | null) {
+    return target instanceof HTMLElement
+      && !!target.closest('input, textarea, select, button, [contenteditable="true"]')
+  }
+
+  function onWheelScrollInput(event: WheelEvent) {
+    if (event.deltaX === 0 && event.deltaY === 0) return
+    markAppliedScrollInput('wheel')
+  }
+
+  function onTouchScrollInput(event: TouchEvent) {
+    if (event.touches.length === 0) return
+    markAppliedScrollInput('touch')
+  }
+
+  function onKeyboardScrollInput(event: KeyboardEvent) {
+    if (
+      event.defaultPrevented
+      || event.altKey
+      || event.ctrlKey
+      || event.metaKey
+      || !SCROLL_KEYS.has(event.key)
+      || inputConsumesScrollKey(event.target)
+    ) return
+    markAppliedScrollInput('keyboard')
+  }
+
+  function onScrollbarScrollInput(event: PointerEvent) {
+    const scrollbarStart = document.documentElement.clientWidth
+    const verticalScrollbar = scrollbarStart < window.innerWidth
+      && event.clientX >= scrollbarStart
+    if (verticalScrollbar || event.button === 1) {
+      markAppliedScrollInput('scrollbar')
+    }
+  }
 
   function textControl(path: EventTarget[]) {
     for (const node of path) {
@@ -542,6 +589,10 @@ export default defineNuxtPlugin((nuxtApp) => {
     document.addEventListener('visibilitychange', syncRunState)
     window.addEventListener('touchcancel', onTouchCancel, { passive: true })
     window.addEventListener('click', onFormClick, { capture: true })
+    window.addEventListener('wheel', onWheelScrollInput, { capture: true, passive: true })
+    window.addEventListener('touchmove', onTouchScrollInput, { capture: true, passive: true })
+    window.addEventListener('keydown', onKeyboardScrollInput, { capture: true })
+    window.addEventListener('pointerdown', onScrollbarScrollInput, { capture: true, passive: true })
   })
 
   if (import.meta.hot) {
@@ -555,6 +606,10 @@ export default defineNuxtPlugin((nuxtApp) => {
       document.removeEventListener('visibilitychange', syncRunState)
       window.removeEventListener('touchcancel', onTouchCancel)
       window.removeEventListener('click', onFormClick, true)
+      window.removeEventListener('wheel', onWheelScrollInput, true)
+      window.removeEventListener('touchmove', onTouchScrollInput, true)
+      window.removeEventListener('keydown', onKeyboardScrollInput, true)
+      window.removeEventListener('pointerdown', onScrollbarScrollInput, true)
       destroy()
     })
   }

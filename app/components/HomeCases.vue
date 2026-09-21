@@ -9,6 +9,7 @@ import {
   homeCaseDetailPath,
   type HomeCase,
 } from '~/utils/homeCases'
+import { CASE_MEDIA_FLIGHT_START_EVENT } from '~/utils/flowSurfaceContract'
 import { warmCaseDetailRoute } from '~/utils/caseDetailRouteWarmup'
 import {
   isAppleTouchDevice,
@@ -995,6 +996,51 @@ function clearCaseMediaSurfaceResize(media: HTMLElement | null) {
   media.style.removeProperty('--cases-media-surface-height')
 }
 
+function cancelCaseMediaGeometry(preserveSurfaceFlight = false) {
+  const media = mediaEl.value
+  const localMedia = media?.querySelector<HTMLElement>('[data-case-local-media]')
+  mediaGeometryTl?.kill()
+  mediaGeometryTl = null
+  clearCaseMediaSurfaceResize(media)
+
+  if (media) {
+    if (gsapMod) gsapMod.set(media, { clearProps: 'transform,transformOrigin' })
+    else {
+      for (const property of [
+        'transform',
+        'transform-origin',
+        'translate',
+        'rotate',
+        'scale',
+      ]) media.style.removeProperty(property)
+    }
+  }
+  if (!localMedia || preserveSurfaceFlight) return
+
+  if (gsapMod) {
+    gsapMod.set(localMedia, {
+      clearProps: 'inset,left,top,right,bottom,width,height',
+    })
+    return
+  }
+  for (const property of [
+    'inset',
+    'left',
+    'top',
+    'right',
+    'bottom',
+    'width',
+    'height',
+  ]) localMedia.style.removeProperty(property)
+}
+
+function onCaseMediaFlightStart() {
+  // The event is fired before FlowSurface writes its fixed geometry, so this
+  // cleanup cannot erase the new owner. This also covers scrolling that begins
+  // halfway through an already-running local case resize.
+  cancelCaseMediaGeometry(false)
+}
+
 function clearCaseArrow() {
   showCaseArrow.value = false
   if (caseArrowTimer) {
@@ -1115,8 +1161,8 @@ function tweenStoppedRailPosition(
 }
 
 /**
- * The case figure owns its own FLIP now. The Surface can remain hidden and
- * parked while the selected project changes layout independently beneath it.
+ * The case figure owns this FLIP only while the Surface is parked. During a
+ * scroll flight FlowSurface owns the raster geometry end-to-end.
  */
 function tweenCaseMediaGeometry(
   gsap: typeof import('gsap').default,
@@ -1220,18 +1266,9 @@ async function selectCase(item: HomeCase) {
   heightTl = null
   railPositionTl?.kill()
   railPositionTl = null
-  mediaGeometryTl?.kill()
-  mediaGeometryTl = null
-  clearCaseMediaSurfaceResize(mediaEl.value)
-  if (mediaEl.value) {
-    gsap.set(mediaEl.value, { clearProps: 'transform,transformOrigin' })
-  }
-  const localMedia = mediaEl.value?.querySelector<HTMLElement>('[data-case-local-media]')
-  if (localMedia) {
-    gsap.set(localMedia, {
-      clearProps: 'inset,left,top,right,bottom,width,height',
-    })
-  }
+  const surfaceOwnsMediaFlight = mediaEl.value
+    ?.hasAttribute('data-case-media-flight') ?? false
+  cancelCaseMediaGeometry(surfaceOwnsMediaFlight)
 
   // On mobile, move the rail before activating the incoming link.
   await tweenRailToCase(gsap, item.id)
@@ -1249,7 +1286,9 @@ async function selectCase(item: HomeCase) {
   // transition locally; FlowSurface is no longer part of this timeline.
   const root = rootEl.value
   const rail = railEl.value
-  const mediaRectBeforeLayout = mediaEl.value?.getBoundingClientRect() ?? null
+  const mediaRectBeforeLayout = surfaceOwnsMediaFlight
+    ? null
+    : (mediaEl.value?.getBoundingClientRect() ?? null)
   const wasRailBottomStopped = !!rail && railIsBottomStopped(rail)
   const railTopBeforeLayout = rail?.getBoundingClientRect().top ?? null
   const fromH = root?.offsetHeight ?? 0
@@ -1259,7 +1298,9 @@ async function selectCase(item: HomeCase) {
   if (gen !== switchGen) return
   measureMobileStageCollapse()
   revealActiveCaseUnderline()
-  tweenCaseMediaGeometry(gsap, mediaRectBeforeLayout)
+  if (!mediaEl.value?.hasAttribute('data-case-media-flight')) {
+    tweenCaseMediaGeometry(gsap, mediaRectBeforeLayout)
+  }
   if (root && fromH) {
     root.style.height = 'auto'
     const toH = root.offsetHeight
@@ -1293,8 +1334,22 @@ async function selectCase(item: HomeCase) {
 onMounted(async () => {
   refreshMobileCases()
   captureMobileCasesHeight()
+  // A history return mounts HomeCases while the transition proxy is already
+  // waiting to dock. Do not route this raster through the normal near-viewport
+  // idle warmup. Mount it immediately under the opaque proxy, then let the
+  // transition wait for the real element to decode before the handoff.
+  if (caseDetailHomeReturnActive.value) {
+    firstCaseNear = true
+    initialCaseWarmScheduled = true
+    warmInitialCaseMedia(true)
+    caseMediaReady.value = true
+  }
   mountBgPortal.value = true
   await nextTick()
+  mediaEl.value?.addEventListener(
+    CASE_MEDIA_FLIGHT_START_EVENT,
+    onCaseMediaFlightStart,
+  )
   scheduleMobileStageCollapse()
   if (rootEl.value && typeof IntersectionObserver !== 'undefined') {
     firstCaseObserver = new IntersectionObserver(
@@ -1350,9 +1405,13 @@ onBeforeUnmount(() => {
   heightTl = null
   railPositionTl?.kill()
   railPositionTl = null
-  mediaGeometryTl?.kill()
-  mediaGeometryTl = null
-  clearCaseMediaSurfaceResize(mediaEl.value)
+  mediaEl.value?.removeEventListener(
+    CASE_MEDIA_FLIGHT_START_EVENT,
+    onCaseMediaFlightStart,
+  )
+  cancelCaseMediaGeometry(
+    mediaEl.value?.hasAttribute('data-case-media-flight') ?? false,
+  )
   enterTl?.kill()
   enterTl = null
   introCtx?.revert()

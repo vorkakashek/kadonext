@@ -1,3 +1,9 @@
+import {
+  INITIAL_SURFACE_HANDOFF_STATE,
+  transitionSurfaceHandoff,
+  type SurfaceHandoffState,
+} from '~/utils/flowSurfaceContract'
+
 export type HomeFlowPhase =
   | 'hero'
   | 'corridor'
@@ -20,13 +26,11 @@ type HomeExperienceState = {
   caseInverse: boolean
   flowPhase: HomeFlowPhase
   casePhase: HomeCasePhase
-  routePhase: HomeRoutePhase
+  handoff: SurfaceHandoffState
   surfaceDocked: boolean
   surfaceReturning: boolean
   surfaceReady: boolean
   caseMediaVisible: boolean
-  homeReturnSurfacePending: boolean
-  homeReturnMediaDocked: boolean
 }
 
 /**
@@ -43,30 +47,63 @@ export function useHomeExperience() {
     caseInverse: false,
     flowPhase: 'hero',
     casePhase: 'idle',
-    routePhase: 'idle',
+    handoff: { ...INITIAL_SURFACE_HANDOFF_STATE },
     surfaceDocked: false,
     surfaceReturning: false,
     surfaceReady: false,
     caseMediaVisible: false,
-    homeReturnSurfacePending: false,
-    homeReturnMediaDocked: false,
   }))
+  // Preserve the active dev session across HMR while the persisted useState
+  // shape moves from independent return flags to the ownership state machine.
+  if (!state.value.handoff) {
+    const legacy = state.value as HomeExperienceState & {
+      routePhase?: HomeRoutePhase
+      homeReturnSurfacePending?: boolean
+      homeReturnMediaDocked?: boolean
+    }
+    if (legacy.routePhase === 'opening-detail') {
+      state.value.handoff = { phase: 'detail-opening', owner: 'detail-proxy' }
+    } else if (legacy.routePhase === 'detail') {
+      state.value.handoff = { phase: 'detail', owner: 'detail-proxy' }
+    } else if (legacy.routePhase === 'returning-home') {
+      state.value.handoff = {
+        phase: 'return-flight',
+        owner: 'detail-proxy',
+        surfacePrepared: !legacy.homeReturnSurfacePending,
+        mediaDocked: !!legacy.homeReturnMediaDocked,
+      }
+    } else {
+      state.value.handoff = { ...INITIAL_SURFACE_HANDOFF_STATE }
+    }
+  }
 
   const activeCaseId = computed(() => state.value.activeCaseId)
   const caseInverse = computed(() => state.value.caseInverse)
   const flowPhase = computed(() => state.value.flowPhase)
   const casePhase = computed(() => state.value.casePhase)
-  const routePhase = computed(() => state.value.routePhase)
+  const routePhase = computed<HomeRoutePhase>(() => {
+    if (state.value.handoff.phase === 'detail-opening') return 'opening-detail'
+    if (state.value.handoff.phase === 'detail') return 'detail'
+    if (state.value.handoff.phase === 'return-flight') return 'returning-home'
+    return 'idle'
+  })
+  const surfacePaintOwner = computed(() => state.value.handoff.owner)
   const surfaceDocked = computed(() => state.value.surfaceDocked)
   const surfaceReturning = computed(() => state.value.surfaceReturning)
   const surfaceReady = computed(() => state.value.surfaceReady)
   const caseMediaVisible = computed(() => state.value.caseMediaVisible)
-  const homeReturnPending = computed(() => state.value.homeReturnSurfacePending)
-  const homeReturnMediaDocked = computed(() => state.value.homeReturnMediaDocked)
+  const homeReturnPending = computed(() => (
+    state.value.handoff.phase === 'return-flight'
+    && !state.value.handoff.surfacePrepared
+  ))
+  const homeReturnMediaDocked = computed(() => (
+    state.value.handoff.phase === 'return-flight'
+    && state.value.handoff.mediaDocked
+  ))
   const phase = computed<HomeExperiencePhase>(() => {
-    if (state.value.routePhase === 'opening-detail') return 'detail-opening'
-    if (state.value.routePhase === 'detail') return 'detail-open'
-    if (state.value.routePhase === 'returning-home') return 'detail-returning'
+    if (routePhase.value === 'opening-detail') return 'detail-opening'
+    if (routePhase.value === 'detail') return 'detail-open'
+    if (routePhase.value === 'returning-home') return 'detail-returning'
     if (state.value.casePhase === 'switching') return 'case-switching'
     return state.value.flowPhase
   })
@@ -131,42 +168,64 @@ export function useHomeExperience() {
 
   function beginDetailOpen(caseId: string) {
     state.value.activeCaseId = caseId
-    state.value.routePhase = 'opening-detail'
-    state.value.homeReturnSurfacePending = false
-    state.value.homeReturnMediaDocked = false
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'detail-open-started' },
+    )
   }
 
   function completeDetailOpen() {
-    if (state.value.routePhase === 'opening-detail') {
-      state.value.routePhase = 'detail'
-    }
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'detail-open-completed' },
+    )
   }
 
   function beginDetailReturn() {
-    state.value.routePhase = 'returning-home'
-    state.value.homeReturnSurfacePending = true
-    state.value.homeReturnMediaDocked = false
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'detail-return-started' },
+    )
   }
 
   function consumeHomeReturnSurface() {
-    state.value.homeReturnSurfacePending = false
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'return-surface-prepared' },
+    )
   }
 
   function markHomeReturnMediaDocked() {
-    if (state.value.routePhase === 'returning-home') {
-      state.value.homeReturnMediaDocked = true
-    }
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'return-media-docked' },
+    )
   }
 
   function completeDetailReturn() {
-    const returnedToDockedMedia = state.value.homeReturnMediaDocked
-    state.value.routePhase = 'idle'
-    state.value.homeReturnSurfacePending = false
-    state.value.homeReturnMediaDocked = false
-    // The return proxy has already docked into the live raster. Keep that
-    // raster authoritative while FlowSurface finishes its own mobile handoff;
-    // otherwise one intermediate frame exposes the gray parked surface.
-    if (returnedToDockedMedia) state.value.caseMediaVisible = true
+    const next = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'detail-return-completed' },
+    )
+    state.value.handoff = next
+    if (next.phase === 'return-dock') {
+      // The proxy has visibly completed the Cases waypoint. Commit the whole
+      // ownership snapshot atomically instead of retaining the pre-return
+      // scroll-derived Surface state. Desktop keeps its fixed frame parked
+      // under the local raster; mobile may additionally pin that same frame.
+      state.value.caseMediaVisible = true
+      state.value.surfaceReturning = false
+      state.value.surfaceDocked = true
+      state.value.surfaceReady = true
+      state.value.flowPhase = 'cases-docked'
+    }
+  }
+
+  function releaseHomeReturnSnapshot() {
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'scroll-acquired' },
+    )
   }
 
   return {
@@ -174,6 +233,7 @@ export function useHomeExperience() {
     flowPhase,
     casePhase,
     routePhase,
+    surfacePaintOwner,
     activeCaseId,
     caseInverse,
     surfaceDocked,
@@ -197,5 +257,6 @@ export function useHomeExperience() {
     consumeHomeReturnSurface,
     markHomeReturnMediaDocked,
     completeDetailReturn,
+    releaseHomeReturnSnapshot,
   }
 }

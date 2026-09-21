@@ -26,6 +26,96 @@ export const DEFAULT_SURFACE_ROUTE_POLICY: SurfaceRoutePolicy = {
 }
 
 /**
+ * Synchronous ownership handoff for the Cases raster.
+ *
+ * HomeCases may be running a local geometry FLIP when the global Surface starts
+ * a scroll flight. The Surface emits this on the case figure before writing its
+ * fixed viewport geometry, giving the local owner one chance to stop and clear
+ * its tween without erasing the incoming flight styles.
+ */
+export const CASE_MEDIA_FLIGHT_START_EVENT = 'kado:case-media-flight-start'
+
+/**
+ * One authority owns Surface paint at a time.
+ *
+ * `detail-proxy` covers both the detail route and its return flight. The home
+ * corridor may prepare its destination underneath that proxy, but it cannot
+ * publish scroll-derived paint yet. `return-dock` is the single committed
+ * frame between proxy removal and the first real scroll input.
+ */
+export type SurfacePaintOwner = 'scroll' | 'detail-proxy' | 'return-dock'
+
+export type SurfaceHandoffState =
+  | { phase: 'scroll'; owner: 'scroll' }
+  | { phase: 'detail-opening'; owner: 'detail-proxy' }
+  | { phase: 'detail'; owner: 'detail-proxy' }
+  | {
+      phase: 'return-flight'
+      owner: 'detail-proxy'
+      surfacePrepared: boolean
+      mediaDocked: boolean
+    }
+  | { phase: 'return-dock'; owner: 'return-dock' }
+
+export type SurfaceHandoffEvent =
+  | { type: 'detail-open-started' }
+  | { type: 'detail-open-completed' }
+  | { type: 'detail-return-started' }
+  | { type: 'return-surface-prepared' }
+  | { type: 'return-media-docked' }
+  | { type: 'detail-return-completed' }
+  | { type: 'scroll-acquired' }
+
+export const INITIAL_SURFACE_HANDOFF_STATE: SurfaceHandoffState = {
+  phase: 'scroll',
+  owner: 'scroll',
+}
+
+/**
+ * Pure ownership transition. Invalid or late events are ignored so an old
+ * async callback cannot steal paint from the current owner.
+ */
+export function transitionSurfaceHandoff(
+  state: SurfaceHandoffState,
+  event: SurfaceHandoffEvent,
+): SurfaceHandoffState {
+  switch (event.type) {
+    case 'detail-open-started':
+      return { phase: 'detail-opening', owner: 'detail-proxy' }
+    case 'detail-open-completed':
+      return state.phase === 'detail-opening'
+        ? { phase: 'detail', owner: 'detail-proxy' }
+        : state
+    case 'detail-return-started':
+      return state.owner === 'detail-proxy'
+        ? {
+            phase: 'return-flight',
+            owner: 'detail-proxy',
+            surfacePrepared: false,
+            mediaDocked: false,
+          }
+        : state
+    case 'return-surface-prepared':
+      return state.phase === 'return-flight'
+        ? { ...state, surfacePrepared: true }
+        : state
+    case 'return-media-docked':
+      return state.phase === 'return-flight'
+        ? { ...state, mediaDocked: true }
+        : state
+    case 'detail-return-completed':
+      if (state.phase !== 'return-flight') return state
+      return state.mediaDocked
+        ? { phase: 'return-dock', owner: 'return-dock' }
+        : INITIAL_SURFACE_HANDOFF_STATE
+    case 'scroll-acquired':
+      return state.phase === 'return-dock'
+        ? INITIAL_SURFACE_HANDOFF_STATE
+        : state
+  }
+}
+
+/**
  * Decide how aggressively the live Surface should catch the latest scroll goal.
  *
  * The first implementation keeps drawing the canonical corridor, but compresses

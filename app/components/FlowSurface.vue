@@ -3,7 +3,6 @@ import {
   FLOW_SURFACE_CLIP_CSS,
   flowSurfaceMask,
   publishFlowSurfacePath,
-  registerFlowSurfacePathFlush,
 } from '~/composables/useFlowSurfaceMask'
 import { isAppleTouchDevice, isCoarsePointer, isNarrowViewport } from '~/utils/mobileViewport'
 
@@ -959,6 +958,15 @@ function syncGrainMotion() {
   ensureLoop()
 }
 
+watch(
+  () => flowSurfaceMask.pathRequestRevision,
+  () => {
+    const box = flowSurfaceMask.pathRequest
+    if (box) publish(box)
+  },
+  { flush: 'sync' },
+)
+
 onMounted(async () => {
   await nextTick()
   animStart = performance.now()
@@ -966,7 +974,6 @@ onMounted(async () => {
   liveMix = liveEdgeHardOff() || !liveEdgeArmed() ? 0 : 1
   measure()
   publish()
-  registerFlowSurfacePathFlush((box) => publish(box))
   // clipEl is mounted with mode=window — re-apply if publish raced ahead of the ref.
   if (skipOrganicClip()) applyClipToDom('')
   else applyClipToDom(flowSurfaceMask.clipPath)
@@ -1017,7 +1024,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  registerFlowSurfacePathFlush(null)
   window.removeEventListener('resize', syncGrainScale)
   cancelAnimationFrame(raf)
   raf = 0

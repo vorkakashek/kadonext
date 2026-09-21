@@ -1,9 +1,127 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import {
+  INITIAL_SURFACE_HANDOFF_STATE,
   mixSurfaceVisualSnapshot,
   planSurfaceRoute,
+  transitionSurfaceHandoff,
 } from '../app/utils/flowSurfaceContract.ts'
+import {
+  appliedScrollInputRevision,
+  markAppliedScrollInput,
+  publishAppliedScrollFrame,
+  subscribeAppliedScrollFrame,
+} from '../app/utils/appliedScrollFrame.ts'
+
+test('applied scroll frames distinguish user input from programmatic movement', () => {
+  const frames = []
+  const remove = subscribeAppliedScrollFrame(frame => frames.push(frame))
+  const before = appliedScrollInputRevision()
+  publishAppliedScrollFrame(120, 'native', 100)
+  assert.equal(frames.at(-1).inputRevision, before)
+  markAppliedScrollInput('wheel')
+  publishAppliedScrollFrame(180, 'native', 116)
+  assert.equal(frames.at(-1).inputRevision, before + 1)
+  remove()
+})
+
+test('detail return has one explicit paint owner through proxy, dock, and scroll', () => {
+  let state = transitionSurfaceHandoff(
+    INITIAL_SURFACE_HANDOFF_STATE,
+    { type: 'detail-open-started' },
+  )
+  assert.deepEqual(state, { phase: 'detail-opening', owner: 'detail-proxy' })
+  state = transitionSurfaceHandoff(state, { type: 'detail-open-completed' })
+  state = transitionSurfaceHandoff(state, { type: 'detail-return-started' })
+  assert.deepEqual(state, {
+    phase: 'return-flight',
+    owner: 'detail-proxy',
+    surfacePrepared: false,
+    mediaDocked: false,
+  })
+  state = transitionSurfaceHandoff(state, { type: 'return-surface-prepared' })
+  state = transitionSurfaceHandoff(state, { type: 'return-media-docked' })
+  state = transitionSurfaceHandoff(state, { type: 'detail-return-completed' })
+  assert.deepEqual(state, { phase: 'return-dock', owner: 'return-dock' })
+  state = transitionSurfaceHandoff(state, { type: 'scroll-acquired' })
+  assert.deepEqual(state, INITIAL_SURFACE_HANDOFF_STATE)
+})
+
+test('late return callbacks cannot steal ownership from scroll', () => {
+  const latePrepared = transitionSurfaceHandoff(
+    INITIAL_SURFACE_HANDOFF_STATE,
+    { type: 'return-surface-prepared' },
+  )
+  const lateDock = transitionSurfaceHandoff(
+    INITIAL_SURFACE_HANDOFF_STATE,
+    { type: 'return-media-docked' },
+  )
+  assert.deepEqual(latePrepared, INITIAL_SURFACE_HANDOFF_STATE)
+  assert.deepEqual(lateDock, INITIAL_SURFACE_HANDOFF_STATE)
+})
+
+test('an incomplete return falls back to scroll ownership', () => {
+  let state = transitionSurfaceHandoff(
+    { phase: 'detail', owner: 'detail-proxy' },
+    { type: 'detail-return-started' },
+  )
+  state = transitionSurfaceHandoff(state, { type: 'detail-return-completed' })
+  assert.deepEqual(state, INITIAL_SURFACE_HANDOFF_STATE)
+})
+
+test('return paint ownership never prevents the full corridor from being built', () => {
+  const source = readFileSync(
+    new URL('../app/components/FlowSurfaceHost.vue', import.meta.url),
+    'utf8',
+  )
+  const buildMorph = source.slice(
+    source.indexOf('function buildMorph()'),
+    source.indexOf('function mobileViewportHeightOnlyChange()'),
+  )
+  assert.ok(buildMorph.length > 0, 'buildMorph must remain present')
+  assert.doesNotMatch(
+    buildMorph,
+    /desktopReturnOwnsPaint\(\)[^\n]*return/,
+    'a return dock may suppress paint, but must not suppress trigger topology',
+  )
+  assert.match(
+    source,
+    /if \(!trigger\) \{\s*buildMorph\(\)\s*return\s*\}/,
+    'scroll acquisition must recover a corridor missed during remount',
+  )
+  assert.match(
+    source,
+    /scrollFrame\.inputRevision <= returnDockInputRevision/,
+    'programmatic scroll frames must not acquire paint from the return dock',
+  )
+  assert.match(
+    source,
+    /maskGeometryChanged = !boxesNear\(next, committedMaskBox\(\)\)/,
+    'frame dedupe must include the committed SVG mask geometry',
+  )
+  assert.match(
+    source,
+    /!frameGeometryChanged && !maskGeometryChanged && !morphChanged/,
+    'paint may be skipped only when frame, mask, and morph all agree',
+  )
+  assert.match(
+    source,
+    /onActivated\(\(\) => \{[\s\S]*?claimSurfaceDomOwnership\(\)/,
+    'an activated host must reclaim the shared SVG path element',
+  )
+})
+
+test('shared surface DOM registrations use identity-safe cleanup', () => {
+  const source = readFileSync(
+    new URL('../app/composables/useFlowSurfaceMask.ts', import.meta.url),
+    'utf8',
+  )
+  assert.match(source, /if \(clipPathEl === el\) clipPathEl = null/)
+  assert.match(source, /if \(liveBoxNudge === fn\) liveBoxNudge = null/)
+  assert.doesNotMatch(source, /pathFlush/)
+  assert.match(source, /flowSurfaceMask\.pathRequestRevision \+= 1/)
+})
 
 test('nearby scroll goals retain the normal bounded follow contract', () => {
   const route = planSurfaceRoute(1, 1.8)

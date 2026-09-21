@@ -1,4 +1,5 @@
 export type AppliedScrollSource = 'lenis' | 'native'
+export type AppliedScrollInputSource = 'wheel' | 'touch' | 'keyboard' | 'scrollbar'
 
 export type AppliedScrollFrame = {
   /** Scroll position already committed to the document for this paint. */
@@ -10,6 +11,12 @@ export type AppliedScrollFrame = {
   dt: number
   revision: number
   source: AppliedScrollSource
+  /**
+   * Monotonic proof that a person requested scrolling. Programmatic route,
+   * hash, and Lenis reconciliation frames intentionally retain the previous
+   * value, so visual ownership cannot be inferred from scrollY alone.
+   */
+  inputRevision: number
 }
 
 export type AppliedScrollFrameListener = (frame: AppliedScrollFrame) => void
@@ -19,6 +26,17 @@ let lenisConnected = false
 let lastY = 0
 let lastAt = 0
 let revision = 0
+let inputRevision = 0
+
+/** Record scroll intent at the input boundary, before any scroll frame paints. */
+export function markAppliedScrollInput(_source: AppliedScrollInputSource) {
+  inputRevision += 1
+  return inputRevision
+}
+
+export function appliedScrollInputRevision() {
+  return inputRevision
+}
 
 /**
  * Lenis is the authoritative publisher while connected. Native scroll remains
@@ -54,6 +72,7 @@ export function publishAppliedScrollFrame(
     dt,
     revision: ++revision,
     source,
+    inputRevision,
   }
   lastY = y
   lastAt = now

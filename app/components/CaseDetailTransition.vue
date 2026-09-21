@@ -152,9 +152,17 @@ async function waitForImageDecode(image: HTMLImageElement, rasterAlreadyPainted 
 
 /** Make the live destination raster safe to expose under the docking proxy. */
 async function waitForTargetImagePaint(target: HTMLElement) {
-  const image = target.matches('img')
+  let image = target.matches('img')
     ? target as HTMLImageElement
     : target.querySelector<HTMLImageElement>('img')
+  // HomeCases deliberately does not mount its image until the return raster
+  // has decoded. On the first visit that layer is genuinely absent (rather
+  // than merely loading), so wait for Vue to expose it before docking.
+  for (let frame = 0; !image && frame < 45; frame += 1) {
+    await nextPaint()
+    if (!target.isConnected) return
+    image = target.querySelector<HTMLImageElement>('img')
+  }
   if (!image) return
   // A returned case can sit outside the initial catalog viewport, where its
   // lazy image would otherwise still be blank when the proxy disappears.

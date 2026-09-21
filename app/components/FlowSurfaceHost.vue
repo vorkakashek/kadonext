@@ -50,6 +50,7 @@ import {
   isNarrowViewport,
 } from '~/utils/mobileViewport'
 import {
+  appliedScrollInputRevision,
   subscribeAppliedScrollFrame,
   type AppliedScrollFrame,
 } from '~/utils/appliedScrollFrame'
@@ -65,6 +66,7 @@ import {
   type HomeAnchorTarget,
 } from '~/utils/homeAnchorMotion'
 import {
+  CASE_MEDIA_FLIGHT_START_EVENT,
   mixSurfaceVisualSnapshot,
   planSurfaceRoute,
   type SurfaceRouteDecision,
@@ -239,16 +241,27 @@ const {
   surfaceReturning: caseSurfaceReturning,
   caseMediaVisible,
   routePhase,
+  surfacePaintOwner,
   homeReturnPending: caseDetailHomeReturnPending,
   setSurfaceDocked,
   setSurfaceReady,
   setCaseMediaVisible,
   setSurfaceReturning,
   consumeHomeReturnSurface,
+  releaseHomeReturnSnapshot,
 } = useHomeExperience()
 function returningHomeFromCaseDetail() {
   return caseDetailHomeReturnPending.value
     || routePhase.value === 'returning-home'
+}
+
+/** Return flight/dock owns paint, while the scroll corridor stays built underneath. */
+function desktopReturnOwnsPaint() {
+  return !useMobileCorridor()
+    && (
+      returningHomeFromCaseDetail()
+      || surfacePaintOwner.value === 'return-dock'
+    )
 }
 
 function setCaseSurfaceDocked(on: boolean) {
@@ -291,6 +304,9 @@ let toPose: SurfaceBox | null = null
 let heroRestPose: SurfaceBox | null = null
 let desktopTargetS = 0
 let desktopLiveS = 0
+const DESKTOP_CASE_DOCK_S = 2
+let returnDockScrollY: number | null = null
+let returnDockInputRevision = 0
 const contactStageProgress = ref(0)
 /** True while lagged case progress is parked on the mockup. */
 let caseMediaActive = false
@@ -325,9 +341,51 @@ let motionBootTimer = 0
 let motionIdleId: number | null = null
 let removeMotionIntent: (() => void) | null = null
 let removeAppliedScrollFrame: (() => void) | null = null
+let releaseClipPathEl: (() => void) | null = null
+let releaseLiveBoxNudge: (() => void) | null = null
 let hostUnmounted = false
 let keepAliveActive = true
 const initialCasesHashEntry = ref(false)
+
+function hasConnectedSurfaceHost() {
+  return !!shellEl.value?.isConnected
+    && !!frame.value?.isConnected
+    && !!props.fromEl?.isConnected
+    && !!props.toEl?.isConnected
+}
+
+function connectAppliedScrollFrames() {
+  if (!removeAppliedScrollFrame) {
+    removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedSurfaceFrame)
+  }
+}
+
+function disconnectAppliedScrollFrames() {
+  removeAppliedScrollFrame?.()
+  removeAppliedScrollFrame = null
+}
+
+function claimSurfaceDomOwnership() {
+  const path = clipPathEl.value
+  if (path) {
+    releaseClipPathEl?.()
+    releaseClipPathEl = registerFlowSurfaceClipPathEl(path)
+  }
+  releaseLiveBoxNudge?.()
+  releaseLiveBoxNudge = registerFlowSurfaceLiveBoxNudge((deltaY) => {
+    if (liveBox) liveBox = { ...liveBox, top: liveBox.top + deltaY }
+  })
+}
+
+/** A cached/detached home instance must never publish into the shared state. */
+function suspendDetachedSurfaceHost() {
+  if (hasConnectedSurfaceHost()) return false
+  keepAliveActive = false
+  disconnectAppliedScrollFrames()
+  if (raf) cancelAnimationFrame(raf)
+  raf = 0
+  return true
+}
 
 async function bootMotionEngine() {
   if (motionBootPromise) return motionBootPromise
@@ -594,6 +652,15 @@ function boxesNear(a: SurfaceBox, b: SurfaceBox) {
     && Math.abs(a.width - b.width) < BOX_EPS
     && Math.abs(a.height - b.height) < BOX_EPS
   )
+}
+
+function committedMaskBox(): SurfaceBox {
+  return {
+    top: flowSurfaceMask.top,
+    left: flowSurfaceMask.left,
+    width: flowSurfaceMask.width,
+    height: flowSurfaceMask.height,
+  }
 }
 
 function captureDesktopPoses() {
@@ -924,19 +991,24 @@ function paintBox(box: SurfaceBox, morph: number) {
     ? window.innerWidth * 0.5 - next.left - stageRest.w * 0.5
     : 0
   frame.value.style.setProperty('--hero-copy-x', `${heroCopyX.toFixed(3)}px`)
-  if (
-    liveBox
-    && boxesNear(next, liveBox)
-    && Math.abs(flowSurfaceMask.morph - morph) < 0.001
-  ) {
-    return
-  }
-  liveBox = next
+  const frameGeometryChanged = !liveBox || !boxesNear(next, liveBox)
+  const maskGeometryChanged = !boxesNear(next, committedMaskBox())
+  const morphChanged = Math.abs(flowSurfaceMask.morph - morph) >= 0.001
+
+  // This is the atomic Surface paint commit. A KeepAlive activation or a late
+  // mask publisher can leave the shared SVG geometry behind even when the
+  // frame's local liveBox is already correct. Dedupe only when every channel
+  // agrees; otherwise repair mask/path in the same turn as the frame.
   writeMaskBox(next, morph)
-  if (mobileCaseTransformBasis) {
-    applyBoxVisualTransform(frame.value, next, mobileCaseTransformBasis)
-  } else {
-    applyBox(frame.value, next)
+  if (!frameGeometryChanged && !maskGeometryChanged && !morphChanged) return
+
+  liveBox = next
+  if (frameGeometryChanged) {
+    if (mobileCaseTransformBasis) {
+      applyBoxVisualTransform(frame.value, next, mobileCaseTransformBasis)
+    } else {
+      applyBox(frame.value, next)
+    }
   }
   flushFlowSurfacePath(next)
 }
@@ -1247,6 +1319,12 @@ function paintCaseMediaFlight(
     return
   }
 
+  if (!host.hasAttribute('data-case-media-flight')) {
+    // HomeCases owns an optional local geometry FLIP. Revoke that ownership
+    // synchronously before this host writes fixed viewport geometry; otherwise
+    // two GSAP/CSS writers can split the raster from the Surface after scroll.
+    host.dispatchEvent(new Event(CASE_MEDIA_FLIGHT_START_EVENT))
+  }
   host.setAttribute('data-case-media-flight', '')
   // Surface and raster must live in the same viewport coordinate system.
   // Absolute coordinates inside the scrolling case figure were numerically
@@ -1655,6 +1733,33 @@ function dockMobileCaseFrameUnderDetailReturn(dest: SurfaceBox) {
   clearCaseMediaFlight()
 }
 
+/**
+ * Desktop return uses the fixed transition proxy for the visible flight. Keep
+ * every ordinary desktop repaint docked underneath that proxy until the route
+ * handoff completes. Without this lock, the restored #cases scroll position
+ * paints an earlier Kado → Cases frame; it then remains visible at the old case
+ * aspect ratio until the next scroll update.
+ */
+function dockDesktopCaseFrameUnderDetailReturn(dest: SurfaceBox) {
+  if (surfacePaintOwner.value === 'return-dock') {
+    returnDockScrollY ??= window.scrollY
+  }
+  // The visible proxy has completed the Cases waypoint regardless of the hash
+  // pin's document offset. Resume the corridor from that painted truth once a
+  // real scroll frame explicitly takes ownership again.
+  desktopTargetS = DESKTOP_CASE_DOCK_S
+  desktopLiveS = DESKTOP_CASE_DOCK_S
+  consumeHomeReturnSurface()
+  unpinFrame()
+  caseMediaActive = true
+  setSurfaceReturning(false)
+  setCaseSurfaceDocked(true)
+  paintSurfaceUnderCaseMedia(dest, 1)
+  setSurfaceReady(true)
+  setCaseMediaVisible(true)
+  clearCaseMediaFlight()
+}
+
 function mobileFormatsForwardBoundaryPassed() {
   const caseBox = caseMediaPose()
   return !!caseBox && caseBox.top + caseBox.height * 0.5 <= 0
@@ -1955,6 +2060,19 @@ function paintDesktop(s = desktopLiveS) {
   if (anchorMotion && !anchorSample) return
   if (mobileActive) return
   if (hopTween) return
+
+  // The hash pin intentionally restores the Cases section itself to the top,
+  // not the exact pre-navigation scroll offset. During the proxy return that
+  // scroll clock is therefore not authoritative: the proxy is visibly docking
+  // into the case figure. Preserve that atomic dock across deferred refreshes
+  // and ticks; ordinary scroll ownership resumes after completeDetailReturn().
+  if (desktopReturnOwnsPaint()) {
+    const dest = caseMediaPose()
+    if (dest) {
+      dockDesktopCaseFrameUnderDetailReturn(dest)
+      return
+    }
+  }
 
   if (s < 0) {
     paintDesktopHeroReveal(s)
@@ -3263,6 +3381,8 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
   if (systemReducedMotion()) return null
   const source = proxyPose() ?? (pinTo.value ? readBox(frame.value) : liveBox)
   if (!source) return null
+  returnDockScrollY = null
+  releaseHomeReturnSnapshot()
   const destinationS = HOME_ANCHOR_DESTINATIONS[targetId].desktopProgress
   const route = planSurfaceRoute(desktopLiveS, destinationS)
   const motion: NonNullable<typeof anchorMotion> = {
@@ -3418,12 +3538,13 @@ function paintAnchorSurfaceHandoff(now: number) {
 
 function tick(now: number) {
   raf = 0
-  if (!keepAliveActive) return
+  if (!keepAliveActive || suspendDetachedSurfaceHost()) return
   if (anchorMotion) {
     if (document.hidden) return
     paintAnchorSurfaceHandoff(now)
     return
   }
+  if (desktopReturnOwnsPaint()) return
   if (!lastTs) lastTs = now
   const dt = Math.min(0.064, Math.max(0, (now - lastTs) / 1000))
   lastTs = now
@@ -3492,7 +3613,7 @@ function tick(now: number) {
 }
 
 function ensureTick() {
-  if (!keepAliveActive) return
+  if (!keepAliveActive || suspendDetachedSurfaceHost()) return
   if (!raf) {
     // Seed the clock at scheduling time. Resetting it to zero here made every
     // self-scheduled mobile follow frame compute dt=0, so the shared corridor
@@ -3503,6 +3624,7 @@ function ensureTick() {
 }
 
 function killMorph() {
+  const preserveDesktopDetailReturnDock = desktopReturnOwnsPaint()
   anchorMotion = null
   anchorSample = null
   caseHopGen += 1
@@ -3519,8 +3641,8 @@ function killMorph() {
   aboutTrigger = null
   contactTrigger?.kill()
   contactTrigger = null
-  desktopTargetS = 0
-  desktopLiveS = 0
+  desktopTargetS = preserveDesktopDetailReturnDock ? DESKTOP_CASE_DOCK_S : 0
+  desktopLiveS = preserveDesktopDetailReturnDock ? DESKTOP_CASE_DOCK_S : 0
   mobileCaseProgress = 0
   mobileCaseArrived = false
   mobileCaseHandoffY = null
@@ -3528,11 +3650,11 @@ function killMorph() {
   caseReverseIntentPx = 0
   lastCaseSectionTop = null
   mobileScrubBridge = null
-  caseMediaActive = false
+  caseMediaActive = preserveDesktopDetailReturnDock
   setSurfaceReturning(false)
-  setCaseSurfaceDocked(false)
-  setSurfaceReady(false)
-  setCaseMediaVisible(false)
+  setCaseSurfaceDocked(preserveDesktopDetailReturnDock)
+  setSurfaceReady(preserveDesktopDetailReturnDock)
+  setCaseMediaVisible(preserveDesktopDetailReturnDock)
   clearCaseMediaReveal()
   clearCaseMediaFlight()
   frame.value?.style.removeProperty('--flow-surface-tone')
@@ -3678,7 +3800,15 @@ function buildMorph() {
   if (morphBooting) {
     return
   }
-
+  // A rebuild tears down the current corridor before it knows whether all
+  // remounted page refs can already be captured. During a case-detail return
+  // those refs settle over several frames. Keep the already-authoritative case
+  // raster visible if this attempt aborts; the next successful paint will take
+  // ownership and set the correct state for the current scroll segment.
+  const restoreCaseMediaOnAbort = caseMediaVisible.value
+  const restoreAbortedCaseMedia = () => {
+    if (restoreCaseMediaOnAbort) setCaseMediaVisible(true)
+  }
   const gen = ++morphGen
   morphBooting = true
   suppressStageCallbacks = true
@@ -3686,12 +3816,16 @@ function buildMorph() {
     killMorph()
     // killMorph clears suppress — keep boot quiet.
     suppressStageCallbacks = true
-    if (gen !== morphGen) return
+    if (gen !== morphGen) {
+      restoreAbortedCaseMedia()
+      return
+    }
 
     // Host mounts before page sections — keep retrying until slots exist.
     if (!props.fromEl || !props.toEl) {
       bootAlignHeroVisibility()
       scheduleLayoutResync()
+      restoreAbortedCaseMedia()
       return
     }
 
@@ -3706,10 +3840,14 @@ function buildMorph() {
     if (!capturePoses()) {
       bootAlignHeroVisibility()
       scheduleCaptureRetry()
+      restoreAbortedCaseMedia()
       return
     }
     captureFailCount = 0
-    if (gen !== morphGen) return
+    if (gen !== morphGen) {
+      restoreAbortedCaseMedia()
+      return
+    }
 
     const reduced = systemReducedMotion()
     if (reduced && mobileActive) {
@@ -3923,7 +4061,7 @@ function mobileViewportHeightOnlyChange() {
 }
 
 function onResize() {
-  if (!keepAliveActive) return
+  if (!keepAliveActive || suspendDetachedSurfaceHost()) return
   if (mobileViewportHeightOnlyChange()) return
   capturePoses()
   if (mobileActive) {
@@ -3935,7 +4073,38 @@ function onResize() {
 }
 
 function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
-  if (!keepAliveActive) return
+  if (!keepAliveActive || suspendDetachedSurfaceHost()) return
+  if (surfacePaintOwner.value === 'return-dock') {
+    if (returnDockScrollY === null) {
+      returnDockScrollY = scrollFrame.y
+      returnDockInputRevision = scrollFrame.inputRevision
+      return
+    }
+    // Scroll position is not proof of scroll ownership. Route/hash restoration
+    // and Lenis reconciliation also publish applied frames; only fresh input
+    // may release the atomically committed case dock.
+    if (scrollFrame.inputRevision <= returnDockInputRevision) return
+    if (Math.abs(scrollFrame.y - returnDockScrollY) <= 0.5) return
+    returnDockScrollY = null
+    returnDockInputRevision = scrollFrame.inputRevision
+    releaseHomeReturnSnapshot()
+    if (mobileActive) {
+      paintMobileScrollCorridor(scrollFrame.y)
+      return
+    }
+    // Topology and paint ownership are separate. The complete corridor should
+    // have been built under the proxy; recover it if a late remount missed it.
+    if (!trigger) {
+      buildMorph()
+      return
+    }
+    capturePoses()
+    stMod?.ScrollTrigger.update()
+  } else if (!mobileActive && returningHomeFromCaseDetail()) {
+    // Route restoration and refresh may publish scroll frames while the proxy
+    // still owns paint. They prepare topology only and cannot claim paint.
+    return
+  }
   if (anchorMotion) {
     if (anchorMotion.phase === 'scroll' && !mobileActive) {
       const offset = scrollFrame.y - anchorMotion.startScrollY
@@ -3983,11 +4152,8 @@ onMounted(async () => {
   // Let the route/page DOM settle before ST — avoids refresh↔pin softlock on SPA entry.
   await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
   if (hostUnmounted) return
-  registerFlowSurfaceClipPathEl(clipPathEl.value)
-  registerFlowSurfaceLiveBoxNudge((deltaY) => {
-    if (liveBox) liveBox = { ...liveBox, top: liveBox.top + deltaY }
-  })
-  removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedSurfaceFrame)
+  claimSurfaceDomOwnership()
+  connectAppliedScrollFrames()
   removeAnchorMotionOwner = registerHomeAnchorMotion(beginAnchorSurfaceTrip)
   document.addEventListener('visibilitychange', onAnchorVisibilityChange)
   // Paint the real Hero surface and copy before loading the scroll engine.
@@ -4041,26 +4207,32 @@ onUnmounted(() => {
   captureFailCount = 0
   if (morphWatchTimer) window.clearTimeout(morphWatchTimer)
   clearLayoutResync()
-  registerFlowSurfaceClipPathEl(null)
-  registerFlowSurfaceLiveBoxNudge(null)
-  removeAppliedScrollFrame?.()
-  removeAppliedScrollFrame = null
+  releaseClipPathEl?.()
+  releaseClipPathEl = null
+  releaseLiveBoxNudge?.()
+  releaseLiveBoxNudge = null
+  disconnectAppliedScrollFrames()
   killMorph()
   window.removeEventListener('resize', onResize)
 })
 
 onDeactivated(() => {
   keepAliveActive = false
+  disconnectAppliedScrollFrames()
   anchorMotion = null
+  returnDockScrollY = null
+  returnDockInputRevision = appliedScrollInputRevision()
   if (raf) cancelAnimationFrame(raf)
   raf = 0
 })
 
 onActivated(() => {
-  keepAliveActive = true
   void nextTick(() => {
     requestAnimationFrame(() => {
-      if (!keepAliveActive || hostUnmounted) return
+      if (hostUnmounted || !hasConnectedSurfaceHost()) return
+      keepAliveActive = true
+      claimSurfaceDomOwnership()
+      connectAppliedScrollFrames()
       capturePoses()
       onResize()
       ensureTick()
@@ -4069,7 +4241,8 @@ onActivated(() => {
 })
 
 watch(clipPathEl, (el) => {
-  registerFlowSurfaceClipPathEl(el)
+  releaseClipPathEl?.()
+  releaseClipPathEl = el ? registerFlowSurfaceClipPathEl(el) : null
 })
 
 watch(
@@ -4197,6 +4370,15 @@ watch(activeCaseId, async () => {
     paintMobileScrollCorridor()
     return
   }
+  if (props.caseMediaEl?.hasAttribute('data-case-media-flight')) {
+    // A case switch can change the figure's aspect ratio while the raster is
+    // between Cases and a neighbouring waypoint. The scroll clock may already
+    // be settled, so repaint explicitly instead of waiting for another wheel
+    // frame to rebase the flight onto the incoming case geometry.
+    paintDesktop(desktopLiveS)
+    ensureTick()
+    return
+  }
   if (caseFramePinned()) {
     syncPinnedMask()
   } else if (caseSurfaceReady.value) {
@@ -4204,6 +4386,25 @@ watch(activeCaseId, async () => {
     if (dest) paintBox(dest, 1)
   }
 })
+
+// KeepAlive rebuilds and deferred ScrollTrigger refreshes may finish after the
+// proxy transition. The shared committed snapshot is the final authority: any
+// active desktop host must restore the dock even if an earlier local teardown
+// reset its own visual flags.
+watch(
+  [surfacePaintOwner, () => props.caseMediaEl],
+  async ([owner, mediaEl]) => {
+    if (owner !== 'return-dock' || !mediaEl) return
+    await nextTick()
+    if (!hasConnectedSurfaceHost()) return
+    returnDockScrollY = window.scrollY
+    returnDockInputRevision = appliedScrollInputRevision()
+    if (mobileActive || morphBooting) return
+    const dest = caseMediaPose()
+    if (dest) dockDesktopCaseFrameUnderDetailReturn(dest)
+  },
+  { flush: 'post' },
+)
 
 // The Cases media ref can arrive just after the corridor itself. Complete the
 // same hidden handoff then, but never consume it before a live mobile corridor
@@ -4241,7 +4442,7 @@ watch(
     >
       <defs>
         <clipPath :id="FLOW_SURFACE_CLIP_ID" clipPathUnits="userSpaceOnUse">
-          <path ref="clipPathEl" />
+          <path ref="clipPathEl" :d="flowSurfaceMask.path" />
         </clipPath>
       </defs>
     </svg>

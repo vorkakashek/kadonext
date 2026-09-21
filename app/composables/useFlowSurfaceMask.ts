@@ -13,6 +13,9 @@ export const flowSurfaceMask = reactive({
   path: '',
   clipPath: '',
   openTopPath: '',
+  /** Latest host-owned geometry request consumed synchronously by FlowSurface. */
+  pathRequest: null as FlowSurfaceBox | null,
+  pathRequestRevision: 0,
   width: 1,
   height: 1,
   top: 0,
@@ -44,7 +47,6 @@ export type FlowSurfaceBox = {
   height: number
 }
 
-let pathFlush: ((box?: FlowSurfaceBox) => void) | null = null
 let clipPathEl: SVGPathElement | null = null
 /**
  * Page Canvas paints the shell with `translateY(-scrollY)`. That transform makes
@@ -55,17 +57,24 @@ let clipPathEl: SVGPathElement | null = null
 let paintScrollCompY = 0
 let liveBoxNudge: ((deltaY: number) => void) | null = null
 
-export function registerFlowSurfacePathFlush(fn: ((box?: FlowSurfaceBox) => void) | null) {
-  pathFlush = fn
-}
-
 export function flushFlowSurfacePath(box?: FlowSurfaceBox) {
-  pathFlush?.(box)
+  flowSurfaceMask.pathRequest = box
+    ? { ...box }
+    : {
+        top: flowSurfaceMask.top,
+        left: flowSurfaceMask.left,
+        width: flowSurfaceMask.width,
+        height: flowSurfaceMask.height,
+      }
+  flowSurfaceMask.pathRequestRevision += 1
 }
 
-export function registerFlowSurfaceClipPathEl(el: SVGPathElement | null) {
+export function registerFlowSurfaceClipPathEl(el: SVGPathElement) {
   clipPathEl = el
   if (el && flowSurfaceMask.path) el.setAttribute('d', flowSurfaceMask.path)
+  return () => {
+    if (clipPathEl === el) clipPathEl = null
+  }
 }
 
 export function publishFlowSurfacePath(d: string) {
@@ -78,9 +87,12 @@ export function publishFlowSurfacePath(d: string) {
 }
 
 export function registerFlowSurfaceLiveBoxNudge(
-  fn: ((deltaY: number) => void) | null,
+  fn: (deltaY: number) => void,
 ) {
   liveBoxNudge = fn
+  return () => {
+    if (liveBoxNudge === fn) liveBoxNudge = null
+  }
 }
 
 /**
@@ -129,6 +141,8 @@ export function resetFlowSurfaceMaskSession() {
   flowSurfaceMask.path = ''
   flowSurfaceMask.clipPath = ''
   flowSurfaceMask.openTopPath = ''
+  flowSurfaceMask.pathRequest = null
+  flowSurfaceMask.pathRequestRevision += 1
   flowSurfaceMask.width = 1
   flowSurfaceMask.height = 1
   flowSurfaceMask.top = 0
