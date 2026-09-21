@@ -21,7 +21,7 @@
 
 - Nuxt 4 / Vue 3 / TypeScript, Tailwind 4, GSAP/ScrollTrigger, Three.js and Lenis 1.3.26. Static output (`nitro.preset: static`, prerendered routes).
 - `/` is the real product today: interactive Three.js sphere swarm in the hero; one `FlowSurface` morphs continuously through Hero → Kado → Cases; the Cases section switches among Audience, Keys Store, Балтика Brew and SCHMIDT.
-- `FlowSurfaceHost.vue` owns the surface motion contract. Scroll-driven morph progress is velocity-clamped globally at `1.55` normalized segments/second. Desktop crosses the Kado waypoint without retargeting/stopping there; mobile has a guarded Cases → Hero bridge and releases stale term/word pins during fast reverse scrolls.
+- `FlowSurfaceHost.vue` owns the surface motion contract. Desktop uses a base velocity cap of `1.55` normalized segments/second and may rise to `3.1` only while compressing a stale multi-waypoint backlog; the final Hero reveal remains capped at `1.15`. Named navigation and scroll share the route-decision/snapshot contract. Desktop crosses Kado without retargeting/stopping there; mobile has a guarded Cases → Hero bridge and releases stale term/word pins during fast reverse scrolls.
 - Lenis smooths stepped mouse-wheel input only. Mobile touch scrolling is intentionally native (`syncTouch: false`) for direct 1:1 finger response; touch events do not attach the Lenis/GSAP animation ticker.
 - Global experience: short brand preloader, header, custom cursor/scrollbar, Page Canvas menu, iris/SPA transitions and baked page previews.
 - `/projects` now has a project catalog and `/projects/[id]` has minimal prerendered case-detail pages with a visual entry transition. `/services`, `/about` and `/contact` remain `PageStub` shells. Full case narratives, real contact flow, i18n, analytics and legal/production SEO work are not implemented.
@@ -29,7 +29,7 @@
 ## Where truth lives
 
 - Runtime behavior: `app/`; key orchestration is in `app/pages/index.vue`, `FlowSurfaceHost.vue`, `HeroSwarmCanvas.vue`, `HomeCases.vue`, `PageCanvas.vue` and `SiteHeader.vue`.
-- Scroll input is configured in `app/plugins/lenis.client.ts`; continuous-progress math is in `app/utils/flowSurfaceMorph.ts`. Treat `FlowSurfaceHost.vue` as the final authority for waypoint/pin ownership, mobile bridge state and surface cleanup.
+- Scroll input is configured in `app/plugins/lenis.client.ts`; continuous-progress math is in `app/utils/flowSurfaceMorph.ts`, while route coalescing and atomic visual snapshots live in `app/utils/flowSurfaceContract.ts`. Treat `FlowSurfaceHost.vue` as the final authority for waypoint/pin ownership, mobile bridge state and surface cleanup.
 - Case/nav data: `app/utils/homeCases.ts` and `app/utils/siteNav.ts`.
 - Responsive values: `design-tokens/responsive.json` is canonical. Run `npm run tokens:fluid`; never hand-edit `app/assets/css/fluid.generated.css`.
 - Brand, positioning, service offer, naming, tone, visual foundations and SSG policy: `docs/brand-and-website-brief.md`.

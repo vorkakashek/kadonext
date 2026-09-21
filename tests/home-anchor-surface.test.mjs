@@ -4,6 +4,10 @@ import { test } from 'node:test'
 import { createContext, runInContext } from 'node:vm'
 import ts from 'typescript'
 import { lerpBox } from '../app/utils/flowSurfaceMorph.ts'
+import {
+  mixSurfaceVisualSnapshot,
+  planSurfaceRoute,
+} from '../app/utils/flowSurfaceContract.ts'
 import { HOME_ANCHOR_DESTINATIONS, isHomeAnchorTarget } from '../app/utils/homeAnchorMotion.ts'
 
 function harness() {
@@ -11,7 +15,19 @@ function harness() {
   const source = readFileSync(new URL('../app/components/FlowSurfaceHost.vue', import.meta.url), 'utf8')
     .split('<script setup lang="ts">')[1].split('</script>')[0]
   const tree = ts.createSourceFile('host.ts', source, ts.ScriptTarget.Latest, true)
-  const names = new Set(['paintAnchorDestination', 'beginAnchorSurfaceTrip', 'paintAnchorSurfaceHandoff', 'tick', 'ensureTick', 'onAnchorVisibilityChange', 'onAppliedSurfaceFrame'])
+  const names = new Set([
+    'currentSurfaceTone',
+    'publishSurfaceTone',
+    'publishHeroHorizontalMorph',
+    'captureCurrentSurfaceSnapshot',
+    'paintAnchorDestination',
+    'beginAnchorSurfaceTrip',
+    'paintAnchorSurfaceHandoff',
+    'tick',
+    'ensureTick',
+    'onAnchorVisibilityChange',
+    'onAppliedSurfaceFrame',
+  ])
   const functions = tree.statements.filter(node => ts.isFunctionDeclaration(node) && names.has(node.name?.text))
     .map(node => node.getText(tree)).join('\n')
   const paints = []
@@ -27,7 +43,7 @@ function harness() {
     destinationS: 5, desktopLiveS: 0,
     anchorMotion: null, anchorSample: null, raf: 0, lastTs: 0,
     keepAliveActive: true, morphBooting: false, mobileActive: false, pinTo: { value: null },
-    flowSurfaceMask: { morph: 0 }, proxyParked: { value: false },
+    flowSurfaceMask: { morph: 0, heroHorizontalMorph: 0, heroReturning: false }, proxyParked: { value: false },
     contactStageProgress: { value: 0 }, lastAboutTitleOpacity: '', lastCaseToneCss: '',
     stMod: null, ANCHOR_SURFACE_DURATION_MS: 720,
     HOME_ANCHOR_DESTINATIONS, isHomeAnchorTarget,
@@ -40,7 +56,7 @@ function harness() {
     killFormatsSettleTween: noop, killAboutSettleTween: noop,
     clearCaseMediaReveal: noop, endMobileCaseTransformPaint: noop, unpinFrame: noop,
     setSurfaceDocked: noop, setSurfaceReady: noop, setCaseMediaVisible: noop, clearCaseMediaFlight: noop,
-    paintAboutTitleContrast: noop, lerpBox,
+    paintAboutTitleContrast: noop, lerpBox, mixSurfaceVisualSnapshot, planSurfaceRoute,
     clearAboutTitleContrast: noop, syncStageRest: noop,
     parkMobileAboutWaypoint: noop, pinMobileHeroRevealFrame: noop,
     clampUnit: value => Math.max(0, Math.min(1, value)),
@@ -76,6 +92,7 @@ function harness() {
 test('scroll holds the source; settlement interpolates directly to the final pose', () => {
   const h = harness()
   const motion = h.context.beginAnchorSurfaceTrip('contact', 4000)
+  assert.equal(h.context.anchorMotion.route.mode, 'coalesce')
   for (let i = 0; i < 10; i++) h.advance(16)
   assert.equal(h.paints.length, 1)
   motion.settle()
@@ -133,7 +150,9 @@ test('a forward desktop contact hop starts above the viewport, even when Hero wa
   h.context.onAppliedSurfaceFrame({ y: 3800 })
   assert.ok(h.paints.at(-1).top < 0)
   motion.approach(4000)
-  assert.ok(h.context.anchorMotion.from.top + h.context.anchorMotion.from.height < 0)
+  assert.ok(
+    h.context.anchorMotion.from.box.top + h.context.anchorMotion.from.box.height < 0,
+  )
 })
 
 test('mobile Contact stays aligned with its actual slot through the scroll tail', () => {
@@ -190,8 +209,8 @@ test('interrupting an early handoff continues from its visible pose', () => {
   for (let i = 0; i < 24; i++) h.advance(15)
   const before = h.paints.at(-1)
   motion.cancel()
-  assert.equal(h.context.anchorMotion.from.width, before.width)
-  assert.equal(h.context.anchorMotion.morph, before.morph)
+  assert.equal(h.context.anchorMotion.from.box.width, before.width)
+  assert.equal(h.context.anchorMotion.from.morph, before.morph)
   assert.equal(h.context.anchorMotion.elapsed, 0)
   assert.equal(h.context.anchorMotion.targetId, null)
 })
@@ -205,7 +224,7 @@ test('Contact → Services uses the named Services pose in both directions of sc
   h.context.serviceDestination = { top: -2900, left: 50, width: 500, height: 400 }
   const motion = h.context.beginAnchorSurfaceTrip('services', 3000)
   motion.approach(3000)
-  assert.equal(h.context.anchorMotion.from.top, 924)
+  assert.equal(h.context.anchorMotion.from.box.top, 924)
   for (let i = 0; i < 48; i++) h.advance(15)
   assert.equal(h.paints.at(-1).width, 500)
   assert.equal(h.paints.at(-1).top, 100)

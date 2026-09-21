@@ -1,4 +1,4 @@
-/** Named landing poses are independent of intermediate scroll waypoints. */
+/** Named landing poses are coalesced destinations in the shared Surface route. */
 export const HOME_ANCHOR_DESTINATIONS = {
   home: { desktopProgress: 0, mobileSpace: 'document' },
   services: { desktopProgress: 3, mobileSpace: 'viewport' },
@@ -29,10 +29,11 @@ type AnchorMotionOwner = (targetId: string, scrollTop: number) => HomeAnchorMoti
 let owner: AnchorMotionOwner | null = null
 
 /**
- * One navigation transaction: hold → approach the named pose → dock at arrival.
+ * One navigation transaction: hold → approach the coalesced pose → dock at arrival.
  * The driver starts the approach independently of scroll completion. The host
  * retains geometry ownership through the scroll tail and cancels into the live
- * corridor only on interruption. Regular scrolling never uses this transaction.
+ * corridor only on interruption. Route selection and snapshot interpolation are
+ * shared with the scroll contract; this module only coordinates document travel.
  */
 export function registerHomeAnchorMotion(next: AnchorMotionOwner) {
   owner = next

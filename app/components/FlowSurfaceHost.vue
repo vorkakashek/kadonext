@@ -64,6 +64,12 @@ import {
   isHomeAnchorTarget,
   type HomeAnchorTarget,
 } from '~/utils/homeAnchorMotion'
+import {
+  mixSurfaceVisualSnapshot,
+  planSurfaceRoute,
+  type SurfaceRouteDecision,
+  type SurfaceVisualSnapshot,
+} from '~/utils/flowSurfaceContract'
 
 /** The site's minimal mode keeps the core Surface choreography intact. */
 function systemReducedMotion() {
@@ -105,6 +111,8 @@ const CONTACT_ANCHOR_SETTLE_LEAD_PX = 72
 const CONTACT_TONE_END_P = 0.13
 /** Global scroll-driven surface limit, in normalized morph segments/sec. */
 const SURFACE_MORPH_MAX_VELOCITY = 1.55
+/** Compress a stale multi-waypoint backlog without changing the canonical path. */
+const SURFACE_MORPH_CATCH_UP_MAX_VELOCITY = 3.1
 /** Give the final wide Hero reveal more room on a fast reverse scroll. */
 const HERO_RETURN_MAX_VELOCITY = 1.15
 /** Extra clock range for the in-flow Hero travel before the morph starts. */
@@ -464,12 +472,8 @@ let liveBox: SurfaceBox | null = null
 /** Anchor trips hold a viewport pose, then fly directly to the current scroll pose. */
 let anchorMotion: {
   phase: 'scroll' | 'settle'
-  from: SurfaceBox
-  morph: number
-  horizontalMorph: number
-  tone: string
-  contactProgress: number
-  aboutOpacity: number
+  from: SurfaceVisualSnapshot
+  route: SurfaceRouteDecision
   elapsed: number
   updatedAt: number
   targetId: HomeAnchorTarget | null
@@ -479,12 +483,7 @@ let anchorMotion: {
   scrollTop: number
   fromScrollY: number
 } | null = null
-let anchorSample: {
-  box: SurfaceBox | null
-  morph: number
-  horizontalMorph: number
-  aboutOpacity: number
-} | null = null
+let anchorSample: SurfaceVisualSnapshot | null = null
 let removeAnchorMotionOwner: (() => void) | null = null
 const ANCHOR_SURFACE_DURATION_MS = HOME_ANCHOR_TIMING.morphDurationMs
 /** Stable compositor basis for the expensive mobile Kado → Cases flight. */
@@ -1114,20 +1113,32 @@ function caseMediaExitOpacity(progress: number) {
 
 let lastCaseToneCss = ''
 
+function currentSurfaceTone() {
+  return frame.value?.style.getPropertyValue('--flow-surface-tone')
+    || 'var(--palette-stone)'
+}
+
+/** Tone publication participates in destination sampling like geometry does. */
+function publishSurfaceTone(css: string) {
+  const resolved = css || 'var(--palette-stone)'
+  if (anchorSample) {
+    anchorSample.tone = resolved
+    return
+  }
+  const el = frame.value
+  if (!el || css === lastCaseToneCss) return
+  lastCaseToneCss = css
+  if (css) el.style.setProperty('--flow-surface-tone', css)
+  else el.style.removeProperty('--flow-surface-tone')
+}
+
 /** Keep the Hero field's edge colour when the Surface settles under the stone. */
 function paintKadoSurfaceTone() {
-  const el = frame.value
-  if (!el) return
-  const css = 'var(--hero-scene-forest)'
-  if (css === lastCaseToneCss) return
-  lastCaseToneCss = css
-  el.style.setProperty('--flow-surface-tone', css)
+  publishSurfaceTone('var(--hero-scene-forest)')
 }
 
 /** Return from the green Kado plate to the neutral project surface. */
 function paintKadoToCaseSurfaceTone(progress: number) {
-  const el = frame.value
-  if (!el) return
   const mix = clampUnit(progress)
   if (mix <= 0.001) {
     paintKadoSurfaceTone()
@@ -1141,16 +1152,11 @@ function paintKadoToCaseSurfaceTone(progress: number) {
   const stonePercent = Math.round(mix * 1000) / 10
   const greenPercent = Math.round((100 - stonePercent) * 10) / 10
   const css = `color-mix(in srgb, var(--hero-scene-forest) ${greenPercent}%, var(--palette-stone) ${stonePercent}%)`
-  if (css === lastCaseToneCss) return
-  lastCaseToneCss = css
-  el.style.setProperty('--flow-surface-tone', css)
+  publishSurfaceTone(css)
 }
 
 function paintCaseSurfaceTone() {
-  const el = frame.value
-  if (!el) return
-  if (lastCaseToneCss) el.style.removeProperty('--flow-surface-tone')
-  lastCaseToneCss = ''
+  publishSurfaceTone('')
 }
 
 function paintSurfaceUnderCaseMedia(
@@ -1317,7 +1323,12 @@ function contactSettleScrollY(surfaceDocTop: number, viewportHeight: number, anc
 }
 
 function setContactStageProgress(progress: number) {
-  contactStageProgress.value = clampUnit(progress)
+  const next = clampUnit(progress)
+  if (anchorSample) {
+    anchorSample.contactProgress = next
+    return
+  }
+  contactStageProgress.value = next
 }
 
 let lastAboutTitleClip = ''
@@ -1385,12 +1396,9 @@ function paintAboutTitleContrast(surface: SurfaceBox, opacity = 1) {
 }
 
 function paintAboutSurfaceTone(progress: number) {
-  const el = frame.value
-  if (!el) return
   const mix = clampUnit(progress)
   if (mix <= 0.001) {
-    if (lastCaseToneCss) el.style.removeProperty('--flow-surface-tone')
-    lastCaseToneCss = ''
+    publishSurfaceTone('')
     return
   }
 
@@ -1399,9 +1407,7 @@ function paintAboutSurfaceTone(progress: number) {
   const css = forestPercent >= 99.9
     ? 'var(--hero-scene-forest)'
     : `color-mix(in srgb, var(--palette-stone) ${stonePercent}%, var(--hero-scene-forest) ${forestPercent}%)`
-  if (css === lastCaseToneCss) return
-  lastCaseToneCss = css
-  el.style.setProperty('--flow-surface-tone', css)
+  publishSurfaceTone(css)
 }
 
 /** Live kado stone box — tracks element bounding box in viewport. */
@@ -3187,7 +3193,7 @@ function reconcileFromScroll() {
   paintMobileScrollCorridor(lastScrollY)
 }
 
-/** Every navigation destination supplies one pose, never an intermediate corridor. */
+/** Named navigation requests a landing snapshot through the shared route contract. */
 function paintAnchorDestination(targetId: HomeAnchorTarget) {
   caseMediaActive = false
   setSurfaceDocked(false)
@@ -3221,21 +3227,29 @@ function paintAnchorDestination(targetId: HomeAnchorTarget) {
   else paintBox(box, 0)
 }
 
+function captureCurrentSurfaceSnapshot(box: SurfaceBox): SurfaceVisualSnapshot {
+  return {
+    box: { ...box },
+    morph: flowSurfaceMask.morph,
+    horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
+    tone: currentSurfaceTone(),
+    contactProgress: contactStageProgress.value,
+    aboutOpacity: Number.parseFloat(lastAboutTitleOpacity) || 0,
+  }
+}
+
 function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
   if (!isHomeAnchorTarget(targetId)) return null
   if (!keepAliveActive || morphBooting || !frame.value || !liveBox) return null
   if (systemReducedMotion()) return null
   const source = proxyPose() ?? (pinTo.value ? readBox(frame.value) : liveBox)
   if (!source) return null
-  const morph = flowSurfaceMask.morph
+  const destinationS = HOME_ANCHOR_DESTINATIONS[targetId].desktopProgress
+  const route = planSurfaceRoute(desktopLiveS, destinationS)
   const motion: NonNullable<typeof anchorMotion> = {
     phase: 'scroll',
-    from: { ...source },
-    morph,
-    horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
-    tone: frame.value.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)',
-    contactProgress: contactStageProgress.value,
-    aboutOpacity: Number.parseFloat(lastAboutTitleOpacity) || 0,
+    from: captureCurrentSurfaceSnapshot(source),
+    route,
     elapsed: 0,
     updatedAt: 0,
     targetId,
@@ -3257,14 +3271,14 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
   killAboutSettleTween()
   clearCaseMediaReveal()
   endMobileCaseTransformPaint()
-  unpinFrame(morph)
+  unpinFrame(motion.from.morph)
   proxyParked.value = false
   caseMediaActive = false
   setSurfaceDocked(false)
   setSurfaceReady(false)
   setCaseMediaVisible(false)
   clearCaseMediaFlight()
-  paintBox(motion.from, morph)
+  paintBox(motion.from.box!, motion.from.morph)
   const approach = (top = motion.scrollTop) => {
     if (anchorMotion !== motion || motion.phase === 'settle') return
     motion.scrollTop = top
@@ -3273,9 +3287,12 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
       const longTrip = Math.abs(motion.scrollTop - motion.startScrollY) > stableViewportHeight() * 0.75
       if (longTrip) {
         // Follow navigation direction after the source has left with the page.
-        motion.from.top = motion.forward ? -motion.from.height - 24 : stableViewportHeight() + 24
+        const from = motion.from.box
+        if (from) {
+          from.top = motion.forward ? -from.height - 24 : stableViewportHeight() + 24
+        }
       } else if (liveBox) {
-        motion.from = { ...liveBox }
+        motion.from.box = { ...liveBox }
       }
     }
     motion.phase = 'settle'
@@ -3294,13 +3311,8 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
   const cancel = () => {
     if (anchorMotion !== motion) return
     if (motion.phase === 'settle' && liveBox && frame.value) {
-      motion.from = { ...liveBox }
+      motion.from = captureCurrentSurfaceSnapshot(liveBox)
       motion.fromScrollY = window.scrollY
-      motion.morph = flowSurfaceMask.morph
-      motion.horizontalMorph = flowSurfaceMask.heroHorizontalMorph
-      motion.tone = frame.value.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)'
-      motion.contactProgress = contactStageProgress.value
-      motion.aboutOpacity = Number.parseFloat(lastAboutTitleOpacity) || 0
       motion.elapsed = 0
       motion.updatedAt = performance.now()
     }
@@ -3319,7 +3331,9 @@ function paintAnchorSurfaceHandoff(now: number) {
     box: null as SurfaceBox | null,
     morph: 1,
     horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
+    tone: currentSurfaceTone(),
     aboutOpacity: 0,
+    contactProgress: contactStageProgress.value,
   }
   anchorSample = sample
   try {
@@ -3334,8 +3348,6 @@ function paintAnchorSurfaceHandoff(now: number) {
     sample.box = { ...sample.box, top: sample.box.top - (motion.scrollTop - window.scrollY) }
   }
   if (motion.targetId === 'home' && sample.box) syncStageRest(sample.box)
-  const destinationTone = el.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)'
-  const destinationContactProgress = contactStageProgress.value
   setSurfaceReady(false)
   setCaseMediaVisible(false)
   motion.elapsed += Math.min(64, Math.max(0, now - motion.updatedAt))
@@ -3345,20 +3357,23 @@ function paintAnchorSurfaceHandoff(now: number) {
   const eased = smoothUnit(progress)
   const documentSpace = mobileActive && (!motion.targetId
     || HOME_ANCHOR_DESTINATIONS[motion.targetId].mobileSpace === 'document')
-  const from = documentSpace
-    ? { ...motion.from, top: motion.from.top - (window.scrollY - motion.fromScrollY) }
+  const from = documentSpace && motion.from.box
+    ? {
+        ...motion.from,
+        box: {
+          ...motion.from.box,
+          top: motion.from.box.top - (window.scrollY - motion.fromScrollY),
+        },
+      }
     : motion.from
-  const box = sample.box ? lerpBox(from, sample.box, eased) : from
-  paintBox(box, motion.morph + (sample.morph - motion.morph) * eased)
-  publishHeroHorizontalMorph(
-    motion.horizontalMorph + (sample.horizontalMorph - motion.horizontalMorph) * eased,
-  )
-  paintAboutTitleContrast(box, motion.aboutOpacity + (sample.aboutOpacity - motion.aboutOpacity) * eased)
-  const tone = `color-mix(in srgb, ${motion.tone} ${(1 - eased) * 100}%, ${destinationTone} ${eased * 100}%)`
-  el.style.setProperty('--flow-surface-tone', tone)
-  lastCaseToneCss = tone
-  setContactStageProgress(motion.contactProgress
-    + (destinationContactProgress - motion.contactProgress) * eased)
+  const mixed = mixSurfaceVisualSnapshot(from, sample, eased)
+  if (mixed.box) {
+    paintBox(mixed.box, mixed.morph)
+    paintAboutTitleContrast(mixed.box, mixed.aboutOpacity)
+  }
+  publishHeroHorizontalMorph(mixed.horizontalMorph)
+  publishSurfaceTone(mixed.tone)
+  setContactStageProgress(mixed.contactProgress)
   if (progress < 1) {
     raf = requestAnimationFrame(tick)
     return
@@ -3368,7 +3383,7 @@ function paintAnchorSurfaceHandoff(now: number) {
   capturePoses()
   stMod?.ScrollTrigger.update()
   anchorMotion = null
-  desktopLiveS = motion.targetId && motion.targetId !== 'home'
+  desktopLiveS = motion.targetId
     ? HOME_ANCHOR_DESTINATIONS[motion.targetId].desktopProgress
     : computeDesktopTarget()
   if (motion.targetId) {
@@ -3428,11 +3443,20 @@ function tick(now: number) {
     // because live reached target would swap opacity curves on that exact frame.
     flowSurfaceMask.heroReturning = false
   }
+  const baseMaxVelocity = returningInsideHero
+    ? HERO_RETURN_MAX_VELOCITY
+    : SURFACE_MORPH_MAX_VELOCITY
+  const route = planSurfaceRoute(desktopLiveS, sTarget, {
+    baseMaxVelocity,
+    // Keep the carefully paced final Hero reveal out of catch-up mode. Every
+    // other stale multi-waypoint route may compress without stopping at old WPs.
+    catchUpMaxVelocity: returningInsideHero
+      ? HERO_RETURN_MAX_VELOCITY
+      : SURFACE_MORPH_CATCH_UP_MAX_VELOCITY,
+  })
   desktopLiveS = updateContinuousProgress(desktopLiveS, sTarget, dt, {
     lag: touchesCaseSegment ? CASE_SCRUB_LAG : props.plan.lag,
-    maxVelocity: returningInsideHero
-      ? HERO_RETURN_MAX_VELOCITY
-      : SURFACE_MORPH_MAX_VELOCITY,
+    maxVelocity: route.maxVelocity,
     epsilon: SURFACE_MORPH_EPSILON,
   })
 
@@ -3890,8 +3914,11 @@ function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
   if (anchorMotion) {
     if (anchorMotion.phase === 'scroll' && !mobileActive) {
       const offset = scrollFrame.y - anchorMotion.startScrollY
-      const box = { ...anchorMotion.from, top: anchorMotion.from.top - offset }
-      paintBox(box, anchorMotion.morph)
+      const from = anchorMotion.from.box
+      if (from) {
+        const box = { ...from, top: from.top - offset }
+        paintBox(box, anchorMotion.from.morph)
+      }
     } else ensureTick()
     return
   }
