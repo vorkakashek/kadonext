@@ -105,6 +105,10 @@ const CONTACT_ANCHOR_SETTLE_LEAD_PX = 72
 const CONTACT_TONE_END_P = 0.13
 /** Global scroll-driven surface limit, in normalized morph segments/sec. */
 const SURFACE_MORPH_MAX_VELOCITY = 1.55
+/** Give the final wide Hero reveal more room on a fast reverse scroll. */
+const HERO_RETURN_MAX_VELOCITY = 1.15
+/** Extra clock range for the in-flow Hero travel before the morph starts. */
+const DESKTOP_HERO_REVEAL_CLOCK_SPAN = 0.42
 const SURFACE_MORPH_EPSILON = 0.0008
 /** Treat the Surface as parked once lagged progress passes this. */
 const CASE_PARK_P = 0.85
@@ -276,12 +280,15 @@ let lastCaseDoc: SurfaceBox | null = null
 let lastFormatsDoc: SurfaceBox | null = null
 let fromPose: SurfaceBox | null = null
 let toPose: SurfaceBox | null = null
+let heroRestPose: SurfaceBox | null = null
 let desktopTargetS = 0
 let desktopLiveS = 0
 const contactStageProgress = ref(0)
 /** True while lagged case progress is parked on the mockup. */
 let caseMediaActive = false
 let surfaceReadyEmitted = false
+/** Keep the default desktop-sized frame out of paint until its real pose is applied. */
+const frameBootReady = ref(false)
 /** A mobile hash entry must never expose the incomplete Hero/Kado fallback. */
 const mobileSectionBootPending = ref(false)
 
@@ -290,6 +297,11 @@ function announceSurfaceReady() {
   if (surfaceReadyEmitted || !frame.value) return
   if (mobileSectionBootPending.value && !mobileScrollBounds) return
   surfaceReadyEmitted = true
+  // FlowSurfaceHost mounts client-side after SSR. Its inline fallback is the
+  // desktop Hero rectangle; on mobile the measured in-flow slot is much shorter
+  // and lower. Reveal only after that first measured pose is committed, otherwise
+  // Chrome records the decorative frame handoff as a ~0.28 layout shift.
+  frameBootReady.value = true
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       mobileSectionBootPending.value = false
@@ -454,6 +466,7 @@ let anchorMotion: {
   phase: 'scroll' | 'settle'
   from: SurfaceBox
   morph: number
+  horizontalMorph: number
   tone: string
   contactProgress: number
   aboutOpacity: number
@@ -466,7 +479,12 @@ let anchorMotion: {
   scrollTop: number
   fromScrollY: number
 } | null = null
-let anchorSample: { box: SurfaceBox | null; morph: number; aboutOpacity: number } | null = null
+let anchorSample: {
+  box: SurfaceBox | null
+  morph: number
+  horizontalMorph: number
+  aboutOpacity: number
+} | null = null
 let removeAnchorMotionOwner: (() => void) | null = null
 const ANCHOR_SURFACE_DURATION_MS = HOME_ANCHOR_TIMING.morphDurationMs
 /** Stable compositor basis for the expensive mobile Kado → Cases flight. */
@@ -577,7 +595,9 @@ function captureDesktopPoses() {
   const fromSection = sectionOf(props.fromEl)
   const toSection = sectionOf(props.toEl)
 
+  const sectionTop = fromSection.getBoundingClientRect().top + window.scrollY
   const scrollStart = heroRevealScrollY(fromSection)
+  heroRestPose = poseAtScrollY(fromDoc, sectionTop)
   fromPose = poseAtScrollY(fromDoc, scrollStart)
 
   const scrollEnd = scrollYForCenterCenter(toSection)
@@ -629,6 +649,7 @@ function captureMobilePoses() {
   mobileCaseHandoffY = null
 
   mobileActive = true
+  flowSurfaceMask.heroReturning = false
   fromPose = heroPose
   toPose = stonePose
   syncStageRest(heroPose)
@@ -908,6 +929,15 @@ function paintBox(box: SurfaceBox, morph: number) {
   flushFlowSurfacePath(next)
 }
 
+function publishHeroHorizontalMorph(value: number) {
+  const next = clampUnit(value)
+  if (anchorSample) {
+    anchorSample.horizontalMorph = next
+    return
+  }
+  flowSurfaceMask.heroHorizontalMorph = next
+}
+
 /** Keep the Surface's layout box fixed while its mobile case flight is live. */
 function beginMobileCaseTransformPaint() {
   const el = frame.value
@@ -940,16 +970,55 @@ function heroLivePose(): SurfaceBox | null {
   return readBox(props.fromEl) ?? (fromDoc ? docToViewport(fromDoc) : null)
 }
 
-/** Before morphing, let the fixed renderer follow its in-flow 16:9 placeholder. */
-function paintHeroReveal(scrollY = window.scrollY) {
+/** Scroll-owned pre-morph travel: Hero rest pose ↔ fully visible morph pose. */
+function desktopHeroRevealProgress(scrollY = window.scrollY) {
   const hero = props.fromEl
-  if (!hero) return false
-  const revealEnd = mobileActive ? scrubStartY : heroRevealScrollY(sectionOf(hero))
-  if (scrollY >= revealEnd - 0.5) return false
-  const pose = heroLivePose()
-  if (!pose) return false
+  if (!hero) return 0
+  const section = sectionOf(hero)
+  const sectionTop = section.getBoundingClientRect().top + window.scrollY
+  const revealEnd = heroRevealScrollY(section)
+  const span = revealEnd - sectionTop
+  if (span <= 1) return 0
+  return clampUnit((revealEnd - scrollY) / span)
+}
+
+function desktopHeroRevealTarget(scrollY = window.scrollY) {
+  return -desktopHeroRevealProgress(scrollY) * DESKTOP_HERO_REVEAL_CLOCK_SPAN
+}
+
+function paintDesktopHeroReveal(s: number) {
+  const start = fromPose
+  const rest = heroRestPose
+  if (!start || !rest) return
+  const progress = clampUnit(-s / DESKTOP_HERO_REVEAL_CLOCK_SPAN)
+  const pose = lerpBox(start, rest, progress)
   syncStageRest(pose)
+  paintKadoSurfaceTone()
+  publishHeroHorizontalMorph(0)
   paintBox(pose, 0)
+}
+
+/**
+ * The Hero frame is still an in-flow surface here, so its forward motion must
+ * be committed in the same applied-scroll turn as the DOM slot. Running this
+ * short range through the lagged corridor leaves the fixed WebGL frame several
+ * pixels behind on a fresh wheel gesture and then visibly pulls it upward.
+ * Reverse travel keeps the authored velocity limit used by the Hero return.
+ */
+function paintForwardHeroRevealFrame(scrollFrame: AppliedScrollFrame) {
+  if (
+    scrollFrame.direction < 0
+    || !trigger
+    || !fromPose
+    || !heroRestPose
+    || desktopLiveS > 0
+  ) return false
+
+  const next = desktopHeroRevealTarget(scrollFrame.y)
+  if (next > 0 || next < desktopLiveS) return false
+  desktopTargetS = next
+  desktopLiveS = next
+  paintDesktopHeroReveal(next)
   return true
 }
 
@@ -1358,9 +1427,10 @@ function computeDesktopTarget(): number {
     return 1 + Math.min(1, Math.max(0, caseTrigger.progress))
   }
   if (trigger) {
-    return Math.min(1, Math.max(0, trigger.progress))
+    const progress = Math.min(1, Math.max(0, trigger.progress))
+    if (progress > 0) return progress
   }
-  return 0
+  return desktopHeroRevealTarget()
 }
 
 function paintHeroToKadoSegment(t: number) {
@@ -1378,12 +1448,15 @@ function paintHeroToKadoSegment(t: number) {
     setCaseMediaVisible(false)
     clearCaseMediaFlight()
   }
-  if (paintHeroReveal()) return
   paintKadoSurfaceTone()
 
   const { h, v } = targetsFromScrollProgress(props.plan, t, parseEase ?? ((_) => (u) => u))
   live.h = h
   live.v = v
+  // `morph` is min(h, v), so it reaches zero before the width has finished
+  // opening on reverse. Publish the real horizontal clock for the outside-Hero
+  // copy; otherwise a fast jump to scrollY=0 exposes it under a narrow Surface.
+  publishHeroHorizontalMorph(h)
 
   const hero = fromPose ?? heroLivePose()
   const kado = kadoLivePose()
@@ -1864,7 +1937,13 @@ function paintDesktop(s = desktopLiveS) {
   if (mobileActive) return
   if (hopTween) return
 
+  if (s < 0) {
+    paintDesktopHeroReveal(s)
+    return
+  }
+
   const { segmentIndex, localT } = resolveCorridorSegment(s, 5)
+  if (segmentIndex > 0) publishHeroHorizontalMorph(1)
   if (segmentIndex === 4) {
     paintAboutToContactSegment(localT)
   } else if (segmentIndex === 3) {
@@ -3117,6 +3196,7 @@ function paintAnchorDestination(targetId: HomeAnchorTarget) {
   clearCaseMediaFlight()
   setContactStageProgress(0)
   clearAboutTitleContrast()
+  publishHeroHorizontalMorph(targetId === 'home' ? 0 : 1)
   if (targetId === 'contact') {
     paintAboutToContactSegment(1)
     return
@@ -3152,6 +3232,7 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
     phase: 'scroll',
     from: { ...source },
     morph,
+    horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
     tone: frame.value.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)',
     contactProgress: contactStageProgress.value,
     aboutOpacity: Number.parseFloat(lastAboutTitleOpacity) || 0,
@@ -3165,6 +3246,9 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
     fromScrollY: window.scrollY,
   }
   anchorMotion = motion
+  // Named navigation owns this transition. Its morph clocks reveal the scene;
+  // a stale reverse-scroll flag must not swap in the manual-scroll curve.
+  flowSurfaceMask.heroReturning = false
   if (raf) cancelAnimationFrame(raf)
   raf = 0
   killHopTween()
@@ -3213,6 +3297,7 @@ function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
       motion.from = { ...liveBox }
       motion.fromScrollY = window.scrollY
       motion.morph = flowSurfaceMask.morph
+      motion.horizontalMorph = flowSurfaceMask.heroHorizontalMorph
       motion.tone = frame.value.style.getPropertyValue('--flow-surface-tone') || 'var(--palette-stone)'
       motion.contactProgress = contactStageProgress.value
       motion.aboutOpacity = Number.parseFloat(lastAboutTitleOpacity) || 0
@@ -3230,7 +3315,12 @@ function paintAnchorSurfaceHandoff(now: number) {
   const motion = anchorMotion
   const el = frame.value
   if (!motion || !el || motion.phase === 'scroll') return
-  const sample = { box: null as SurfaceBox | null, morph: 1, aboutOpacity: 0 }
+  const sample = {
+    box: null as SurfaceBox | null,
+    morph: 1,
+    horizontalMorph: flowSurfaceMask.heroHorizontalMorph,
+    aboutOpacity: 0,
+  }
   anchorSample = sample
   try {
     if (motion.targetId) paintAnchorDestination(motion.targetId)
@@ -3260,6 +3350,9 @@ function paintAnchorSurfaceHandoff(now: number) {
     : motion.from
   const box = sample.box ? lerpBox(from, sample.box, eased) : from
   paintBox(box, motion.morph + (sample.morph - motion.morph) * eased)
+  publishHeroHorizontalMorph(
+    motion.horizontalMorph + (sample.horizontalMorph - motion.horizontalMorph) * eased,
+  )
   paintAboutTitleContrast(box, motion.aboutOpacity + (sample.aboutOpacity - motion.aboutOpacity) * eased)
   const tone = `color-mix(in srgb, ${motion.tone} ${(1 - eased) * 100}%, ${destinationTone} ${eased * 100}%)`
   el.style.setProperty('--flow-surface-tone', tone)
@@ -3275,7 +3368,7 @@ function paintAnchorSurfaceHandoff(now: number) {
   capturePoses()
   stMod?.ScrollTrigger.update()
   anchorMotion = null
-  desktopLiveS = motion.targetId
+  desktopLiveS = motion.targetId && motion.targetId !== 'home'
     ? HOME_ANCHOR_DESTINATIONS[motion.targetId].desktopProgress
     : computeDesktopTarget()
   if (motion.targetId) {
@@ -3321,9 +3414,25 @@ function tick(now: number) {
   // middle waypoint: that made the exponential follow decelerate to rest at
   // Kado before it was allowed to continue toward Hero.
   const touchesCaseSegment = desktopLiveS > 1 || sTarget > 1
+  const returningInsideHero = sTarget < desktopLiveS
+    && sTarget < 1
+    && desktopLiveS <= 1
+  if (returningInsideHero) {
+    flowSurfaceMask.heroReturning = true
+  } else if (
+    sTarget > desktopLiveS
+    || sTarget >= 1
+    || desktopLiveS <= SURFACE_MORPH_EPSILON
+  ) {
+    // Preserve reverse ownership if the user pauses midway. Dropping it merely
+    // because live reached target would swap opacity curves on that exact frame.
+    flowSurfaceMask.heroReturning = false
+  }
   desktopLiveS = updateContinuousProgress(desktopLiveS, sTarget, dt, {
     lag: touchesCaseSegment ? CASE_SCRUB_LAG : props.plan.lag,
-    maxVelocity: SURFACE_MORPH_MAX_VELOCITY,
+    maxVelocity: returningInsideHero
+      ? HERO_RETURN_MAX_VELOCITY
+      : SURFACE_MORPH_MAX_VELOCITY,
     epsilon: SURFACE_MORPH_EPSILON,
   })
 
@@ -3795,6 +3904,7 @@ function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
     return
   }
   if (mobileActive || hopTween) return
+  if (paintForwardHeroRevealFrame(scrollFrame)) return
   ensureTick()
 }
 
@@ -3999,6 +4109,7 @@ watch(
       }
       fromPose = null
       toPose = null
+      heroRestPose = null
       liveBox = null
       mobileActive = false
       buildMorph()
@@ -4089,6 +4200,7 @@ watch(
         data-flow-surface-frame
         class="absolute overflow-visible"
         :class="{
+          'flow-surface-frame--boot-hidden': !frameBootReady,
           'flow-surface-frame--case-hidden': caseSurfaceReady,
           'flow-surface-frame--proxy-hidden': proxyParked,
           'flow-surface-frame--boot-pending': mobileSectionBootPending,
@@ -4126,6 +4238,7 @@ watch(
 </template>
 
 <style>
+.flow-surface-frame--boot-hidden,
 .flow-surface-frame--case-hidden,
 .flow-surface-frame--proxy-hidden,
 .flow-surface-frame--boot-pending {

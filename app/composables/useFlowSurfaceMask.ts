@@ -19,6 +19,10 @@ export const flowSurfaceMask = reactive({
   left: 0,
   /** 0 = hero frame, 1 = fully morphed away */
   morph: 0,
+  /** Actual Hero → Kado horizontal squeeze, used to reveal the Hero copy safely. */
+  heroHorizontalMorph: 0,
+  /** Desktop-only reverse ownership; lets Hero media warm before it becomes visible. */
+  heroReturning: false,
   /** Host-owned static layout: copy pacing and Surface crossing share one geometry. */
   heroCopyLayout: null as MobileHeroCopyLayout | null,
   /** Named stretch — see FLOW_SURFACE_LIVE. */
@@ -115,6 +119,8 @@ export function syncFlowSurfacePaintScrollComp(scrollY: number) {
 export function resetFlowSurfaceMaskSession() {
   paintScrollCompY = 0
   flowSurfaceMask.morph = 0
+  flowSurfaceMask.heroHorizontalMorph = 0
+  flowSurfaceMask.heroReturning = false
   flowSurfaceMask.heroCopyLayout = null
   flowSurfaceMask.liveId = 'hero'
   flowSurfaceMask.freezeSilhouette = false

@@ -25,9 +25,12 @@ const HERO_TITLE_ENTER_Y_PERCENT = 125
 
 /** Keep WebGL alive until morph opacity is nearly gone (both platforms). */
 const SCENE_LIVE_OPACITY = 0.08
-/** Desktop 3D fade — keyed to min(h,v) arrive progress. */
+/** Desktop forward 3D fade — keyed to min(h,v) arrive progress. */
 const SCENE_FADE_START = 0.3
 const SCENE_FADE_END = 0.7
+/** Reverse reveal follows the real width instead of the earlier vertical clock. */
+const SCENE_RETURN_HORIZONTAL_START = 0.72
+const SCENE_RETURN_HORIZONTAL_END = 0.08
 /** Mobile Hero visuals switch at one spatial threshold instead of scrub-fading. */
 const MOBILE_HERO_VISIBILITY_STONE_P = 0.525
 const MOBILE_HERO_VISIBILITY_HYSTERESIS_P = 0.015
@@ -316,6 +319,24 @@ function sceneOpacityForMorph(m: number) {
   return opacityInRange(m, SCENE_FADE_START, SCENE_FADE_END)
 }
 
+function desktopReturnSceneOpacity(horizontalMorph: number) {
+  const progress = Math.min(1, Math.max(
+    0,
+    (SCENE_RETURN_HORIZONTAL_START - horizontalMorph)
+      / (SCENE_RETURN_HORIZONTAL_START - SCENE_RETURN_HORIZONTAL_END),
+  ))
+  return progress * progress * (3 - 2 * progress)
+}
+
+function desktopSceneOpacity() {
+  const forwardOpacity = sceneOpacityForMorph(mask.morph)
+  if (!mask.heroReturning) return forwardOpacity
+  return Math.min(
+    forwardOpacity,
+    desktopReturnSceneOpacity(mask.heroHorizontalMorph),
+  )
+}
+
 /**
  * Spatial mobile exit: both measurements are viewport-relative, so browser
  * chrome changes and the exact Hero→Kado scroll span do not shift the fade.
@@ -336,7 +357,7 @@ function mobileHeroExitOpacity() {
   return mobileHeroVisualsVisible ? 1 : 0
 }
 
-function paintSceneVisibility(opacity: number) {
+function paintSceneVisibility(opacity: number, keepLive = false) {
   if (sceneReleaseTimer) {
     window.clearTimeout(sceneReleaseTimer)
     sceneReleaseTimer = 0
@@ -344,7 +365,7 @@ function paintSceneVisibility(opacity: number) {
 
   if (!mobileLite.value) {
     sceneOpacity.value = opacity
-    sceneLive.value = opacity > SCENE_LIVE_OPACITY
+    sceneLive.value = keepLive || opacity > SCENE_LIVE_OPACITY
     return
   }
 
@@ -401,12 +422,18 @@ function updateSloganMotion(scrollY?: number) {
   // A cold hash entry can arrive below Hero before the Surface engine has
   // painted its first morph. Keep scene visibility tied to the real route too.
   const pastHeroRoute = currentScrollY >= routeEnd + (mobileLite.value ? vh : 0)
+  const reversePrewarm = !mobileLite.value
+    && mask.heroReturning
+    && !pastHeroRoute
   const sceneOp = pastHeroRoute
     ? 0
     : mobileLite.value
       ? mobileHeroExitOpacity()
-      : sceneOpacityForMorph(mask.morph)
-  if (sceneOpacity.value !== sceneOp) paintSceneVisibility(sceneOp)
+      : desktopSceneOpacity()
+  if (
+    sceneOpacity.value !== sceneOp
+    || (reversePrewarm && !sceneLive.value)
+  ) paintSceneVisibility(sceneOp, reversePrewarm)
   const revealOpacity = mobileLite.value
     ? (routeProgress >= SLOGAN_REVEAL_AT_MOBILE ? 1 : 0)
     : (() => {
@@ -458,8 +485,12 @@ function onAppliedParallaxFrame(frame: AppliedScrollFrame) {
 }
 
 watch(
-  () => mask.morph,
-  (m) => {
+  [
+    () => mask.morph,
+    () => mask.heroHorizontalMorph,
+    () => mask.heroReturning,
+  ],
+  ([m]) => {
     // Page Canvas freezes the live page — don't dismiss/restore mid-flight.
     if (pageCanvasOpen.value) return
     updateSloganMotion()
@@ -566,7 +597,7 @@ async function setupExitMotion(sectionEl: HTMLElement) {
       ScrollTrigger.create({
         ...exitSt,
         onEnterBack: () => {
-          if (sceneOpacityForMorph(mask.morph) > 0.08) sceneLive.value = true
+          if (desktopSceneOpacity() > SCENE_LIVE_OPACITY) sceneLive.value = true
         },
       })
     }

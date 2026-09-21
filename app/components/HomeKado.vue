@@ -622,12 +622,12 @@ onUnmounted(() => {
           <picture class="contents">
             <source
               type="image/avif"
-              srcset="/home/rock-320.avif 320w, /home/rock-480.avif 480w, /home/rock-640.avif 640w, /home/rock-854.avif 854w, /home/rock-1088.avif 1088w"
+              srcset="/home/rock-320.avif 320w, /home/rock-480.avif 480w, /home/rock-512.avif 512w, /home/rock-640.avif 640w, /home/rock-854.avif 854w, /home/rock-1088.avif 1088w"
               sizes="(max-width: 767px) 70vw, 36vw"
             >
             <source
               type="image/webp"
-              srcset="/home/rock-320.webp 320w, /home/rock-480.webp 480w, /home/rock-640.webp 640w, /home/rock-854.webp 854w, /home/rock-1088.webp 1088w"
+              srcset="/home/rock-320.webp 320w, /home/rock-480.webp 480w, /home/rock-512.webp 512w, /home/rock-640.webp 640w, /home/rock-854.webp 854w, /home/rock-1088.webp 1088w"
               sizes="(max-width: 767px) 70vw, 36vw"
             >
             <img

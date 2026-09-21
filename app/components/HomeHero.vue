@@ -53,6 +53,8 @@ const nativeCopyAnchor = ref(false)
 const COPY_DESCENT_RATE = 0.22
 const COPY_FADE_START_VH = 0.38
 const COPY_FADE_END_VH = 0.72
+/** Reveal only through the last, already-wide part of the desktop return. */
+const DESKTOP_COPY_REVEAL_MORPH = 0.12
 let copyMotionVh = 0
 let copyMotionWidth = 0
 let copyMotionSectionTop: number | null = null
@@ -105,9 +107,18 @@ function copyExitTarget(scrollY: number) {
     ),
   )
   const easedFade = fadeProgress * fadeProgress * (3 - 2 * fadeProgress)
+  const surfaceRevealProgress = Math.min(
+    1,
+    Math.max(0, flowSurfaceMask.heroHorizontalMorph / DESKTOP_COPY_REVEAL_MORPH),
+  )
+  const surfaceOcclusion = surfaceRevealProgress
+    * surfaceRevealProgress
+    * (3 - 2 * surfaceRevealProgress)
   return {
     y: Math.min(scrolled, vh * COPY_FADE_END_VH) * (1 + COPY_DESCENT_RATE),
-    opacity: 1 - easedFade,
+    // Scroll can reach the top several frames before the velocity-limited
+    // Surface. The actual horizontal clock keeps copy and geometry in lockstep.
+    opacity: Math.min(1 - easedFade, 1 - surfaceOcclusion),
     scale: 1,
   }
 }
@@ -152,6 +163,14 @@ watch(
   () => flowSurfaceMask.heroCopyLayout,
   () => {
     if (typeof window !== 'undefined' && isNarrowViewport()) updateCopyExit()
+  },
+  { flush: 'sync' },
+)
+
+watch(
+  () => flowSurfaceMask.heroHorizontalMorph,
+  () => {
+    if (typeof window !== 'undefined' && !isNarrowViewport()) updateCopyExit()
   },
   { flush: 'sync' },
 )
