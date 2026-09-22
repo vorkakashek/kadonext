@@ -90,7 +90,6 @@ function shouldSkip(
   if (surfaceOn.value) return true
   if (document.documentElement.classList.contains('language-switch-lock')) return true
   if (document.documentElement.classList.contains('page-canvas-surface')) return true
-  if (document.documentElement.classList.contains('preload-lock')) return true
   return false
 }
 

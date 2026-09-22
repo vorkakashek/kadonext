@@ -40,7 +40,7 @@ for (const path of paths) {
   const html = htmlFor(path)
   const context = `${path}: `
   assert.match(html, new RegExp(`<html\\b[^>]*\\blang="${locale}"`), context + 'document language')
-  assert.match(html, /<noscript\b[^>]*>[\s\S]*?\.brand-preload[\s\S]*?<\/noscript>/, context + 'static content fallback')
+  assert.match(html, /<noscript\b[^>]*>[\s\S]*?\.home-hero__copy--intro-hidden[\s\S]*?<\/noscript>/, context + 'static content fallback')
   assert.equal(tags(html, 'h1').length, 1, context + 'one main heading')
   assert.equal(tags(html, 'main').length, 1, context + 'one main landmark')
   const titleMatches = [...html.matchAll(/<title>([^<]*)<\/title>/g)]

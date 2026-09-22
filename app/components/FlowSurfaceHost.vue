@@ -234,7 +234,7 @@ const props = withDefaults(
   },
 )
 
-const preload = useBrandPreload()
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
 const homeMotionReady = useState<boolean>('home-flow-motion-ready', () => false)
 const {
   activeCaseId,
@@ -275,7 +275,7 @@ const frame = ref<HTMLElement | null>(null)
 const shellEl = ref<HTMLElement | null>(null)
 const clipPathEl = ref<SVGPathElement | null>(null)
 /** Keep the cold Hero scene free of the Surface crop until its rise completes. */
-const heroSceneEntryActive = ref(!preload.revealed.value)
+const heroSceneEntryActive = ref(false)
 /** Teleport target for a pinned hop — null keeps the frame in the fixed shell. */
 const pinTo = ref<HTMLElement | null>(null)
 /** Mobile rest poses use a cheap CSS backplate; the live frame only owns flights. */
@@ -421,8 +421,8 @@ async function bootMotionEngine() {
 }
 
 function scheduleColdMotionBoot() {
-  // Fetch and evaluate the shared motion modules while the brand veil is still
-  // visible. Corridor capture remains separately scheduled below.
+  // Fetch and evaluate the shared motion modules without putting them on the
+  // first-paint path. Corridor capture remains separately scheduled below.
   void preloadGsapBundle()
   const onIntent = () => void bootMotionEngine()
   const intentEvents: Array<keyof WindowEventMap> = [
@@ -434,20 +434,13 @@ function scheduleColdMotionBoot() {
   for (const event of intentEvents) {
     window.addEventListener(event, onIntent, { once: true, passive: true })
   }
-  const stopPreloadFinish = watch(
-    () => preload.finishing.value,
-    (finishing) => {
-      if (finishing) void bootMotionEngine()
-    },
-  )
   removeMotionIntent = () => {
     for (const event of intentEvents) window.removeEventListener(event, onIntent)
-    stopPreloadFinish()
   }
 
-  // Cold home entries still have the brand veil available here. Build the
-  // scroll corridor in its first quiet slot instead of leaving GSAP,
-  // ScrollTrigger and all corridor measurements for the first wheel event.
+  // On a cold Home document, build the scroll corridor in its first quiet slot
+  // instead of putting GSAP, ScrollTrigger and all corridor measurements on the
+  // first-paint path or leaving them for the first wheel event.
   // That event must only advance an already-live surface; otherwise its main-
   // thread boot steals the WebGL scene's first visible frames.
   const scheduleTimeout = window.setTimeout.bind(window)
@@ -4163,9 +4156,9 @@ onMounted(async () => {
     && !systemReducedMotion()
     && !returningHomeFromCaseDetail()
   initialCasesHashEntry.value = window.location.hash === '#cases'
-    && !preload.revealed.value
+    && initialHomeDocument.value
     && !returningHomeFromCaseDetail()
-  const coldDirectEntry = !preload.revealed.value
+  const coldDirectEntry = initialHomeDocument.value
     && !returningHomeFromCaseDetail()
     && !window.location.hash
   await nextTick()
@@ -4298,10 +4291,6 @@ watch(
   },
   { immediate: true, flush: 'post' },
 )
-
-watch(() => preload.revealed.value, (revealed) => {
-  if (revealed) schedulePoseResync()
-})
 
 watch(
   () =>

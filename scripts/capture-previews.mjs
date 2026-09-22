@@ -129,10 +129,6 @@ async function capturePass(spec, locale) {
     hasTouch: spec.mobile,
     userAgent: spec.mobile ? IPHONE_UA : undefined,
   })
-  await context.addInitScript(() => {
-    localStorage.setItem('kadonext-preload-seen', '1')
-  })
-
   for (const item of pages) {
     // Grayscale baking replaces the document. Start each route in a new tab
     // so another home hash cannot navigate within that temporary image page.
@@ -143,18 +139,9 @@ async function capturePass(spec, locale) {
     await page.addStyleTag({
       content: `
         .fps-meter { display: none !important; }
-        .brand-preload { display: none !important; visibility: hidden !important; }
         .cookie-notice { display: none !important; visibility: hidden !important; }
-        html.preload-lock,
-        html.preload-lock body { overflow: auto !important; }
       `,
     })
-    await page
-      .waitForFunction(
-        () => !document.documentElement.classList.contains('preload-lock'),
-        null,
-        { timeout: 20_000 },
-      )
     await page.waitForSelector(item.selector, { timeout: 20_000 })
     await page.evaluate(() => document.fonts.ready)
     // Let route alignment, Surface boot and entrance motion finish naturally.

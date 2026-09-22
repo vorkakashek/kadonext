@@ -44,7 +44,7 @@ import {
   swarmHapticPrune,
   swarmHapticReset,
 } from '~/utils/swarmHaptics'
-import { useBrandPreload } from '~/composables/useBrandPreload'
+import { useInitialReveal } from '~/composables/useInitialReveal'
 import { flowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 
 const { t } = useI18n()
@@ -252,7 +252,7 @@ const motionIntroViewportTop = ref(0)
 const motionIntroViewportBottom = ref(0)
 const motionIntroPageVisible = ref(true)
 const motionIntroComponentActive = ref(true)
-const motionIntroPreload = useBrandPreload()
+const initialReveal = useInitialReveal()
 const motionIntroShown = computed(() =>
   motionIntroVisible.value
   && motionIntroInHero.value
@@ -262,7 +262,7 @@ const motionIntroShown = computed(() =>
   && motionIntroComponentActive.value
   && props.active
   && props.controlsReady
-  && motionIntroPreload.revealed.value,
+  && initialReveal.revealed.value,
 )
 const motionIntroTimerEl = ref<HTMLElement | null>(null)
 let motionIntroElapsedMs = 0
@@ -321,7 +321,7 @@ watch(
     && flowSurfaceMask.morph < MOTION_INTRO_HIDE_MORPH
     && props.active
     && props.controlsReady
-    && motionIntroPreload.revealed.value
+    && initialReveal.revealed.value
     && flowSurfaceMask.height > 2
     && flowSurfaceMask.top + flowSurfaceMask.height > motionIntroViewportTop.value
     && flowSurfaceMask.top + flowSurfaceMask.height <= motionIntroViewportBottom.value,
@@ -658,9 +658,6 @@ async function bootScene() {
   const host = canvasHost.value
   if (!host) return
 
-  const preload = useBrandPreload()
-  if (!firstSceneReady) preload.setSceneProgress(0.06)
-
   const reduced = prefersReducedMotion()
   const isCoarse = isCoarsePointer()
   const isMobile = isNarrowViewport()
@@ -757,11 +754,7 @@ async function bootScene() {
     ({ loadHeroEnvironment }) => loadHeroEnvironment(
       gl,
       lite ? HDRI_PRESETS.studioWarm : HDRI_PRESETS[ACTIVE_HDRI],
-      (loaded, total) => {
-        if (firstSceneReady) return
-        const ratio = total > 0 ? loaded / total : 0
-        preload.setSceneProgress(0.08 + ratio * 0.55)
-      },
+      () => {},
       { surroundingsExposure: 0.16 },
     ),
   )
@@ -1004,7 +997,6 @@ async function bootScene() {
       preparedEnvironment.dispose()
       return
     }
-    if (!firstSceneReady) preload.setSceneProgress(0.9)
     envMap = preparedEnvironment
     scene.environment = envMap
     // The graded HDR is mostly a dark room with isolated bright softboxes.
@@ -2250,11 +2242,9 @@ async function bootScene() {
   else stopLoop()
 
   if (!firstSceneReady) {
-    preload.setSceneProgress(0.96)
     renderer.render(scene, camera)
     requestAnimationFrame(() => {
       firstSceneReady = true
-      preload.markSceneReady()
     })
   } else {
     renderer.render(scene, camera)
@@ -2401,7 +2391,7 @@ async function bootScene() {
   }
 }
 
-/* Under the brand preloader: keep the GL layer out of the compositor.
+/* Before the live scene is ready, keep the GL layer out of the compositor.
    Prefer opacity — a child with visibility:visible can override a hidden parent. */
 .hero-swarm-root.hero-swarm--cold .hero-swarm {
   opacity: 0;

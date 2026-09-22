@@ -5,7 +5,7 @@
  * Stage is rest-sized and offset so frame morph clips over it (no layout squash).
  */
 import { flowSurfaceMask, useFlowSurfaceMask } from '~/composables/useFlowSurfaceMask'
-import { useBrandPreload } from '~/composables/useBrandPreload'
+import { useInitialReveal } from '~/composables/useInitialReveal'
 import { preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
 import { isCoarsePointer, isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
@@ -71,7 +71,7 @@ const emit = defineEmits<{
 }>()
 
 const mask = useFlowSurfaceMask()
-const preload = useBrandPreload()
+const initialReveal = useInitialReveal()
 const heroIntroSettled = useState('home-hero-intro-settled', () => false)
 const focusEl = ref<HTMLElement | null>(null)
 const sceneEntryEl = ref<HTMLElement | null>(null)
@@ -163,7 +163,7 @@ const {
 const swarmVisible = computed(
   () =>
     sceneLive.value &&
-    preload.revealed.value &&
+    initialReveal.revealed.value &&
     swarmLoopReady.value,
 )
 /**
@@ -632,16 +632,11 @@ let introGen = 0
 
 const swarmMount = ref(false)
 const swarmLit = ref(false)
-const heroWebglPrebootRequested = useState<boolean>(
-  'home-hero-webgl-preboot-requested',
-  () => false,
-)
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
 let swarmIdleId: number | null = null
 let swarmFallbackTimer = 0
 let removeSwarmIntent: (() => void) | null = null
-let removeSwarmPreboot: (() => void) | null = null
 let stageUnmounted = false
 let swarmIntentPending = false
 let mobileSwarmDeferred = false
@@ -667,11 +662,8 @@ function scheduleSwarmMount(fromNavigation: boolean) {
     return
   }
 
-  // The SSR/CSS Hero is a complete first frame, so the brand reveal no longer
-  // waits for Three.js, shader compilation or PMREM. The live scene upgrades it
-  // after the reveal, or immediately when the visitor expresses intent.
-  preload.markSceneReady()
-
+  // The SSR/CSS Hero is the complete first frame. Three.js, shader compilation
+  // and PMREM progressively upgrade it without blocking visible content.
   const connection = (navigator as Navigator & {
     connection?: { effectiveType?: string; saveData?: boolean }
   }).connection
@@ -682,31 +674,9 @@ function scheduleSwarmMount(fromNavigation: boolean) {
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
   mobileSwarmDeferred = mobileLite.value && constrained
-  // A warm desktop reload can create its WebGL context while the preloader is
-  // motionless at 99%. The preloader raises this flag only after its orbit has
-  // settled, so the measured context-creation task cannot hitch either motion.
-  const startPreboot = () => {
-    removeSwarmPreboot?.()
-    removeSwarmPreboot = null
-    if (stageUnmounted || swarmMount.value) return
-    void preloadThreeBundle()
-    requestAnimationFrame(mount)
-  }
-  if (!mobileLite.value) {
-    if (heroWebglPrebootRequested.value) startPreboot()
-    else {
-      removeSwarmPreboot = watch(
-        heroWebglPrebootRequested,
-        (requested) => {
-          if (requested) startPreboot()
-        },
-      )
-    }
-  }
-
   if (mobileLite.value && !mobileSwarmDeferred) {
-    // Fetch/parse the motion graph and current mobile HDR while the compact
-    // brand screen is still covering the page. Do not mount WebGL here:
+    // Fetch/parse the motion graph and current mobile HDR in an idle slot.
+    // Do not mount WebGL here:
     // Android can discard a canvas below visibility:hidden. The intro timeline
     // mounts it as soon as the media layer becomes paintable.
     const warmMobileScene = () => {
@@ -788,10 +758,10 @@ function scheduleSwarmMount(fromNavigation: boolean) {
     })
   }
 
-  if (preload.revealed.value) scheduleUpgrade()
+  if (initialReveal.revealed.value) scheduleUpgrade()
   else {
     const stop = watch(
-      () => preload.revealed.value,
+      () => initialReveal.revealed.value,
       (revealed) => {
         if (!revealed) return
         stop()
@@ -903,7 +873,7 @@ watch(
 
 /** Reveal a lit canvas first; ordinary SPA returns only need the safety lid. */
 watch(
-  [swarmLit, () => preload.revealed.value, glCoverLocked, sceneEntryArmed],
+  [swarmLit, () => initialReveal.revealed.value, glCoverLocked, sceneEntryArmed],
   ([lit, rev, coverLocked, entryArmed]) => {
     if (!lit || !rev || coverLocked) return
     if (entryArmed) {
@@ -949,7 +919,7 @@ onMounted(() => {
   })
 
   watch(
-    () => preload.revealed.value,
+    () => initialReveal.revealed.value,
     async (on) => {
       if (!on) {
         if (fromNav) return
@@ -1016,9 +986,9 @@ onMounted(() => {
           )
         }
         if (!mobileSwarmDeferred) {
-          // Resources were warmed under the brand screen. Mount only after the
-          // media layer is visible, then let HDR/PMREM and shader compilation run
-          // under the opaque stone lid while the copy finishes its entrance.
+          // Mount only after the media layer is visible, then let HDR/PMREM and
+          // shader compilation run under the opaque stone lid while the copy
+          // finishes its entrance.
           tl.call(() => requestSwarmMount?.(), [], 0.08)
         }
         // Begin motion early; shader/HDR readiness still owns the cover lift.
@@ -1091,8 +1061,6 @@ onUnmounted(() => {
   if (swarmFallbackTimer) window.clearTimeout(swarmFallbackTimer)
   removeSwarmIntent?.()
   removeSwarmIntent = null
-  removeSwarmPreboot?.()
-  removeSwarmPreboot = null
   requestSwarmMount = null
   introGen += 1
   introTl?.kill()

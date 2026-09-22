@@ -109,10 +109,6 @@ function syncFromScroll() {
 function flash(measureFirst = true) {
   if (measureFirst) metrics()
   if (!needed.value) return
-  if (document.documentElement.classList.contains('preload-lock')) {
-    visible.value = false
-    return
-  }
   visible.value = true
   window.clearTimeout(hideTimer)
   if (!dragging) {

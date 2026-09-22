@@ -19,6 +19,7 @@ const socialLinks = [
   { label: 'Instagram', href: 'https://www.instagram.com/kado_next/', content: 'text', text: 'Instagram*' },
   { label: 'Threads', href: 'https://www.threads.net/@kado.next', content: 'text', text: 'Threads*' },
 ] as const
+const socialLinkGroups = [socialLinks.slice(0, 3), socialLinks.slice(3)]
 
 const rootEl = ref<HTMLElement | null>(null)
 const surfaceEl = ref<HTMLElement | null>(null)
@@ -292,30 +293,36 @@ onUnmounted(() => {
         <h3><span>{{ t('home.about.heading') }}</span></h3>
         <p v-for="paragraph in aboutParagraphs" :key="paragraph">{{ paragraph }}</p>
         <nav class="home-about__socials" :aria-label="t('home.about.socialsLabel')">
-          <a
-            v-for="social in socialLinks"
-            :key="social.label"
-            :href="social.href"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="home-about__social-link"
-            :class="{ 'home-about__social-link--text': social.content === 'text' }"
-            :aria-label="social.label"
-            :title="social.label"
-            @mouseenter="onNavWaveEnter"
-            @mouseleave="onNavWaveLeave"
-            @focus="onNavWaveEnter"
-            @blur="onNavWaveLeave"
+          <span
+            v-for="(group, groupIndex) in socialLinkGroups"
+            :key="groupIndex"
+            class="home-about__social-group"
           >
-            <span
-              v-if="social.content === 'text'"
-              class="home-about__social-label"
+            <a
+              v-for="social in group"
+              :key="social.label"
+              :href="social.href"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="home-about__social-link"
+              :class="{ 'home-about__social-link--text': social.content === 'text' }"
+              :aria-label="social.label"
+              :title="social.label"
+              @mouseenter="onNavWaveEnter"
+              @mouseleave="onNavWaveLeave"
+              @focus="onNavWaveEnter"
+              @blur="onNavWaveLeave"
             >
-              {{ social.text }}
-              <TextLinkWave />
-            </span>
-            <component v-else :is="social.icon" aria-hidden="true" />
-          </a>
+              <span
+                v-if="social.content === 'text'"
+                class="home-about__social-label"
+              >
+                {{ social.text }}
+                <TextLinkWave />
+              </span>
+              <component v-else :is="social.icon" aria-hidden="true" />
+            </a>
+          </span>
         </nav>
       </div>
     </div>
@@ -391,6 +398,14 @@ onUnmounted(() => {
 .home-about__title-copy > span {
   overflow: hidden;
   white-space: nowrap;
+}
+
+.home-about__title-line {
+  /* Keep the reveal mask, but give descenders and end punctuation enough
+     painted space on compact Safari viewports. Negative margins preserve the
+     title's original measure and inter-line rhythm. */
+  margin: 0 -0.08em -0.12em 0;
+  padding: 0 0.08em 0.12em 0;
 }
 
 .home-about__title-line-text {
@@ -484,8 +499,16 @@ onUnmounted(() => {
   display: flex;
   margin-top: clamp(2rem, 3vw, 3.25rem);
   padding-top: clamp(1rem, 1.4vw, 1.5rem);
+  flex-wrap: wrap;
   align-items: center;
   border-top: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  gap: clamp(1rem, 1.4vw, 1.5rem);
+}
+
+.home-about__social-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
   gap: clamp(1rem, 1.4vw, 1.5rem);
 }
 
@@ -493,6 +516,7 @@ onUnmounted(() => {
   display: grid;
   width: clamp(2.15rem, 2.5vw, 2.75rem);
   height: clamp(2.15rem, 2.5vw, 2.75rem);
+  flex: 0 0 auto;
   place-items: center;
   color: var(--palette-ink);
   transition: color 0.28s var(--motion-ease, ease);

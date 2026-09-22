@@ -147,28 +147,13 @@ export default defineNuxtConfig({
       ],
       noscript: [{
         key: 'static-content-fallback',
-        innerHTML: '<style>.brand-preload{display:none!important}.home-hero__copy--intro-hidden,.case-detail--entering h1,.case-detail--entering .case-detail__meta,.case-detail--entering .case-detail__media{opacity:1!important;visibility:visible!important;transform:none!important}</style>',
+        innerHTML: '<style>.home-hero__copy--intro-hidden,.case-detail--entering h1,.case-detail--entering .case-detail__meta,.case-detail--entering .case-detail__media{opacity:1!important;visibility:visible!important;transform:none!important}</style>',
       }],
-      // Before first paint: warm revisit shows full black macron, not empty gray track.
       script: [
         {
           key: 'locale-redirect',
           innerHTML:
             "try{var p=location.pathname;if(!/^\\/(?:ru|en)(?:\\/|$)/.test(p)){var m=document.cookie.match(/(?:^|; )kadonext-locale=(ru|en)(?:;|$)/);var s=localStorage.getItem('kadonext-locale');var n=(navigator.languages&&navigator.languages[0])||navigator.language||'';var l=m?m[1]:(s==='ru'||s==='en'?s:(/^ru(?:-|$)/i.test(n)?'ru':'en'));document.cookie='kadonext-locale='+l+'; Path=/; Max-Age=31536000; SameSite=Lax';localStorage.setItem('kadonext-locale',l);location.replace('/'+l+(p==='/'?'/':p)+location.search+location.hash)}}catch(e){}",
-          tagPosition: 'head',
-        },
-        {
-          key: 'preload-warm',
-          innerHTML:
-            "try{if(localStorage.getItem('kadonext-preload-seen')==='1')document.documentElement.setAttribute('data-preload-warm','1')}catch(e){}",
-          tagPosition: 'head',
-        },
-      ],
-      style: [
-        {
-          key: 'preload-warm-css',
-          innerHTML:
-            'html[data-preload-warm] .brand-preload__arc:not(.brand-preload__arc--track){stroke-dashoffset:0!important}',
           tagPosition: 'head',
         },
       ],

@@ -38,7 +38,6 @@ const TOUCH_VELOCITY_SAMPLE_BLEND = 0.72
 const TOUCH_RELEASE_STALE_MS = 110
 
 const SCROLL_LOCKS = [
-  'preload-lock',
   'page-canvas-lock',
   'page-iris-lock',
 ] as const
@@ -64,13 +63,13 @@ const SCROLL_KEYS = new Set([
  * permanent animation loop.
  */
 export default defineNuxtPlugin((nuxtApp) => {
+  const homeScrollReady = useState<boolean>('home-scroll-driver-ready', () => false)
   let lenis: import('lenis').default | null = null
   let gsap: typeof import('gsap').default | null = null
   let ScrollTrigger: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
   let lockObserver: MutationObserver | null = null
   let tickerAttached = false
   let createGeneration = 0
-  let idleId: number | null = null
   let touchSampleY: number | null = null
   let touchSampleAt = 0
   let touchVelocityPxPerSec = 0
@@ -436,9 +435,10 @@ export default defineNuxtPlugin((nuxtApp) => {
       publishAppliedScrollFrame(scroll, 'lenis')
     })
     setAppliedScrollDriverConnected(true)
-    // Reconcile a gesture that may have moved the native document while the
-    // lazy Lenis runtime was being created.
+    // Reconcile any position change that happened while the runtime was being
+    // created (for example a restored route position).
     publishAppliedScrollFrame(lenis.scroll, 'lenis')
+    homeScrollReady.value = true
 
     lockObserver = new MutationObserver(syncRunState)
     lockObserver.observe(document.documentElement, {
@@ -450,7 +450,13 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   function syncInputMode() {
     destroy()
-    if (runtimeEnabled()) void create()
+    if (runtimeEnabled()) {
+      homeScrollReady.value = false
+      void create()
+    } else {
+      // Native scroll is the complete driver on iOS / non-smooth input modes.
+      homeScrollReady.value = true
+    }
   }
 
   function scrollToSection(target: HTMLElement, immediate = false) {
@@ -563,25 +569,14 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   nuxtApp.hook('app:mounted', () => {
-    const activate = () => void create()
-    if (controlledTouchEnabled()) {
-      // Attach before normal mobile interaction instead of creating Lenis
-      // halfway through a slow first gesture after the idle timeout.
+    if (runtimeEnabled()) {
+      // Construct the driver before the first interaction. A
+      // wheel listener that merely starts this async work cannot consume that
+      // same wheel event: the browser applies it natively, producing one hard
+      // jump before every later gesture reaches Lenis.
       void create()
-    } else if (runtimeEnabled()) {
-      // Fetch and evaluate the small smooth-scroll runtime immediately after
-      // the first paint. If the user wheels before the idle constructor runs,
-      // that gesture no longer pays for three cold dynamic imports.
-      requestAnimationFrame(() => void loadRuntime())
-      // Hydration and the first visual response keep priority. A short timeout
-      // still makes wheel smoothing ready before normal desktop interaction.
-      if (typeof window.requestIdleCallback === 'function') {
-        idleId = window.requestIdleCallback(activate, { timeout: 1200 })
-      } else {
-        window.setTimeout(activate, 350)
-      }
-      window.addEventListener('wheel', activate, { once: true, passive: true })
-      window.addEventListener('touchstart', activate, { once: true, passive: true })
+    } else {
+      homeScrollReady.value = true
     }
     wheelQuery.addEventListener('change', syncInputMode)
     touchQuery.addEventListener('change', syncInputMode)
@@ -597,9 +592,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   if (import.meta.hot) {
     import.meta.hot.dispose(() => {
-      if (idleId !== null && 'cancelIdleCallback' in window) {
-        window.cancelIdleCallback(idleId)
-      }
       wheelQuery.removeEventListener('change', syncInputMode)
       touchQuery.removeEventListener('change', syncInputMode)
       narrowQuery.removeEventListener('change', syncInputMode)

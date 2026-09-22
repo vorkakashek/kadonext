@@ -784,7 +784,6 @@
   "accessibility": {
     "brandHome": "KADO — на главную",
     "brandHomeRu": "KADO — на главную",
-    "preload": "Загрузка {percent} процентов",
     "connectionOptimized": "бережная загрузка для текущего соединения",
     "ambientSoundEmpty": "Звук пока не выбран",
     "enableVibration": "Включить вибрацию",

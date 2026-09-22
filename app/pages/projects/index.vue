@@ -7,8 +7,6 @@ const { t } = useI18n()
 const localePath = useLocalePath()
 const homeCases = useHomeCases()
 const projectsCatalogTitle = computed(() => t('projects.catalog.title'))
-const preload = useBrandPreload()
-const preloaderEnabled = useBrandPreloaderEnabled()
 const { pageIrisLive } = usePageCanvas()
 const projectsCatalogEl = ref<HTMLElement | null>(null)
 const projectsHeaderEl = ref<HTMLElement | null>(null)
@@ -20,8 +18,7 @@ let initialRevealTimelines: Array<{ play: () => unknown }> = []
 let initialRevealPlayed = false
 
 const pageRevealReady = computed(() => (
-  (!preloaderEnabled.value || preload.revealed.value)
-  && !pageIrisLive.value
+  !pageIrisLive.value
 ))
 
 function playInitialCardReveal() {

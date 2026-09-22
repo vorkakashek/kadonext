@@ -15,11 +15,11 @@
     },
     "privacy": {
       "title": "Personal data processing policy — KADO",
-      "description": "How KADO processes personal data from kadonext.com visitors: enquiry data, purposes, storage, cookies and visitor rights."
+      "description": "How KADO processes personal data from kadonext.com visitors: inquiry data, purposes, storage, cookies and visitor rights."
     },
     "consent": {
       "title": "Consent to personal data processing — KADO",
-      "description": "Terms of consent to personal data processing when submitting an enquiry through the KADO website: data involved, purposes and withdrawal procedure."
+      "description": "Terms of consent to personal data processing when submitting an inquiry through the KADO website: data involved, purposes and withdrawal procedure."
     },
     "cases": {
       "audience": {
@@ -28,7 +28,7 @@
       },
       "keys-store": {
         "title": "Keys Store — digital marketplace UX/UI design | KADO",
-        "description": "Keys Store case study: logo, UX/UI and design system for a digital goods marketplace, including game and subscription catalogues, product pages, cart and checkout."
+        "description": "Keys Store case study: logo, UX/UI and design system for a digital goods marketplace, including game and subscription catalogs, product pages, cart and checkout."
       },
       "baltika": {
         "title": "Baltika Brew — web design, 3D and animation | KADO",
@@ -102,18 +102,18 @@
       ],
       "descriptionLines": [
         "I create distinctive websites.",
-        "from structure to launch."
+        "From structure to launch."
       ],
       "sloganLines": [
         "freedom of form.",
-        "order in process"
+        "order in the process"
       ]
     },
     "kado": {
       "imageAlt": "Stone",
       "title": "Kadō — the way of flowers.",
-      "definition": "A Japanese art of composition in which the freedom of natural form finds a precise order.",
-      "body": "KADO brings this principle into the digital world: it creates a distinct visual language for every challenge and shapes it into a working system."
+      "definition": "The Japanese art of composition, where the freedom of natural forms finds precise order.",
+      "body": "KADO brings this principle into the digital world: each project finds its own visual language, shaped into a clear, working system."
     },
     "cases": {
       "title": "Projects",
@@ -145,7 +145,7 @@
         },
         {
           "title": "Development and motion",
-          "description": "When a finished design needs to be carried faithfully into the browser and brought to life through motion.",
+          "description": "When a finished design needs to be translated faithfully into the browser and brought to life through motion.",
           "preview": "/home/work/003-960.webp",
           "previewAvif": "/home/work/003-960.avif",
           "alt": "Mobile interface for a medical website on a smartphone"
@@ -163,10 +163,10 @@
       "titleLines": ["A personal perspective.", "One coherent result."],
       "portraitAlt": "Anton, founder of KADO",
       "roles": "art direction  ·  UX/UI  ·  development  ·  motion",
-      "location": "moscow  ·  working worldwide",
+      "location": "moscow  ·  worldwide",
       "heading": "About me",
       "paragraphs": [
-        "My name is Anton. I am a designer, developer and the founder of KADO. I personally lead the key stages of every project: immersing myself in the challenge, shaping the structure and visual direction, designing interactions and contributing to development. After launch, I stay involved: supporting the website, releasing updates and refining its functionality and visual design as the project evolves.",
+        "My name is Anton. I am a designer, developer and the founder of KADO. I personally lead the key stages of every project: getting to the heart of the brief, shaping the structure and visual direction, designing interactions and contributing to development. After launch, I stay involved: supporting the website, releasing updates and refining its functionality and visual language as the project evolves.",
         "I create websites as coherent digital spaces, each with its own character, clear logic and motion that serves the content rather than existing for effect."
       ],
       "socialsLabel": "Social media"
@@ -175,7 +175,7 @@
       "label": "Discuss a project",
       "title": "if this approach speaks to you,<br>tell me about your project.",
       "personalPrefix": "I ",
-      "personal": "read every enquiry myself<br>and reply personally.",
+      "personal": "read every inquiry myself<br>and reply personally.",
       "taskLabel": "What do you need?",
       "clearTask": "Clear project type",
       "suggestionsLabel": "Suggestions",
@@ -221,7 +221,7 @@
         "roleTags": [
           "art direction",
           "UX/UI design",
-          "end to end"
+          "end-to-end"
         ],
         "media": {
           "alt": "Audience cuisine and seasonal menu section on a smartphone"
@@ -241,7 +241,7 @@
           "logo",
           "UX/UI design",
           "design system",
-          "catalogues",
+          "catalogs",
           "checkout"
         ],
         "media": {
@@ -309,22 +309,22 @@
           {
             "title": "Visual language as part of navigation.",
             "paragraphs": [
-              "The visual system does not imitate Eastern aesthetics through decoration. It is built on depth, natural textures, the contrast of light and shadow, open space and a restrained pace of interaction. These principles run consistently through every part of the website.",
-              "Navigation connects the concept, interior, menu and service. The same structure supports three language versions: Russian, English and Chinese."
+              "The visual system avoids decorative imitation of Eastern aesthetics. It is built on depth, natural textures, the contrast of light and shadow, open space and a restrained pace of interaction. These principles run consistently through every part of the website.",
+              "Navigation connects the concept, interior, menu and service. The same structure supports three languages: Russian, English and Chinese."
             ],
             "media": {
               "alt": "Mobile version of the Audience website on a smartphone held in one hand"
             }
           },
           {
-            "title": "How do you organise a complex content structure?",
+            "title": "How do you organize a complex content structure?",
             "lead": {
               "media": {
                 "alt": "Audience homepage with a waterfall image on a tablet"
               },
-              "text": "Every menu area received its own structure of categories, cards and editorial material."
+              "text": "Each menu section has its own structure of categories, cards and editorial content."
             },
-            "fillText": "Each area has its own structure, categories, cards and content.",
+            "fillText": "Each section has its own structure, categories, cards and content.",
             "rows": [
               {
                 "feature": {
@@ -349,7 +349,7 @@
           {
             "title": "Motion as part of<br>navigation.",
             "paragraphs": [
-              "Animation connects screens, marks transitions between sections and supports the reading order without becoming performative."
+              "Animation connects screens, marks transitions between sections and supports the reading order without turning into a spectacle."
             ],
             "media": [
               {
@@ -392,35 +392,35 @@
                 "alt": "Keys Store mobile interface in a still-life composition with dark stones"
               }
             ],
-            "statement": "The task was not to make yet another catalogue. It was to create a commerce system where people immediately understand what they are buying, which platform it works on and how to complete the transaction."
+            "statement": "The task was not to make yet another catalog. It was to create a commerce system where people immediately understand what they are buying, which platform it works on and how to complete the transaction."
           },
           {
-            "title": "A shared language<br>for every catalogue.",
+            "title": "A shared language<br>for every catalog.",
             "paragraphs": [
-              "We created one language for all catalogues: a shared grid, cards, filters, typographic hierarchy, statuses and price treatment. Moving between areas, users retain a familiar logic.",
+              "We created one language for all catalogs: a shared grid, cards, filters, typographic hierarchy, statuses and price treatment. Moving between areas, users retain a familiar logic.",
               "The system adapts to the product: a game shows platform and delivery method, a subscription its term and contents, and a Steam item its availability, purchase price and sale price."
             ],
             "media": {
-              "alt": "Keys Store game catalogue with search and filters on a laptop"
+              "alt": "Keys Store game catalog with search and filters on a laptop"
             }
           },
           {
             "title": "The differences remain visible.<br>The system stays coherent.",
             "paragraphs": [
-              "A shared style does not mean identical interfaces. Each catalogue gets its own emphasis and only the information needed to make a decision in that specific journey."
+              "A shared style does not mean identical interfaces. Each catalog gets its own emphasis and only the information needed to make a decision in that specific journey."
             ],
             "media": [
               {
-                "alt": "Keys Store mobile game catalogue with cards and prices"
+                "alt": "Keys Store mobile game catalog with cards and prices"
               },
               {
-                "alt": "Counter-Strike item catalogue in the Keys Store mobile interface"
+                "alt": "Counter-Strike item catalog in the Keys Store mobile interface"
               },
               {
-                "alt": "PlayStation Plus subscription cards in the Keys Store mobile catalogue"
+                "alt": "PlayStation Plus subscription cards in the Keys Store mobile catalog"
               },
               {
-                "alt": "Team Fortress 2 item catalogue on a smartphone"
+                "alt": "Team Fortress 2 item catalog on a smartphone"
               }
             ],
             "statement": "Product complexity is not hidden behind decorative uniformity; it is translated into clear decision-making criteria."
@@ -438,7 +438,7 @@
           {
             "title": "Trust is built<br>into the interface.",
             "paragraphs": [
-              "The design explains how each transaction works, shows availability and timing, records order status and makes the terms transparent, from choosing a product to receiving a game or a payout for a sale."
+              "The design explains how each transaction works, shows availability and timing, tracks order status and makes the terms transparent, from choosing a product to receiving a game or a payout for a sale."
             ],
             "media": [
               {
@@ -452,8 +452,8 @@
           {
             "title": "Identity is<br>part of the product.",
             "paragraphs": [
-              "The logo and visual language bring diverse areas together in one recognisable product. Vibrant game imagery identifies categories while the interface shell keeps a common rhythm.",
-              "Identity does not exist apart from UX: it helps people recognise areas, platforms and service types more quickly."
+              "The logo and visual language bring diverse areas together in one recognizable product. Vibrant game imagery distinguishes the categories, while the interface shell maintains a common rhythm.",
+              "Identity does not exist apart from UX: it helps people recognize areas, platforms and service types more quickly."
             ],
             "media": {
               "alt": "Green and purple game controller with the Keys Store logo"
@@ -474,10 +474,10 @@
         },
         "blocks": [
           {
-            "title": "The challenge and<br>the design object.",
+            "title": "The challenge and<br>the central object.",
             "paragraphs": [
-              "For Baltika Brew, we developed the brand website structure, visual concept and a set of 3D scenes. This case study records the team's decisions and the stages of creating the digital interface.",
-              "The bottle model became the central graphic object. It demonstrated the principles of composition, material treatment and interface behaviour across different screens.",
+              "For Baltika Brew, we developed the brand website structure, visual concept and a set of 3D scenes. This case study documents the team's decisions and the key stages behind the digital interface.",
+              "The bottle model became the central graphic object. It established the principles of composition, material treatment and interface behavior across different screens.",
               "To comply with Russian law, certain elements in the imagery and layouts shown in this case study have been concealed or replaced with neutral alternatives."
             ],
             "media": [
@@ -496,7 +496,7 @@
             "title": "The label as part of<br>the visual system.",
             "paragraphs": [
               "The label artwork was integrated into the 3D model and connected with the background scenes. This established one presentation principle for several products in the range.",
-              "Products were distinguished through colour, imagery and scene parameters, while the navigation and page structure remained consistent."
+              "Products were distinguished through color, imagery and scene parameters, while the navigation and page structure remained consistent."
             ],
             "media": {
               "alt": "Baltika Brew homepage with a 3D bottle on a laptop"
@@ -505,7 +505,7 @@
           {
             "title": "Original imagery<br>for every product.",
             "paragraphs": [
-              "For each product, we selected an original photograph and developed an individual scene. Colour, texture and scale distinguish the screens, while the overall composition connects each visual story into one system."
+              "For each product, we selected an original photograph and developed an individual scene. Color, texture and scale distinguish the screens, while the overall composition connects each visual story into one system."
             ],
             "media": [
               {
@@ -540,7 +540,7 @@
           {
             "title": "Reference material<br>without visual noise.",
             "paragraphs": [
-              "For extensive reference material, we developed distinct typographic levels and compact information modules.",
+              "For extensive reference material, we developed a clear typographic hierarchy and compact information modules.",
               "Content follows a clear visual hierarchy, keeping the screen readable without competing with the main 3D scene."
             ],
             "media": {
@@ -550,7 +550,7 @@
           {
             "title": "Editorial and<br>reference sections.",
             "paragraphs": [
-              "News and reference material share common navigation and a repeatable page structure. This case study treats the section as part of the website's information architecture."
+              "News and reference material share a common navigation system and a repeatable page structure. This case study treats the section as part of the website's information architecture."
             ],
             "media": [
               {
@@ -587,7 +587,7 @@
           {
             "title": "A brand story<br>in a horizontal rhythm.",
             "paragraphs": [
-              "Instead of the familiar downward movement, users travel through the SCHMIDT website from left to right. Identity, editorial blocks and interface scenes become one continuous sequence."
+              "Instead of the familiar downward movement, users travel through the SCHMIDT website from left to right. Brand identity, editorial blocks and interface scenes become one continuous sequence."
             ],
             "media": [
               {
@@ -644,7 +644,7 @@
           {
             "title": "The range continues<br>through distinct journeys.",
             "paragraphs": [
-              "Every product receives its own screen with an individual composition, colour accent and arrangement of content.",
+              "Every product receives its own screen with an individual composition, color accent and arrangement of content.",
               "Shared grid and typographic rules hold the sections together, while varied layouts prevent mechanical repetition."
             ],
             "media": {
@@ -655,14 +655,14 @@
             "title": "One rhythm.<br>Different screens.",
             "paragraphs": [
               "On a wide screen, the story unfolds as a long horizontal composition. On narrow screens, the order of scenes remains while guidance becomes more explicit.",
-              "Responsive design is judged not by shrinking blocks, but by preserving the same rhythm of discovering the brand."
+              "Responsive design is not about shrinking blocks, but about preserving the same rhythm of discovering the brand."
             ],
             "media": {
               "alt": "SCHMIDT website pages on a laptop with horizontal navigation"
             }
           },
           {
-            "text": "For SCHMIDT, we created a distinctive website with unified art direction, a horizontal rhythm and interactive animation. Grid, typography and object imagery connect every section in a coherent digital brand story."
+            "text": "For SCHMIDT, we created a distinctive website with cohesive art direction, a horizontal rhythm and interactive animation. Grid, typography and object imagery connect every section in a coherent digital brand story."
           }
         ],
         "closing": {
@@ -675,11 +675,11 @@
     "stubNote": "A draft page for Page Canvas navigation. Full content is coming next.",
     "services": {
       "title": "Services",
-      "blurb": "One approach: a distinctive end-to-end website. Every way of working, on one page."
+      "blurb": "One approach: a distinctive end-to-end website. Every way of working, all on one page."
     },
     "contact": {
       "title": "Contact",
-      "blurb": "Tell me about your project, and we will work through the challenge."
+      "blurb": "Tell me about your project, and we will work out what it needs."
     }
   },
   "footer": {
@@ -693,7 +693,7 @@
       "this website remembers",
       "a few things too 🍪"
     ],
-    "text": "Essential cookies and browser storage remember your settings and avoid showing the same thing twice.",
+    "text": "Essential cookies and browser storage remember your settings, so you do not see the same prompts twice.",
     "note": "Nothing personal. Literally.",
     "details": "What exactly?",
     "accept": "ok"
@@ -702,7 +702,7 @@
     "addVoice": "Add another voice message",
     "recordVoice": "Record a voice message",
     "descriptionRequired": "Tell me about the project in writing or record a voice message.",
-    "submitFailed": "I couldn't send your enquiry. Your text and recordings are still on this page — try again or email hello@kadonext.com.",
+    "submitFailed": "Your inquiry could not be sent. Your text and recordings are still on this page — try again or email hello@kadonext.com.",
     "sendingStatus": "Sending your message…",
     "sentStatus": "Message sent. Thank you for reaching out — I will get back to you personally soon.",
     "fieldset": "Project details",
@@ -715,7 +715,7 @@
     "clearContact": "Clear contact details",
     "consentBefore": "I give",
     "consentLink": "consent to the processing of my personal data",
-    "consentAfter": "so that my enquiry can be reviewed and answered.",
+    "consentAfter": "so that my inquiry can be reviewed and answered.",
     "policy": "Personal data processing policy",
     "honeypot": "Your website",
     "sending": "Sending…",
@@ -784,8 +784,7 @@
   "accessibility": {
     "brandHome": "KADO — home",
     "brandHomeRu": "KADO — home",
-    "preload": "Loading: {percent} percent",
-    "connectionOptimized": "lighter loading for your current connection",
+    "connectionOptimized": "optimized loading for your current connection",
     "ambientSoundEmpty": "No sound selected yet",
     "enableVibration": "Enable vibration",
     "disableVibration": "Disable vibration",

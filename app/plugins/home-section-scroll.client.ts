@@ -25,7 +25,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       const sectionLink = homeToHome
         && isHomeAnchorTarget(to.hash.slice(1))
       const homeTopLink = homeToHome && !to.hash && !!from.hash
-      const locked = ['preload-lock', 'page-canvas-lock', 'page-iris-lock'].some(
+      const locked = ['page-canvas-lock', 'page-iris-lock'].some(
         name => document.documentElement.classList.contains(name),
       )
       if ((!sectionLink && !homeTopLink) || savedPosition || locked) {
@@ -47,7 +47,6 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
 
     router.options.scrollBehavior = scrollBehavior
-    let stopInitialAnchor: () => void = () => {}
     let initialAnchorCancelled = false
     const cancelInitialAnchor = () => {
       initialAnchorCancelled = true
@@ -58,24 +57,21 @@ export default defineNuxtPlugin((nuxtApp) => {
     const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
     if (baseRoutePath(window.location.pathname) === '/' && window.location.hash === '#contact'
       && !isThumbNav() && navigation?.type !== 'back_forward') {
-      const preload = useBrandPreload()
       window.addEventListener('pointerdown', cancelInitialAnchor, { capture: true, passive: true })
       window.addEventListener('wheel', cancelInitialAnchor, { capture: true, passive: true })
       window.addEventListener('keydown', cancelInitialAnchor, { capture: true })
-      stopInitialAnchor = watch(preload.revealed, (ready) => {
-        if (!ready) return
-        // Position under the preloader, before its reveal can paint the page.
-        if (!initialAnchorCancelled && baseRoutePath(router.currentRoute.value.path) === '/'
-          && router.currentRoute.value.hash === '#contact') {
-          const target = document.getElementById('contact')
-          if (target) nuxtApp.$scrollToSection(target, true)
-        }
-        cancelInitialAnchor()
-        stopInitialAnchor()
-      }, { immediate: true, flush: 'sync' })
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!initialAnchorCancelled && baseRoutePath(router.currentRoute.value.path) === '/'
+            && router.currentRoute.value.hash === '#contact') {
+            const target = document.getElementById('contact')
+            if (target) nuxtApp.$scrollToSection(target, true)
+          }
+          cancelInitialAnchor()
+        })
+      })
     }
     import.meta.hot?.dispose(() => {
-      stopInitialAnchor()
       cancelInitialAnchor()
       if (router.options.scrollBehavior === scrollBehavior) {
         router.options.scrollBehavior = defaultScrollBehavior

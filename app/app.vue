@@ -2,19 +2,14 @@
 const enhancementsReady = ref(false)
 const route = useRoute()
 const basePath = computed(() => baseRoutePath(route.path))
-const brandPreloaderEnabled = useBrandPreloaderEnabled()
+// Capture the initial document route. Later SPA navigation keeps using the
+// dedicated page/case transitions and should not be treated as a cold load.
 const initialHomeDocument = basePath.value === '/'
+useState<boolean>('initial-home-document', () => initialHomeDocument)
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const cursorReady = computed(
   () => enhancementsReady.value && (!initialHomeDocument || heroWebglBooted.value),
 )
-
-// Capture only the initial document route. Later SPA navigation is covered by
-// the dedicated page/case transitions and must not remount the brand reveal.
-brandPreloaderEnabled.value = !/^\/projects\/[^/]+$/.test(basePath.value)
-if (import.meta.client && !brandPreloaderEnabled.value) {
-  useBrandPreload().bypass()
-}
 
 useSiteSeo()
 
@@ -39,7 +34,6 @@ onMounted(() => {
 
 <template>
   <div>
-    <BrandPreloader v-if="brandPreloaderEnabled" />
     <div class="pc-live-stack">
       <div class="page-shell">
         <div class="page-shell__paint">
@@ -63,17 +57,13 @@ onMounted(() => {
 </template>
 
 <style>
-/* Opaque startup/navigation overlays must not let the document move underneath.
-   In particular, an early wheel/touch during preload must not advance the
-   scroll-owned Flow Surface while its Hero scene is still being revealed. */
-html.preload-lock,
+/* Opaque navigation overlays must not let the document move underneath. */
 html.page-canvas-lock,
 html.page-iris-lock {
   overflow: hidden;
   overscroll-behavior: none;
 }
 
-html.preload-lock body,
 html.page-canvas-lock body,
 html.page-iris-lock body {
   overflow: hidden;
@@ -83,11 +73,6 @@ html.page-iris-lock body {
 /* Lid over the swarm snaps off while the page iris still covers. */
 html.page-iris-lock .hero-swarm-cover {
   transition: none !important;
-}
-
-/* First paint for warm revisit — full black macron, not empty gray track. */
-html[data-preload-warm] .brand-preload__arc:not(.brand-preload__arc--track) {
-  stroke-dashoffset: 0 !important;
 }
 
 .pc-live-stack {

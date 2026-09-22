@@ -34,8 +34,6 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   let returnFrom = 0
   let returnStartedAt: number | null = null
   let returnProgress = 0
-  let easedReturn = false
-  let velocity = 0
   let returning = false
   let ownsScroll = false
   let lastWrittenY = -1
@@ -54,7 +52,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
 
   function available() {
     return active && !document.hidden && !reducedMotion?.matches
-      && !['preload-lock', 'page-canvas-lock', 'page-iris-lock'].some(name =>
+      && !['page-canvas-lock', 'page-iris-lock'].some(name =>
         document.documentElement.classList.contains(name),
       )
   }
@@ -107,7 +105,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     touchId = null
     nativeTouchGesture = false
     dragging = returning = ownsScroll = false
-    rawPull = offset = target = returnFrom = returnProgress = velocity = 0
+    rawPull = offset = target = returnFrom = returnProgress = 0
     returnStartedAt = null
     wheelPull = false
     wheelFrom = wheelElapsed = 0
@@ -122,21 +120,14 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     }
     const dt = Math.min(0.032, lastTime ? (time - lastTime) / 1000 : 1 / 60)
     lastTime = time
-    if (returning && easedReturn) {
+    if (returning) {
       returnStartedAt ??= time
       returnProgress = Math.min(1, (time - returnStartedAt) / RETURN_MS)
-      // Smootherstep starts and ends with zero speed and acceleration.
+      // A time-based return stays visually consistent when mobile Safari drops
+      // a frame; the previous integrated spring visibly fell behind there.
       const p = returnProgress
       const eased = p * p * p * (p * (p * 6 - 15) + 10)
       offset = Math.max(0, returnFrom * (1 - eased))
-    } else if (returning) {
-      // Keep the existing mobile spring and touch-release response.
-      const steps = Math.ceil(dt / (1 / 120))
-      const step = dt / steps
-      for (let i = 0; i < steps; i++) {
-        velocity += (-180 * offset - 25 * velocity) * step
-        offset = Math.max(0, offset + velocity * step)
-      }
     } else if (wheelPull) {
       wheelElapsed = Math.min(WHEEL_DURATION, wheelElapsed + dt)
       offset = wheelFrom + (target - wheelFrom) * wheelEasing(wheelElapsed / WHEEL_DURATION)
@@ -144,7 +135,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
       offset += (target - offset) * (1 - Math.exp(-24 * dt))
     }
     const settled = returning
-      ? (easedReturn ? returnProgress >= 1 : offset < 0.25 && Math.abs(velocity) < 3)
+      ? returnProgress >= 1
       : (wheelPull ? wheelElapsed >= WHEEL_DURATION : Math.abs(target - offset) < 0.25)
     if (settled) offset = returning ? 0 : target
     write(restY + offset)
@@ -172,7 +163,6 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     ownsScroll = true
     returning = false
     wheelPull = false
-    velocity = 0
   }
 
   function returnToFooter() {
@@ -190,8 +180,6 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     }
     ownsScroll = returning = true
     target = 0
-    velocity = 0
-    easedReturn = !isThumbNav()
     returnFrom = offset
     returnProgress = 0
     returnStartedAt = null
@@ -261,8 +249,16 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     touchX = touch.clientX
     touchY = touch.clientY
     touchScroll = window.scrollY
-    // One continuous swipe across 70% of the stable screen can reveal it all.
-    touchPullDistance = Math.max(1, stableViewportHeight * MOBILE_PULL_SCREEN_P)
+    // Never let the resisted region advance faster than the finger at entry.
+    // Compact iPhones otherwise amplify the first touch movement because the
+    // photo is tall relative to the viewport, making this section feel sharper
+    // than the native page scroll around it.
+    const oneToOnePullDistance = limit * RESISTANCE_EXPONENT / RESISTANCE_NORMALIZER
+    touchPullDistance = Math.max(
+      1,
+      stableViewportHeight * MOBILE_PULL_SCREEN_P,
+      oneToOnePullDistance,
+    )
     touchPull = unresist(Math.max(0, touchScroll - restY), touchPullDistance)
     window.clearTimeout(idleTimer)
     stopFrame()

@@ -1130,14 +1130,13 @@ onMounted(() => {
     applyFabLabel(true)
   })
 
-  const preload = useBrandPreload()
-  // Keep the SSR-hidden shell covered even when a direct case route bypassed
-  // the brand preloader before this component mounted. The immediate watcher
-  // still has to load GSAP and stage every child; uncovering here produced a
-  // visible → hidden → animated sequence during that async gap.
+  const initialReveal = useInitialReveal()
+  // Keep the SSR-hidden shell covered while the immediate watcher loads GSAP
+  // and stages every child; uncovering earlier produces a visible → hidden →
+  // animated sequence during that async gap.
 
   watch(
-    () => preload.revealed.value,
+    () => initialReveal.revealed.value,
     async (on) => {
       if (!on) return
       const g = await gsap()

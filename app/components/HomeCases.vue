@@ -86,10 +86,10 @@ const showCaseArrow = ref(false)
 let caseArrowTimer = 0
 /**
  * The first case image should not compete with the hero's initial payload.
- * Once the brand reveal is complete, warm and decode it while the browser is idle
- * so the Kado → Cases handoff has a ready raster.
+ * Warm and decode the first case while the browser is idle so the Kado → Cases
+ * handoff has a ready raster without competing with the initial Hero.
  */
-const preload = useBrandPreload()
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
 const {
   openCaseDetail,
 } = useCaseDetailTransition()
@@ -385,7 +385,7 @@ const warmedCaseMedia = new Map<string, HTMLImageElement>()
 function isColdCasesHashEntry() {
   return typeof window !== 'undefined'
     && window.location.hash === '#cases'
-    && !preload.revealed.value
+    && initialHomeDocument.value
     && !caseDetailHomeReturnActive.value
 }
 
@@ -425,7 +425,7 @@ function scheduleFirstCaseWarm() {
   const directCasesEntry = isColdCasesHashEntry()
   if (
     initialCaseWarmScheduled
-    || (!directCasesEntry && (!preload.revealed.value || !firstCaseNear))
+    || (!directCasesEntry && !firstCaseNear)
   ) return
   initialCaseWarmScheduled = true
   // At /#cases this image is in the initial viewport, not a later enhancement.
@@ -445,12 +445,6 @@ function scheduleFirstCaseWarm() {
     globalThis.setTimeout(warm, 250)
   }
 }
-
-watch(
-  () => preload.revealed.value,
-  scheduleFirstCaseWarm,
-  { immediate: true },
-)
 
 let gsapMod: typeof import('gsap').default | null = null
 let stMod: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null

@@ -7,40 +7,40 @@ const sections = [
   {
     title: 'Giving consent',
     paragraphs: [
-      'Freely, voluntarily and in my own interest, I consent to Anton Alekseevich Khokhlov processing the personal data I submit through the enquiry form on kadonext.com.',
-      'I give consent by selecting the relevant checkbox and submitting the form. It covers reviewing and responding to my enquiry and does not include advertising mailings, web analytics or public distribution of my data.',
+      'Freely, voluntarily and in my own interest, I consent to the processing by Anton Alekseevich Khokhlov of the personal data I submit through the inquiry form on kadonext.com.',
+      'I give consent by selecting the relevant checkbox and submitting the form. It covers reviewing and responding to my inquiry and does not include advertising mailings, web analytics or public distribution of my data.',
     ],
   },
-  { title: 'Purpose of processing', paragraphs: ['Reviewing the enquiry, understanding the project challenge, contacting me using the details provided, discussing the project and preparing a proposal in response to my enquiry.'] },
+  { title: 'Purpose of processing', paragraphs: ['Reviewing the inquiry, understanding the project brief, contacting me using the details provided, discussing the project and preparing a proposal in response to my inquiry.'] },
   {
     title: 'Data involved',
     paragraphs: [
-      'My name or chosen identifier, email address, messenger username and telephone number, to the extent I include them in the contact field; the project challenge and description; and other information about me that I voluntarily include in the enquiry.',
-      'If I attach voice messages, this consent covers the selected recordings containing my voice and project description. They are used to understand and answer the enquiry, not to identify me by my voice. Voice messages are optional; I may describe the project in writing.',
+      'My name or chosen identifier, email address, messenger username and telephone number, to the extent I include them in the contact field; the project brief and description; and other information about me that I voluntarily include in the inquiry.',
+      'If I attach voice messages, this consent covers the selected recordings containing my voice and project description. They are used to understand and answer the inquiry, not to identify me by my voice. Voice messages are optional; I may describe the project in writing.',
       'The fact that consent was given, the consent text and version, and the date and time of submission are retained as evidence. I should not include passport data, health information, other special categories of personal data or another person’s data without a lawful basis.',
     ],
   },
   {
     title: 'Actions involving the data',
     paragraphs: [
-      'Processing may be automated or non-automated and may include collection, recording, organisation, accumulation, storage, correction, retrieval, use, granting necessary access to processors, restriction, deletion and destruction.',
+      'Processing may be automated or non-automated and may include collection, recording, organization, accumulation, storage, correction, retrieval, use, providing processors with necessary access, restriction, deletion and destruction.',
       'After submission, data is sent to a server-side processor and delivered over an encrypted SMTP connection to the operator’s private mailbox. Voice messages are temporarily stored on the server for validation and MP3 conversion. Temporary files are deleted after processing; delivered text, recordings and the consent snapshot remain in the mailbox until the operator deletes them.',
-      'Hosting, SMTP delivery and mailbox providers may process the data to the extent required to receive, deliver and store the enquiry and reply to it, on a lawful basis and subject to applicable confidentiality and security requirements.',
+      'Hosting, SMTP delivery and mailbox providers may process the data to the extent required to receive, deliver and store the inquiry and enable a reply. Such processing must have a lawful basis and meet the applicable confidentiality and security requirements.',
     ],
   },
   {
     title: 'Delivery by email',
     paragraphs: [
-      'I have been informed that a server-side processor and the REG.RU email service with the operator’s private mailbox are used to deliver and store the enquiry. The providers receive the enquiry and attachments only to the extent needed to deliver and store the email.',
+      'I have been informed that a server-side processor and the REG.RU email service with the operator’s private mailbox are used to deliver and store the inquiry. The providers receive the inquiry and attachments only to the extent needed to deliver and store the email.',
       'If the selected provider’s infrastructure involves a cross-border transfer, that delivery channel is enabled only after the operator has complied with the applicable requirements of Russian law.',
     ],
   },
   {
     title: 'Duration and withdrawal',
     paragraphs: [
-      'This consent remains valid until the processing purpose is fulfilled, but for no more than three years after the last substantive contact concerning the enquiry, or until I withdraw consent, whichever comes first.',
-      'I may withdraw consent by emailing hello@kadonext.com with the subject “Withdrawal of consent to personal data processing” and information that allows my enquiry to be located.',
-      'After the purpose is fulfilled or consent is withdrawn, the operator stops processing and deletes the data within the periods required by law unless another lawful basis applies. If we enter into a contract, data required to perform it may be processed on the corresponding legal basis.',
+      'This consent remains valid until the processing purpose is fulfilled, but for no more than three years after the last substantive contact concerning the inquiry, or until I withdraw consent, whichever comes first.',
+      'I may withdraw consent by emailing hello@kadonext.com with the subject “Withdrawal of consent to personal data processing” and information that allows my inquiry to be located.',
+      'After the purpose is fulfilled or consent is withdrawn, the operator stops processing and deletes the data within the periods required by law unless another lawful basis applies. If I enter into a contract with the operator, data required to perform it may be processed on the corresponding legal basis.',
     ],
   },
 ] as const
@@ -75,8 +75,8 @@ const sections = [
 
       <aside class="privacy-page__operator" aria-label="Operator details">
         <strong>Operator details</strong>
-        <p>Personal data operator: Anton Alekseevich Khokhlov (Хохлов Антон Алексеевич), a professional income tax payer (self-employed).</p>
-        <p>Personal-data enquiries: <a :href="`mailto:${CONTACT_CONSENT_EMAIL}`">{{ CONTACT_CONSENT_EMAIL }}</a>.</p>
+        <p>Personal data operator: Anton Alekseevich Khokhlov (Хохлов Антон Алексеевич), a payer of tax on professional income (self-employed).</p>
+        <p>Personal-data inquiries: <a :href="`mailto:${CONTACT_CONSENT_EMAIL}`">{{ CONTACT_CONSENT_EMAIL }}</a>.</p>
       </aside>
     </article>
 

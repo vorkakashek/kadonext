@@ -51,7 +51,7 @@ onMounted(() => {
   position: fixed;
   right: max(var(--layout-margin), var(--safe-right));
   bottom: max(var(--layout-margin), var(--safe-bottom));
-  /* Above every interactive overlay, but below the brand preloader (10000). */
+  /* Above the site's interactive overlays. */
   z-index: 9999;
   display: grid;
   width: min(42rem, calc(100vw - var(--layout-margin) * 2));
