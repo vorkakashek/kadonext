@@ -675,14 +675,12 @@ function scheduleSwarmMount(fromNavigation: boolean) {
   const connection = (navigator as Navigator & {
     connection?: { effectiveType?: string; saveData?: boolean }
   }).connection
-  // `effectiveType` is a rolling estimate and often reports 3g transiently on
-  // capable phones. It must not insert a five-second hole between copy and 3D.
-  // Keep the strong defer only for explicit Save-Data and genuinely slow links.
-  const constrained = Boolean(
-    connection?.saveData
-    || connection?.effectiveType === 'slow-2g'
-    || connection?.effectiveType === '2g',
-  )
+  // `effectiveType` is a rolling transport estimate, not a user preference.
+  // VPN changes can make it report 2g for an otherwise capable device and used
+  // to postpone the actual WebGL mount for five seconds. Only explicit
+  // Save-Data may defer the scene; slow estimates still skip speculative asset
+  // warming in preloadHomeSceneAssets without hiding the finished experience.
+  const constrained = Boolean(connection?.saveData)
   mobileSwarmDeferred = mobileLite.value && constrained
   // A warm desktop reload can create its WebGL context while the preloader is
   // motionless at 99%. The preloader raises this flag only after its orbit has

@@ -11,4 +11,6 @@ export function createContactHandler(options?: {
   send?: (message: object) => Promise<{ accepted: string[]; rejected?: string[] }>
   deliver?: (submission: { fields: Record<string, string>; attachments: AudioAttachment[] }) => Promise<void>
   normalise?: (files: File[]) => Promise<AudioAttachment[]>
+  antiSpam?: import('./anti-spam.mjs').ContactAntiSpam
+  skipDecoyDelay?: boolean
 }): (request: Request, clientIp?: string) => Promise<Response>

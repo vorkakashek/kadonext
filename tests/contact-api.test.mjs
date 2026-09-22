@@ -19,35 +19,39 @@ function form(overrides = {}) {
 function request(data = form(), options = {}) {
   return new Request('http://localhost/api/contact', { method: 'POST', headers: { origin: 'https://kadonext.com', ...options }, body: data })
 }
+async function submit(handle, data = form(), clientIp = 'test-client', options = {}) {
+  const challenge = await handle(new Request('http://localhost/api/contact', { method: 'GET', headers: { origin: 'https://kadonext.com' } }), clientIp)
+  assert.equal(challenge.status, 200)
+  const { token } = await challenge.json()
+  return handle(request(data, { 'x-contact-token': token, ...options }), clientIp)
+}
 const accepted = async () => ({ accepted: ['hello@kadonext.com'], rejected: [] })
 
 test('development contact mocks preview success and error but are disabled in production', async () => {
   const successEnv = { ...env, NODE_ENV: 'development', CONTACT_DEV_MOCK: 'success', CONTACT_DEV_MOCK_DELAY_MS: '0' }
   assert.equal(contactDevMockMode(successEnv), 'success')
-  const success = createContactHandler({ env: successEnv, ...createContactDevMockOptions(successEnv) })
-  assert.equal((await success(request())).status, 200)
+  const success = createContactHandler({ env: successEnv, skipDecoyDelay: true, ...createContactDevMockOptions(successEnv) })
+  assert.equal((await submit(success)).status, 200)
 
   const errorEnv = { ...successEnv, CONTACT_DEV_MOCK: 'error' }
-  const failure = createContactHandler({ env: errorEnv, ...createContactDevMockOptions(errorEnv) })
-  assert.equal((await failure(request())).status, 502)
+  const failure = createContactHandler({ env: errorEnv, skipDecoyDelay: true, ...createContactDevMockOptions(errorEnv) })
+  assert.equal((await submit(failure)).status, 502)
 
   assert.equal(contactDevMockMode({ ...successEnv, NODE_ENV: 'production' }), null)
   assert.equal(createContactDevMockOptions({ ...successEnv, NODE_ENV: 'production' }), null)
 })
 
 test('missing delivery configuration and SMTP rejection never produce a success response', async () => {
-  const unavailable = createContactHandler({ env })
-  assert.equal((await unavailable(request())).status, 503)
-  const telegramUnavailable = createContactHandler({ env: { ...env, CONTACT_DELIVERY: 'telegram' } })
-  assert.equal((await telegramUnavailable(request())).status, 503)
-  const rejected = createContactHandler({ env, send: async () => ({ accepted: [], rejected: ['hello@kadonext.com'] }) })
-  assert.equal((await rejected(request())).status, 502)
+  const unavailable = createContactHandler({ env, skipDecoyDelay: true })
+  assert.equal((await submit(unavailable)).status, 503)
+  const rejected = createContactHandler({ env, skipDecoyDelay: true, send: async () => ({ accepted: [], rejected: ['hello@kadonext.com'] }) })
+  assert.equal((await submit(rejected)).status, 502)
 })
 
 test('validated text is sent only to the configured recipient; subject cannot inject headers', async () => {
   let message
-  const handle = createContactHandler({ env, send: async value => { message = value; return accepted() } })
-  const response = await handle(request(form({ projectType: 'Сайт\r\nBcc: attacker@example.org' })))
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async value => { message = value; return accepted() } })
+  const response = await submit(handle, form({ projectType: 'Сайт\r\nBcc: attacker@example.org' }))
   assert.equal(response.status, 200)
   assert.equal((await response.json()).ok, true)
   assert.equal(message.to, 'hello@kadonext.com')
@@ -58,21 +62,22 @@ test('validated text is sent only to the configured recipient; subject cannot in
   assert.ok(message.text.includes(contactConsentSnapshot()))
 })
 
-test('consent, empty briefing, duplicate fields, honeypot and oversized bodies are rejected before delivery', async () => {
+test('invalid fields and oversized bodies are rejected before delivery; honeypot gets a decoy success', async () => {
   let sends = 0
-  const handle = createContactHandler({ env, send: async () => { sends++; return accepted() } })
-  for (const overrides of [{ consent: 'false' }, { consentVersion: '' }, { consentVersion: 'outdated' }, { description: ' ' }, { website: 'bot' }, { materials: 'javascript:alert(1)' }, { stage: 'invalid' }, { contact: ' ' }]) {
-    assert.equal((await handle(request(form(overrides)), JSON.stringify(overrides))).status, 400)
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async () => { sends++; return accepted() } })
+  for (const overrides of [{ consent: 'false' }, { consentVersion: '' }, { consentVersion: 'outdated' }, { description: ' ' }, { materials: 'javascript:alert(1)' }, { stage: 'invalid' }, { contact: ' ' }]) {
+    assert.equal((await submit(handle, form(overrides), JSON.stringify(overrides))).status, 400)
   }
+  assert.equal((await submit(handle, form({ website: 'bot' }), 'honeypot')).status, 200)
   const duplicate = form()
   duplicate.append('contact', '@other')
-  assert.equal((await handle(request(duplicate), 'duplicate')).status, 400)
-  assert.equal((await handle(request(form(), { 'content-length': String(MAX_BODY_BYTES + 1) }), 'big')).status, 413)
+  assert.equal((await submit(handle, duplicate, 'duplicate')).status, 400)
+  assert.equal((await submit(handle, form(), 'big', { 'content-length': String(MAX_BODY_BYTES + 1) })).status, 413)
   assert.equal(sends, 0)
 })
 
 test('unknown origins are rejected; configured CORS and preflight are explicit', async () => {
-  const handle = createContactHandler({ env, send: accepted })
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: accepted })
   assert.equal((await handle(request(form(), { origin: 'https://other.example' }))).status, 403)
   const preflight = await handle(new Request('http://localhost/api/contact', { method: 'OPTIONS', headers: { origin: 'https://kadonext.com' } }))
   assert.equal(preflight.status, 204)
@@ -81,25 +86,46 @@ test('unknown origins are rejected; configured CORS and preflight are explicit',
 
 test('no more than two recordings; valid audio-only briefing preserves attachment order', async () => {
   let message
-  const handle = createContactHandler({ env, send: async value => { message = value; return accepted() }, normalise: async files => files.map((file, index) => ({ filename: `message-${index + 1}.mp3`, content: Buffer.from(file.name), contentType: 'audio/mpeg', seconds: 1 })) })
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async value => { message = value; return accepted() }, normalise: async files => files.map((file, index) => ({ filename: `message-${index + 1}.mp3`, content: Buffer.from(file.name), contentType: 'audio/mpeg', seconds: 1 })) })
   const data = form({ description: '' })
   for (const name of ['second.webm', 'first.webm']) data.append('audio', new Blob(['test'], { type: 'audio/webm' }), name)
-  assert.equal((await handle(request(data))).status, 200)
+  assert.equal((await submit(handle, data)).status, 200)
   assert.deepEqual(message.attachments.map(item => item.content.toString()), ['second.webm', 'first.webm'])
   data.append('audio', new Blob(['test'], { type: 'audio/webm' }), 'extra.webm')
-  assert.equal((await handle(request(data), 'too-many')).status, 400)
+  assert.equal((await submit(handle, data, 'too-many')).status, 400)
 })
 
-test('per-client limit prevents unbounded mail submissions', async () => {
-  const handle = createContactHandler({ env: { ...env, CONTACT_RATE_LIMIT_ENABLED: 'true' }, send: accepted })
-  for (let i = 0; i < 10; i++) assert.equal((await handle(request(), 'one-client')).status, 200)
-  assert.equal((await handle(request(), 'one-client')).status, 429)
-  assert.equal((await handle(request(), 'other-client')).status, 200)
+test('per-client limit silently discards excess submissions', async () => {
+  let sends = 0
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async () => { sends++; return accepted() } })
+  for (let i = 0; i < 12; i++) {
+    assert.equal((await submit(handle, form({ description: `Проект ${i}` }), 'one-client')).status, 200)
+  }
+  assert.equal(sends, 10)
+  assert.equal((await submit(handle, form({ description: 'Другой клиент' }), 'other-client')).status, 200)
+  assert.equal(sends, 11)
 })
 
-test('rate limit stays disabled while the contact flow is under QA', async () => {
-  const handle = createContactHandler({ env, send: accepted })
-  for (let i = 0; i < 12; i++) assert.equal((await handle(request(), 'one-client')).status, 200)
+test('missing, replayed and spammy submissions get indistinguishable success without delivery', async () => {
+  let sends = 0
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async () => { sends++; return accepted() } })
+  assert.deepEqual(await (await handle(request())).json(), { ok: true })
+
+  const challenge = await handle(new Request('http://localhost/api/contact', { method: 'GET', headers: { origin: 'https://kadonext.com' } }))
+  const { token } = await challenge.json()
+  const first = request(form({ description: 'https://one.test https://two.test https://three.test https://four.test' }), { 'x-contact-token': token })
+  assert.deepEqual(await (await handle(first, 'spammer')).json(), { ok: true })
+  const replay = request(form({ description: 'Нормальный проект' }), { 'x-contact-token': token })
+  assert.deepEqual(await (await handle(replay, 'spammer')).json(), { ok: true })
+  assert.equal(sends, 0)
+})
+
+test('an already delivered duplicate is acknowledged but not sent twice', async () => {
+  let sends = 0
+  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async () => { sends++; return accepted() } })
+  assert.equal((await submit(handle, form(), 'duplicate-client')).status, 200)
+  assert.equal((await submit(handle, form(), 'duplicate-client')).status, 200)
+  assert.equal(sends, 1)
 })
 
 test('real browser containers convert to playable MP3; duration is measured from audio, not submitted metadata', async () => {

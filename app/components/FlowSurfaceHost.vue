@@ -72,6 +72,7 @@ import {
   type SurfaceRouteDecision,
   type SurfaceVisualSnapshot,
 } from '~/utils/flowSurfaceContract'
+import { preloadGsapBundle } from '~/utils/preloadHomeMotion'
 
 /** The site's minimal mode keeps the core Surface choreography intact. */
 function systemReducedMotion() {
@@ -234,6 +235,7 @@ const props = withDefaults(
 )
 
 const preload = useBrandPreload()
+const homeMotionReady = useState<boolean>('home-flow-motion-ready', () => false)
 const {
   activeCaseId,
   surfaceDocked: caseSurfaceDocked,
@@ -419,6 +421,9 @@ async function bootMotionEngine() {
 }
 
 function scheduleColdMotionBoot() {
+  // Fetch and evaluate the shared motion modules while the brand veil is still
+  // visible. Corridor capture remains separately scheduled below.
+  void preloadGsapBundle()
   const onIntent = () => void bootMotionEngine()
   const intentEvents: Array<keyof WindowEventMap> = [
     'wheel',
@@ -429,26 +434,37 @@ function scheduleColdMotionBoot() {
   for (const event of intentEvents) {
     window.addEventListener(event, onIntent, { once: true, passive: true })
   }
+  const stopPreloadFinish = watch(
+    () => preload.finishing.value,
+    (finishing) => {
+      if (finishing) void bootMotionEngine()
+    },
+  )
   removeMotionIntent = () => {
     for (const event of intentEvents) window.removeEventListener(event, onIntent)
+    stopPreloadFinish()
   }
 
-  // Let the fully usable static Hero own the critical rendering window. The
-  // scroll engine is still guaranteed to boot later if the visitor is idle.
-  motionBootTimer = window.setTimeout(() => {
-    motionBootTimer = 0
-    if ('requestIdleCallback' in window) {
-      motionIdleId = window.requestIdleCallback(
-        () => {
-          motionIdleId = null
-          void bootMotionEngine()
-        },
-        { timeout: 1500 },
-      )
-    } else {
+  // Cold home entries still have the brand veil available here. Build the
+  // scroll corridor in its first quiet slot instead of leaving GSAP,
+  // ScrollTrigger and all corridor measurements for the first wheel event.
+  // That event must only advance an already-live surface; otherwise its main-
+  // thread boot steals the WebGL scene's first visible frames.
+  const scheduleTimeout = window.setTimeout.bind(window)
+  if ('requestIdleCallback' in window) {
+    motionIdleId = window.requestIdleCallback(
+      () => {
+        motionIdleId = null
+        void bootMotionEngine()
+      },
+      { timeout: 900 },
+    )
+  } else {
+    motionBootTimer = scheduleTimeout(() => {
+      motionBootTimer = 0
       void bootMotionEngine()
-    }
-  }, 3500)
+    }, 160)
+  }
 }
 
 /** Mobile corridor state */
@@ -3853,6 +3869,7 @@ function buildMorph() {
     if (reduced && mobileActive) {
       buildMobileMorph(ScrollTrigger)
       paintMobileScrollCorridor()
+      homeMotionReady.value = true
       announceSurfaceReady()
       return
     }
@@ -3862,6 +3879,7 @@ function buildMorph() {
       live.h = 1
       live.v = 1
       paintDesktop()
+      homeMotionReady.value = true
       announceSurfaceReady()
       return
     }
@@ -3898,6 +3916,7 @@ function buildMorph() {
         const dest = caseMediaPose()
         if (dest) dockMobileCaseFrameUnderDetailReturn(dest)
       }
+      homeMotionReady.value = true
       announceSurfaceReady()
       lastFromEl = props.fromEl ?? null
       lastToEl = props.toEl ?? null
@@ -4020,6 +4039,7 @@ function buildMorph() {
     desktopTargetS = s
     desktopLiveS = s
     paintDesktop(s)
+    homeMotionReady.value = true
     announceSurfaceReady()
     ensureTick()
 

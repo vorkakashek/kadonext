@@ -13,6 +13,7 @@ const heroWebglPrebootRequested = useState<boolean>(
 )
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
+const homeMotionReady = useState<boolean>('home-flow-motion-ready', () => false)
 
 const rootEl = ref<HTMLElement | null>(null)
 const markEl = ref<HTMLElement | null>(null)
@@ -210,10 +211,11 @@ async function settleAndExit(opts?: { skipSpin?: boolean }) {
     && !reduced.value
     && window.innerWidth >= 900
     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
-  if (homeDesktop && !heroWebglLit.value) {
+  if (homeDesktop && (!heroWebglLit.value || !homeMotionReady.value)) {
     heroWebglPrebootRequested.value = true
     await new Promise<void>((resolve) => {
       let done = false
+      let stop = () => {}
       const finish = () => {
         if (done) return
         done = true
@@ -221,8 +223,8 @@ async function settleAndExit(opts?: { skipSpin?: boolean }) {
         window.clearTimeout(safety)
         resolve()
       }
-      const stop = watch(heroWebglLit, (lit) => {
-        if (lit) finish()
+      stop = watch([heroWebglLit, homeMotionReady], ([lit, motionReady]) => {
+        if (lit && motionReady) finish()
       }, { immediate: true })
       const safety = window.setTimeout(
         finish,
@@ -629,6 +631,7 @@ onMounted(async () => {
     heroWebglPrebootRequested.value = false
     heroWebglBooted.value = false
     heroWebglLit.value = false
+    homeMotionReady.value = false
   }
   preload.begin()
   reduced.value =

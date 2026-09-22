@@ -23,8 +23,8 @@ export default defineNuxtConfig({
       // Static hosting proxies this path to the separate SMTP gateway.
       // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
       contactEndpoint: '/api/contact',
-      // Temporary client-side production preview. Set false when the real API is deployed.
-      contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK !== 'false' && process.env.NODE_ENV === 'production',
+      // Opt-in only. Production must never silently acknowledge a real enquiry without delivery.
+      contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK === 'true' && process.env.NODE_ENV === 'production',
       contactMockDelayMs: Math.min(Math.max(Number(process.env.NUXT_PUBLIC_CONTACT_MOCK_DELAY_MS) || 500, 0), 10000),
       // Set false for preview builds; static hosts must publish a fresh build.
       siteIndexable: process.env.NUXT_PUBLIC_SITE_INDEXABLE !== 'false' && process.env.NODE_ENV !== 'development',

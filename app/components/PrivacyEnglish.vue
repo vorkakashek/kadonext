@@ -45,7 +45,7 @@ const sections = [
     paragraphs: [
       'Processing may be automated and, when handling enquiries, non-automated. It may include collection, recording, organisation, accumulation, storage, correction, retrieval, use, granting necessary access to processors, restriction, deletion and destruction.',
       'Before the form is submitted, text and voice messages remain in browser memory. The microphone is activated only after a visitor action and browser permission. Sound-level analysis occurs on the visitor’s device. Unsent recordings are deleted when the page reloads and are not written to local storage.',
-      'When the form is submitted, the entered information and selected voice messages are sent to the enquiry processor. Audio files are stored temporarily for validation and conversion to MP3, then the temporary files are deleted. The enquiry, recordings and a consent snapshot are delivered to the operator through a private Telegram bot chat and remain in the cloud chat until the operator deletes them. When a visitor uses the direct email link, the visitor sends the message from their own email application.',
+      'When the form is submitted, the entered information and selected voice messages are sent to the enquiry processor. Audio files are stored temporarily for validation and conversion to MP3, then the temporary files are deleted. The enquiry, recordings and a consent snapshot are delivered over an encrypted SMTP connection to the operator’s private mailbox and remain there until the operator deletes them. When a visitor uses the direct email link, the visitor sends the message from their own email application.',
       'The operator does not publish or sell personal data and does not make solely automated decisions based on it that produce legal effects for the visitor.',
     ],
   },
@@ -58,12 +58,12 @@ const sections = [
     ],
   },
   {
-    title: 'Yandex Metrica, Telegram and other parties',
+    title: 'Yandex Metrica, email and other parties',
     html: [
       'The operator may use Yandex Metrica, supplied by YANDEX LLC (16 Leo Tolstoy Street, Moscow 119021, Russia), for web analytics. When enabled, Yandex processes visit and device data on the operator’s instructions. The operator must not send form content, contact details, CRM data or other information that directly identifies a visitor to Metrica.',
       'Yandex processing is governed by the <a href="https://yandex.ru/legal/metrica_termsofuse/ru/" target="_blank" rel="noopener noreferrer">Yandex Metrica terms</a> and the <a href="https://yandex.ru/legal/confidential/ru/" target="_blank" rel="noopener noreferrer">Yandex privacy policy</a>.',
-      'The operator may use the Telegram Bot API, supplied by Telegram Messenger Inc., to deliver enquiries. Telegram receives information voluntarily included in the enquiry, selected voice messages, the submission date and confirmation of consent. Telegram is a cloud service; ordinary cloud chats, including bot messages and files, are stored on Telegram servers.',
-      'Telegram processing is governed by the <a href="https://telegram.org/privacy" target="_blank" rel="noopener noreferrer">Telegram Privacy Policy</a>. This delivery channel is enabled only after applicable requirements concerning commissioned processing and cross-border transfer have been met.',
+      'The operator uses a server-side processor and the REG.RU email service, supplied by Registrar of Domain Names REG.RU LLC, with a private mailbox to deliver enquiries. Those providers receive information voluntarily included in the enquiry, selected voice messages, the submission date and confirmation of consent only to the extent needed to deliver and store the email.',
+      'REG.RU processing is governed by its <a href="https://www.reg.ru/company/privacy" target="_blank" rel="noopener noreferrer">personal-data processing policy</a>. This Policy is updated before another provider is enabled. If the new provider’s infrastructure involves a cross-border transfer, the channel is enabled only after the applicable commissioned-processing and cross-border-transfer requirements have been met.',
       'Hosting, information-security, email and message-delivery providers may also access data to the extent necessary to provide their services, perform their contract with the operator and comply with law. The operator requires confidentiality and appropriate protection. Data is disclosed to other parties only with the data subject’s consent or on another legal basis.',
     ],
   },
@@ -72,7 +72,7 @@ const sections = [
     paragraphs: [
       'Enquiry data is processed until correspondence ends and then for no more than three years after the last substantive contact, unless a contract or law requires longer retention. When the purpose has been fulfilled, data is deleted or anonymised unless another lawful basis for storage applies.',
       'Technical and analytics data is retained within the periods set by the relevant service and required for the purposes stated in this Policy, or until consent is withdrawn, whichever applicable end condition occurs first.',
-      'When personal data of Russian citizens is collected, its recording, organisation, accumulation, storage, correction and retrieval use databases located in the Russian Federation, except where the law expressly provides otherwise. Delivery through Telegram may involve a cross-border transfer of the information and files supplied by the visitor. Such transfer occurs under separate informed consent and only after statutory requirements have been met.',
+      'When personal data of Russian citizens is collected, its recording, organisation, accumulation, storage, correction and retrieval use databases located in the Russian Federation, except where the law expressly provides otherwise. If email delivery involves a cross-border transfer of the information and files supplied by the visitor, it occurs only after the statutory requirements have been met.',
     ],
   },
   {
@@ -105,7 +105,7 @@ const sections = [
       <p class="privacy-page__eyebrow">documents</p>
       <h1>Personal data processing policy</h1>
       <div class="privacy-page__meta">
-        <p>Version dated 20 September 2026</p>
+        <p>Version dated 22 September 2026</p>
         <p>Website: <a href="https://kadonext.com">kadonext.com</a></p>
       </div>
     </header>

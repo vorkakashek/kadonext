@@ -25,6 +25,8 @@ const descriptionError = useState('home-contact-description-error', () => '')
 const voice = useContactVoice()
 const runtimeConfig = useRuntimeConfig()
 const contactMock = computed(() => runtimeConfig.public.contactMock)
+const contactToken = ref('')
+const contactTokenValidUntil = ref(0)
 const voiceBusy = voice.busy
 const voiceCount = computed(() => voice.clips.value.length)
 const includedVoiceClips = voice.clips
@@ -109,6 +111,7 @@ onMounted(() => {
   })
   sizeObserver.observe(form)
   resizeDescription()
+  if (!contactMock.value) void refreshContactToken().catch(() => {})
 })
 
 onUnmounted(() => {
@@ -418,6 +421,20 @@ function startVoice() {
   void voice.start()
 }
 
+async function refreshContactToken() {
+  if (contactMock.value) return ''
+  if (contactToken.value && contactTokenValidUntil.value > performance.now()) return contactToken.value
+  const challenge = await $fetch<{ token: string; ttlMs: number }>(runtimeConfig.public.contactEndpoint, {
+    method: 'GET',
+    timeout: 15000,
+    retry: 1,
+  })
+  if (!challenge?.token || !Number.isFinite(challenge.ttlMs)) throw new Error('Invalid contact challenge')
+  contactToken.value = challenge.token
+  contactTokenValidUntil.value = performance.now() + Math.max(0, challenge.ttlMs - 5 * 60 * 1000)
+  return challenge.token
+}
+
 async function submitForm() {
   if (!import.meta.client || formLocked.value || submitted.value) return
   submitError.value = ''
@@ -446,12 +463,21 @@ async function submitForm() {
   submitting.value = true
   hideModeHint()
   try {
+    const token = contactMock.value ? '' : await refreshContactToken()
     const response = contactMock.value
       ? await new Promise<{ ok: true }>(resolve => window.setTimeout(
           () => resolve({ ok: true }),
           runtimeConfig.public.contactMockDelayMs,
         ))
-      : await $fetch<{ ok: boolean }>(runtimeConfig.public.contactEndpoint, { method: 'POST', body: payload, timeout: 120000, retry: 0 })
+      : await $fetch<{ ok: boolean }>(runtimeConfig.public.contactEndpoint, {
+          method: 'POST',
+          body: payload,
+          headers: { 'X-Contact-Token': token },
+          timeout: 120000,
+          retry: 0,
+        })
+    contactToken.value = ''
+    contactTokenValidUntil.value = 0
     if (!response?.ok) throw new Error('Unexpected contact response')
     successReady.value = false
     successActive.value = false
@@ -464,6 +490,9 @@ async function submitForm() {
     successCollapsePending = true
     submitted.value = true
   } catch (cause) {
+    contactToken.value = ''
+    contactTokenValidUntil.value = 0
+    if (!contactMock.value) void refreshContactToken().catch(() => {})
     const data = (cause as { data?: { message?: string } }).data
     submitError.value = data?.message || t('contactForm.submitFailed')
   } finally {

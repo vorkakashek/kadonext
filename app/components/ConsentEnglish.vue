@@ -24,15 +24,15 @@ const sections = [
     title: 'Actions involving the data',
     paragraphs: [
       'Processing may be automated or non-automated and may include collection, recording, organisation, accumulation, storage, correction, retrieval, use, granting necessary access to processors, restriction, deletion and destruction.',
-      'After submission, data is sent to a server-side processor and delivered to the operator through a private Telegram bot chat. Voice messages are temporarily stored on the server for validation and MP3 conversion. Temporary files are deleted after processing; delivered text, recordings and the consent snapshot remain in the Telegram cloud chat until the operator deletes them.',
-      'Hosting, Telegram and email providers may process the data to the extent required to receive, deliver and store the enquiry and reply to it, on a lawful basis and subject to applicable confidentiality and security requirements.',
+      'After submission, data is sent to a server-side processor and delivered over an encrypted SMTP connection to the operator’s private mailbox. Voice messages are temporarily stored on the server for validation and MP3 conversion. Temporary files are deleted after processing; delivered text, recordings and the consent snapshot remain in the mailbox until the operator deletes them.',
+      'Hosting, SMTP delivery and mailbox providers may process the data to the extent required to receive, deliver and store the enquiry and reply to it, on a lawful basis and subject to applicable confidentiality and security requirements.',
     ],
   },
   {
-    title: 'Delivery through Telegram',
+    title: 'Delivery by email',
     paragraphs: [
-      'I have been informed that Telegram is a cloud service, that messages and files in ordinary cloud chats are stored on its servers, and that its infrastructure may be located in different jurisdictions.',
-      'I consent to the enquiry data and voice messages being transferred to Telegram for delivery to the operator, including a possible cross-border transfer, provided the operator first complies with the requirements of Russian law.',
+      'I have been informed that a server-side processor and the REG.RU email service with the operator’s private mailbox are used to deliver and store the enquiry. The providers receive the enquiry and attachments only to the extent needed to deliver and store the email.',
+      'If the selected provider’s infrastructure involves a cross-border transfer, that delivery channel is enabled only after the operator has complied with the applicable requirements of Russian law.',
     ],
   },
   {
@@ -53,7 +53,7 @@ const sections = [
       <p class="privacy-page__eyebrow">documents</p>
       <h1>Consent to personal data processing</h1>
       <div class="privacy-page__meta">
-        <p>Version dated 20 September 2026</p>
+        <p>Version dated 22 September 2026</p>
         <p>Website: <a href="https://kadonext.com">kadonext.com</a></p>
       </div>
     </header>

@@ -138,15 +138,15 @@ www → kadonext.com и внутренних URL со слешем → URL бе�
 `X-Robots-Tag: noindex`, и проверьте опубликованные URL через инструменты этих систем.
 Проверка статических файлов не заменяет проверку HTTP-ответов опубликованного сайта.
 
-Отправка формы требует отдельного Node.js-обработчика и настроенного канала
-Telegram или SMTP; FTP-копирование статических файлов само по себе отправку не
+Отправка формы требует отдельного Node.js-обработчика и настроенного SMTP;
+FTP-копирование статических файлов само по себе отправку не
 подключает. См. `contact-api/README.md`.
 Для записи голоса сайт должен открываться по HTTPS.
 
 ## Contact form and voice messages
 
-The static site supports up to two voice messages (90 seconds in total), playback, replacement and microphone level checks. Messages are sent in recording order. Production delivery can use a private Telegram bot chat or the SMTP fallback; see [contact-api/README.md](contact-api/README.md) and [.env.example](.env.example). Delivery credentials are server-only. Run `npm run contact:test` for focused tests (FFmpeg/ffprobe required).
+The static site supports up to two voice messages (90 seconds in total), playback, replacement and microphone level checks. Messages are sent in recording order. Production delivery uses authenticated SMTP; see [contact-api/README.md](contact-api/README.md) and [.env.example](.env.example). Delivery credentials are server-only. Run `npm run contact:test` for focused tests (FFmpeg/ffprobe required).
 
-To test recording offline on the development computer, run `npm run dev` and open `http://localhost:3000` (or the port printed by Nuxt) in a browser with microphone permission. Recording and playback work without an internet connection; production delivery requires a configured Telegram bot or SMTP gateway. A plain HTTP LAN IP is not a secure context. Offline phone testing requires local HTTPS with a certificate trusted by the phone; an HTTPS tunnel is an online alternative. Select a microphone below the project description, click the microphone icon to record, then stop and play. Valid recordings are saved automatically and included with the application; no separate confirmation is needed. Re-recording replaces a message in its original position after a valid recording finishes. Cancelling or failing a replacement preserves the original. Text and voice messages remain available together. Recordings are only kept in the current browser session; reloading the page clears them.
+To test recording offline on the development computer, run `npm run dev` and open `http://localhost:3000` (or the port printed by Nuxt) in a browser with microphone permission. Recording and playback work without an internet connection; production delivery requires a configured SMTP gateway. A plain HTTP LAN IP is not a secure context. Offline phone testing requires local HTTPS with a certificate trusted by the phone; an HTTPS tunnel is an online alternative. Select a microphone below the project description, click the microphone icon to record, then stop and play. Valid recordings are saved automatically and included with the application; no separate confirmation is needed. Re-recording replaces a message in its original position after a valid recording finishes. Cancelling or failing a replacement preserves the original. Text and voice messages remain available together. Recordings are only kept in the current browser session; reloading the page clears them.
 
 For a local UI-only submission preview, set `CONTACT_DEV_MOCK=success` in `.env` and restart `npm run dev`. This shows the sending and success animations without production delivery or FFmpeg. Use `CONTACT_DEV_MOCK=error` to preview the delayed error state. Development mocks are disabled in production; details are in [contact-api/README.md](contact-api/README.md).

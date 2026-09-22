@@ -1,11 +1,12 @@
 import nodemailer from 'nodemailer'
 import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CONTACT_CONSENT_VERSION, CONTACT_CONSENT_CHECKBOX, contactConsentSnapshot } from './consent.mjs'
-import { createTelegramDelivery } from './telegram.mjs'
+import { createContactAntiSpam } from './anti-spam.mjs'
 
 const run = promisify(execFile)
 export const MAX_BODY_BYTES = 13 * 1024 * 1024
@@ -54,7 +55,6 @@ function validateForm(form) {
     if (value.length > limit || /\x00/.test(value)) throw new ContactError(400, 'Одно из полей слишком длинное или содержит недопустимые символы.')
     fields[key] = value.trim()
   }
-  if (fields.website) throw new ContactError(400, 'Не удалось проверить заявку. Напишите на hello@kadonext.com.')
   if (!fields.projectType || !fields.contact || fields.consent !== 'true') throw new ContactError(400, 'Укажите задачу, контакт и согласие на обработку данных.')
   if (fields.consentVersion !== CONTACT_CONSENT_VERSION) throw new ContactError(400, 'Текст согласия обновился. Сохраните текст и скачайте записи, затем обновите страницу и подтвердите согласие ещё раз.')
   if (!stages.includes(fields.stage) || !deadlines.includes(fields.deadline)) throw new ContactError(400, 'Проверьте стадию и сроки проекта.')
@@ -127,8 +127,9 @@ export async function normaliseAudio(files, env = process.env) {
   }
 }
 
-function emailText(fields, attachments) {
+function emailText(fields, attachments, submissionId) {
   const lines = [
+    `Номер заявки: ${submissionId}`,
     `Что нужно сделать: ${fields.projectType}`, '', 'О проекте:', fields.description || '(голосовые сообщения во вложениях)', '',
     `Как связаться: ${fields.contact}`,
   ]
@@ -150,13 +151,19 @@ function emailText(fields, attachments) {
 }
 
 function smtpSender(env) {
-  if (!env.CONTACT_SMTP_HOST || !env.CONTACT_SMTP_USER || !env.CONTACT_SMTP_PASS || !env.CONTACT_MAIL_FROM) return null
+  let password = env.CONTACT_SMTP_PASS || ''
+  if (env.CONTACT_SMTP_PASS_BASE64) {
+    try { password = Buffer.from(env.CONTACT_SMTP_PASS_BASE64, 'base64').toString('utf8') }
+    catch { return null }
+  }
+  if (!env.CONTACT_SMTP_HOST || !env.CONTACT_SMTP_USER || !password || !env.CONTACT_MAIL_FROM) return null
   const port = Number(env.CONTACT_SMTP_PORT || 465)
   const transport = nodemailer.createTransport({
     host: env.CONTACT_SMTP_HOST, port, secure: port === 465,
     requireTLS: port !== 465,
-    auth: { user: env.CONTACT_SMTP_USER, pass: env.CONTACT_SMTP_PASS },
+    auth: { user: env.CONTACT_SMTP_USER, pass: password },
     connectionTimeout: 15000, greetingTimeout: 10000, socketTimeout: 30000,
+    tls: { minVersion: 'TLSv1.2', servername: env.CONTACT_SMTP_HOST },
     disableFileAccess: true, disableUrlAccess: true,
   })
   return message => transport.sendMail(message)
@@ -165,11 +172,13 @@ function smtpSender(env) {
 function smtpDelivery(env, send = smtpSender(env)) {
   if (!send) return null
   return async ({ fields, attachments }) => {
+    const submissionId = randomUUID()
     const result = await send({
       from: env.CONTACT_MAIL_FROM || 'KADO <hello@kadonext.com>',
       to: env.CONTACT_MAIL_TO || 'hello@kadonext.com',
-      subject: `Новый проект — ${fields.projectType.replace(/[\r\n]/g, ' ').slice(0, 160)}`,
-      text: emailText(fields, attachments),
+      subject: `Новый проект — ${fields.projectType.replace(/[\r\n]/g, ' ').slice(0, 140)}`,
+      text: emailText(fields, attachments, submissionId),
+      headers: { 'X-Kado-Submission-ID': submissionId },
       attachments: attachments.map(({ seconds, ...attachment }) => attachment),
     })
     if (!result?.accepted?.length || result.rejected?.length) throw new Error('SMTP did not accept the recipient')
@@ -177,45 +186,47 @@ function smtpDelivery(env, send = smtpSender(env)) {
 }
 
 function configuredDelivery(env) {
-  const channel = (env.CONTACT_DELIVERY || 'smtp').trim().toLowerCase()
-  if (channel === 'telegram') return createTelegramDelivery({
-    token: env.CONTACT_TELEGRAM_BOT_TOKEN || '',
-    chatId: env.CONTACT_TELEGRAM_CHAT_ID || '',
-    messageThreadId: env.CONTACT_TELEGRAM_MESSAGE_THREAD_ID || '',
-  })
-  if (channel === 'smtp') return smtpDelivery(env)
-  return null
+  return smtpDelivery(env)
+}
+
+function browserOrigin(request) {
+  const origin = request.headers.get('origin') || ''
+  if (origin) return origin
+  const referer = request.headers.get('referer') || ''
+  if (!referer) return ''
+  try { return new URL(referer).origin }
+  catch { return '' }
 }
 
 export function createContactHandler(options = {}) {
   const env = options.env ?? process.env
   const deliver = options.deliver ?? (options.send ? smtpDelivery(env, options.send) : configuredDelivery(env))
   const normalise = options.normalise ?? (files => normaliseAudio(files, env))
+  const antiSpam = options.antiSpam ?? createContactAntiSpam({ env, skipDelay: options.skipDecoyDelay })
   const allowedOrigins = new Set((env.CONTACT_ALLOWED_ORIGINS || 'https://kadonext.com,https://www.kadonext.com').split(',').map(value => value.trim()).filter(Boolean))
-  // TODO(pre-production): restore CONTACT_RATE_LIMIT_ENABLED=true after form QA.
-  const rateLimitEnabled = env.CONTACT_RATE_LIMIT_ENABLED === 'true'
-  const rate = new Map()
   let inFlight = 0
 
   return async function handle(request, clientIp = 'unknown') {
-    const origin = request.headers.get('origin') || ''
+    const origin = browserOrigin(request)
     const developmentOrigin = env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)
-    const allowed = allowedOrigins.has(origin) || developmentOrigin
+    // Same-origin GET requests do not consistently include Origin. The token is
+    // not a credential and CORS still prevents another website from reading it.
+    const allowed = allowedOrigins.has(origin) || developmentOrigin || (request.method === 'GET' && !origin)
     const headers = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'vary': 'Origin' }
-    if (allowed) headers['access-control-allow-origin'] = origin
+    if (allowed && origin) headers['access-control-allow-origin'] = origin
     const response = (status, data) => new Response(JSON.stringify(data), { status, headers })
     if (!allowed) return response(403, { message: 'Отправка с этого адреса сайта не разрешена.' })
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...headers, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'Content-Type', 'access-control-max-age': '600' } })
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...headers, 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'Content-Type, X-Contact-Token', 'access-control-max-age': '600' } })
+    if (request.method === 'GET') return response(200, antiSpam.issueToken())
     if (request.method !== 'POST') return response(405, { message: 'Метод не поддерживается.' })
-    if (!deliver) return response(503, { message: 'Отправка формы пока не подключена. Текст и записи остались на странице. Напишите на hello@kadonext.com; записи можно скачать.' })
-    if (rateLimitEnabled) {
-      const now = Date.now()
-      for (const [ip, entry] of rate) if (entry.reset < now) rate.delete(ip)
-      const entry = rate.get(clientIp) ?? { count: 0, reset: now + 3600000 }
-      if (entry.count >= 10 || rate.size > 10000) return response(429, { message: 'Слишком много попыток отправки. Попробуйте позже или напишите на hello@kadonext.com.' })
-      entry.count++
-      rate.set(clientIp, entry)
+    const decoy = async () => {
+      await antiSpam.decoyDelay()
+      return response(200, { ok: true })
     }
+    const token = antiSpam.acceptToken(request.headers.get('x-contact-token') || '')
+    if (!token.accepted) return decoy()
+    const rate = antiSpam.acceptRate(clientIp, request.headers.get('user-agent') || '')
+    if (!rate.accepted) return decoy()
     if (inFlight >= 2) return response(503, { message: 'Сейчас обрабатываем другие заявки. Повторите отправку через минуту; записи сохранены.' })
     inFlight++
     try {
@@ -225,9 +236,15 @@ export function createContactHandler(options = {}) {
       let form
       try { form = await new Request('http://localhost/contact', { method: 'POST', headers: { 'content-type': contentType }, body }).formData() }
       catch { throw new ContactError(400, 'Не удалось прочитать заявку.') }
+      const honeypot = form.getAll('website')
+      if (honeypot.some(value => typeof value === 'string' && value.trim())) return decoy()
       const { fields, audio } = validateForm(form)
+      const inspection = antiSpam.inspectSubmission(fields, audio, rate.clientKey, token.ageMs)
+      if (!inspection.accepted) return decoy()
+      if (!deliver) return response(503, { message: 'Отправка формы пока не подключена. Текст и записи остались на странице. Напишите на hello@kadonext.com; записи можно скачать.' })
       const attachments = await normalise(audio)
       await deliver({ fields, attachments })
+      antiSpam.rememberDelivered(inspection.fingerprint)
       return response(200, { ok: true })
     } catch (cause) {
       if (cause instanceof ContactError) return response(cause.status, { message: cause.message })

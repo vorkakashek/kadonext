@@ -142,6 +142,8 @@ const ENTRY_SCATTER_RATIO = 2.25
 const ENTRY_SCATTER_RATIO_MOBILE = 1.55
 /** Debounce real window resizes before a full scene reboot. */
 const REBOOT_MS = 320
+/** Never let a driver-specific parallel shader status poll hold the cover forever. */
+const SHADER_COMPILE_WAIT_MS = 2400
 const MOTION_INTRO_COOKIE = 'kado_motion_intro'
 const MOTION_INTRO_MAX_AGE = 60 * 60 * 24 * 7
 const MOTION_INTRO_DURATION_MS = 10000
@@ -471,6 +473,7 @@ function onDesktopMotionControlTap() {
 let renderer: WebGLRenderer | null = null
 let animationId = 0
 let resizeObserver: ResizeObserver | null = null
+let removeContextListeners: (() => void) | null = null
 let removePointerListeners: (() => void) | null = null
 let removeScrollPause: (() => void) | null = null
 let sharedGeometry: BufferGeometry | null = null
@@ -487,6 +490,8 @@ let unlockOrbitLayout: (() => void) | null = null
 let bootGen = 0
 let resizeTimer = 0
 let resizePaintTimer = 0
+let contextRecoveryTimer = 0
+let contextRecoveryAttempts = 0
 let lastLayoutKey = ''
 let removeWindowResize: (() => void) | null = null
 let firstSceneReady = false
@@ -507,6 +512,10 @@ function disposeScene() {
   resizePaintTimer = 0
   resizeObserver?.disconnect()
   resizeObserver = null
+  removeContextListeners?.()
+  removeContextListeners = null
+  window.clearTimeout(contextRecoveryTimer)
+  contextRecoveryTimer = 0
   removePointerListeners?.()
   removePointerListeners = null
   removeScrollPause?.()
@@ -692,6 +701,27 @@ async function bootScene() {
     // the copy-back cost; the existing stone cover masks frames during GL wake-up.
     preserveDrawingBuffer: false,
   })
+  const scheduleContextRecovery = () => {
+    if (gen !== bootGen || contextRecoveryTimer || contextRecoveryAttempts >= 2) return
+    contextRecoveryTimer = window.setTimeout(() => {
+      contextRecoveryTimer = 0
+      if (gen !== bootGen) return
+      contextRecoveryAttempts += 1
+      void bootScene()
+    }, 600)
+  }
+  const onContextLost = (event: Event) => {
+    event.preventDefault()
+    stopLoop()
+    scheduleContextRecovery()
+  }
+  const onContextRestored = () => scheduleContextRecovery()
+  gl.domElement.addEventListener('webglcontextlost', onContextLost)
+  gl.domElement.addEventListener('webglcontextrestored', onContextRestored)
+  removeContextListeners = () => {
+    gl.domElement.removeEventListener('webglcontextlost', onContextLost)
+    gl.domElement.removeEventListener('webglcontextrestored', onContextRestored)
+  }
   // The static moss → forest radial lives in CSS below the transparent canvas.
   // This avoids spending another full-screen WebGL draw on the background.
   gl.setClearColor(0x000000, 0)
@@ -893,10 +923,12 @@ async function bootScene() {
 
   let litEmitted = false
   let envFallbackChosen = false
+  let settlePromise: Promise<void> | null = null
   let pointerInteractionReady = false
   const emitLit = () => {
     if (litEmitted || gen !== bootGen) return
     litEmitted = true
+    contextRecoveryAttempts = 0
     emit('lit')
     // Let the cover finish fading before hover physics can touch the first
     // visible frames. A cursor already over the swarm must not compete with it.
@@ -911,21 +943,49 @@ async function bootScene() {
   })
 
   /** Compile shaders and paint twice under the cover before making GL visible. */
-  const settleAndEmitLit = async () => {
-    if (gen !== bootGen || renderer !== gl) return
-    syncCamera({ force: true })
-    try {
-      await gl.compileAsync(scene, camera)
-    } catch {
-      gl.compile(scene, camera)
-    }
-    if (gen !== bootGen || renderer !== gl) return
-    gl.render(scene, camera)
-    await nextPaint()
-    if (gen !== bootGen || renderer !== gl) return
-    gl.render(scene, camera)
-    await nextPaint()
-    emitLit()
+  const settleAndEmitLit = () => {
+    if (settlePromise) return settlePromise
+    settlePromise = (async () => {
+      if (gen !== bootGen || renderer !== gl) return
+      syncCamera({ force: true })
+
+      // Three's compileAsync polls KHR_parallel_shader_compile until every
+      // program reports ready. A lost/buggy context can leave that promise
+      // pending without throwing, so the old HDR fallback simply entered the
+      // same wait a second time and the opaque cover never lifted.
+      let compileTimer = 0
+      try {
+        await Promise.race([
+          gl.compileAsync(scene, camera),
+          new Promise<void>((resolve) => {
+            compileTimer = window.setTimeout(resolve, SHADER_COMPILE_WAIT_MS)
+          }),
+        ])
+      } catch {
+        // render() below remains the authoritative synchronous fallback.
+      } finally {
+        window.clearTimeout(compileTimer)
+      }
+
+      if (gen !== bootGen || renderer !== gl) return
+      if (gl.getContext().isContextLost()) {
+        scheduleContextRecovery()
+        return
+      }
+      gl.render(scene, camera)
+      await nextPaint()
+      if (gen !== bootGen || renderer !== gl) return
+      if (gl.getContext().isContextLost()) {
+        scheduleContextRecovery()
+        return
+      }
+      gl.render(scene, camera)
+      await nextPaint()
+      emitLit()
+    })().finally(() => {
+      settlePromise = null
+    })
+    return settlePromise
   }
 
   const applyEnvAssets = async () => {
