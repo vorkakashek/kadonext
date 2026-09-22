@@ -7,6 +7,7 @@ const modulePreloadPattern = /<link\s+rel="modulepreload"[^>]*>\s*/g
 const criticalStylesheetPattern = /<link\s+rel="stylesheet"\s+href="(\/_nuxt\/(?:entry\.[^"]+|navWaveHover\.[^"]+)\.css)"[^>]*>\s*/g
 const grainPreloadPattern = /<link\s+rel="preload"\s+as="image"\s+href="\/textures\/grain-tile-v2-256\.avif"[^>]*>\s*/g
 const grainUrlPattern = /url\((['"]?)(?:\/|\.\.\/)textures\/grain-tile-v2-256\.avif\1\)/g
+const cssUrlPattern = /url\(\s*(['"]?)([^'")]+)\1\s*\)/g
 const grainBytes = await readFile(join(outputRoot, 'textures/grain-tile-v2-256.avif'))
 const grainDataUrl = `data:image/avif;base64,${grainBytes.toString('base64')}`
 let optimized = 0
@@ -27,6 +28,16 @@ async function writeCompressed(path, bytes) {
   ])
 }
 
+function rootRelativeCssUrls(css, stylesheetHref) {
+  const stylesheetUrl = new URL(stylesheetHref, 'https://kadonext.invalid')
+  return css.replace(cssUrlPattern, (match, quote, value) => {
+    const url = value.trim()
+    if (/^(?:[a-z]+:|\/\/|\/|#)/i.test(url)) return match
+    const resolved = new URL(url, stylesheetUrl)
+    return `url(${quote}${resolved.pathname}${resolved.search}${resolved.hash}${quote})`
+  })
+}
+
 async function visit(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
   await Promise.all(entries.map(async (entry) => {
@@ -44,7 +55,10 @@ async function visit(directory) {
     }
     const stylesheetMatches = [...result.matchAll(criticalStylesheetPattern)]
     for (const match of stylesheetMatches) {
-      const css = await readFile(join(outputRoot, match[1].slice(1)), 'utf8')
+      const css = rootRelativeCssUrls(
+        await readFile(join(outputRoot, match[1].slice(1)), 'utf8'),
+        match[1],
+      )
       result = result.replace(match[0], `<style data-critical-css>${css}</style>`)
       inlined += 1
     }
