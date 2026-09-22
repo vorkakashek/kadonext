@@ -24,6 +24,7 @@
     "preview:tunnel": "npx --yes localtunnel --port 3000",
     "pregenerate": "npm run locales:build && npm run tokens:fluid && npm run seo:images",
     "generate": "nuxt generate && npm run html:optimize && npm run seo:check && npm run perf:check",
+    "deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-production.ps1",
     "preview": "nuxt preview",
     "previews": "node scripts/capture-previews.mjs",
     "postinstall": "npm run locales:build && nuxt prepare"

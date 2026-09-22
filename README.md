@@ -74,16 +74,29 @@ bun run preview
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
 
-## Загрузка статической сборки по FTP
+## Production-деплой по SSH
 
-Запустить `npm run build`. Готовый сайт находится в `.output/public`.
-В Total Commander открыть эту папку слева, а справа — FTP-каталог сайта
-(обычно `public_html`, `www` или `htdocs`, точное имя зависит от хостинга).
-Скопировать всё содержимое `.output/public` с сохранением структуры папок.
-`index.html` должен лежать прямо в корне сайта, рядом с `_nuxt`, `projects`
-и остальными папками. Сборка рассчитана на корень домена, а не на подпапку.
-При обновлении сначала загрузить папки с ресурсами, затем HTML-файлы.
-Исходники, `node_modules`, `.env` и папку `.output/server` загружать не нужно.
+Запустить одну команду из корня проекта:
+
+```bash
+npm run deploy
+```
+
+Команда собирает production-версию, упаковывает `.output/public`, загружает её по
+SSH на `root@185.240.103.224` и распаковывает в новый каталог
+`/var/www/kadonext/releases/<timestamp>-<commit>`. После проверки файлов и
+`nginx -t` скрипт атомарно переключает симлинк `/var/www/kadonext/current`, который
+используется nginx. Nuxt-процесс на сервере перезапускать не нужно: сайт статический.
+
+Для деплоя уже собранного и проверенного `.output/public` без повторной сборки:
+
+```bash
+npm run deploy -- -SkipBuild
+```
+
+Этот быстрый вариант использовать только после успешного `npm run build`. Скрипт
+ожидает production-ключ в `~/.ssh/kado_codex_ed25519` и после переключения проверяет
+`/ru/projects/` и загрузку корневого URL шрифта.
 
 Production-сборка разрешает индексацию страниц. Для тестового хостинга установите
 `NUXT_PUBLIC_SITE_INDEXABLE=false` **до сборки**: HTML получит `noindex`, sitemap
