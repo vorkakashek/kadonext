@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 import { execFile } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { randomInt, randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -127,13 +127,14 @@ export async function normaliseAudio(files, env = process.env) {
   }
 }
 
-function emailText(fields, attachments, submissionId) {
+function emailText(fields, attachments, number) {
   const lines = [
-    `Номер заявки: ${submissionId}`,
-    `Что нужно сделать: ${fields.projectType}`, '', 'О проекте:', fields.description || '(голосовые сообщения во вложениях)', '',
-    `Как связаться: ${fields.contact}`,
+    `Номер заявки: ${number}`, '',
+    'Как связаться:', fields.contact, '',
+    'Что нужно сделать:', fields.projectType,
+    fields.description || '(голосовые сообщения во вложениях)',
   ]
-  if (fields.stage) lines.push(`Стадия: ${fields.stage}`)
+  if (fields.stage) lines.push('', `Стадия: ${fields.stage}`)
   if (fields.deadline) lines.push(`Срок: ${fields.deadline}`)
   if (fields.budget) lines.push(`Бюджет: ${fields.budget}`)
   if (fields.materials) lines.push(`Материалы: ${fields.materials}`)
@@ -141,13 +142,42 @@ function emailText(fields, attachments, submissionId) {
     lines.push('', 'Голосовые сообщения (в выбранном автором порядке):')
     attachments.forEach((file, index) => lines.push(`${index + 1}. ${file.filename} — ${Math.round(file.seconds)} сек.`))
   }
-  lines.push('', 'Согласие на обработку персональных данных: предоставлено.',
+  return lines.join('\n')
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
+}
+
+function htmlValue(value) {
+  return escapeHtml(value).replace(/\r\n?|\n/g, '<br>')
+}
+
+function emailHtml(fields, attachments, number) {
+  const details = [
+    ['Стадия', fields.stage], ['Срок', fields.deadline],
+    ['Бюджет', fields.budget], ['Материалы', fields.materials],
+  ].filter(([, value]) => value)
+  const detailHtml = details.map(([label, value]) => `<div style="margin-top:6px"><span style="color:#777">${label}:</span> ${htmlValue(value)}</div>`).join('')
+  const audioHtml = attachments.length
+    ? `<div style="margin-top:18px;color:#555">Голосовые сообщения (в выбранном автором порядке):<br>${attachments.map((file, index) => `${index + 1}. ${escapeHtml(file.filename)} — ${Math.round(file.seconds)} сек.`).join('<br>')}</div>`
+    : ''
+  return `<!doctype html><html lang="ru"><body style="margin:0;padding:28px 20px;background:#f5f4f1;color:#242420;font-family:Arial,Helvetica,sans-serif"><div style="max-width:620px;margin:0 auto;padding:32px;background:#fff">
+    <div style="margin-bottom:30px"><div style="font-size:13px;color:#777">Номер заявки</div><div style="margin-top:6px;font-size:30px;line-height:1.2;font-weight:700">${number}</div></div>
+    <div style="margin-bottom:30px"><div style="font-size:13px;color:#777">Как связаться</div><div style="margin-top:6px;font-size:22px;line-height:1.35;font-weight:700;overflow-wrap:anywhere">${htmlValue(fields.contact)}</div></div>
+    <div><div style="font-size:13px;color:#777">Что нужно сделать</div><div style="margin-top:6px;font-size:22px;line-height:1.35;font-weight:700;overflow-wrap:anywhere">${htmlValue(fields.projectType)}</div><div style="margin-top:14px;font-size:16px;line-height:1.5;white-space:normal;overflow-wrap:anywhere">${htmlValue(fields.description || '(голосовые сообщения во вложениях)')}</div><div style="margin-top:14px;font-size:14px;line-height:1.5;overflow-wrap:anywhere">${detailHtml}${audioHtml}</div></div>
+  </div></body></html>`
+}
+
+function consentEvidence(fields) {
+  return [
+    'Согласие на обработку персональных данных: предоставлено.',
     `Дата отправки: ${new Date().toISOString()}`,
     `Версия согласия: ${fields.consentVersion}`,
     'Документ: https://kadonext.com/consent',
     `Текст галочки: ${CONTACT_CONSENT_CHECKBOX}`,
-    '', 'Текст согласия на момент отправки:', contactConsentSnapshot())
-  return lines.join('\n')
+    '', 'Текст согласия на момент отправки:', contactConsentSnapshot(),
+  ].join('\n')
 }
 
 function smtpSender(env) {
@@ -173,13 +203,18 @@ function smtpDelivery(env, send = smtpSender(env)) {
   if (!send) return null
   return async ({ fields, attachments }) => {
     const submissionId = randomUUID()
+    const number = randomInt(10000000, 100000000)
     const result = await send({
       from: env.CONTACT_MAIL_FROM || 'KADO <hello@kadonext.com>',
       to: env.CONTACT_MAIL_TO || 'hello@kadonext.com',
-      subject: `Новый проект — ${fields.projectType.replace(/[\r\n]/g, ' ').slice(0, 140)}`,
-      text: emailText(fields, attachments, submissionId),
+      subject: `Новый проект ${number} — ${fields.projectType.replace(/[\r\n]/g, ' ').slice(0, 140)}`,
+      text: emailText(fields, attachments, number),
+      html: emailHtml(fields, attachments, number),
       headers: { 'X-Kado-Submission-ID': submissionId },
-      attachments: attachments.map(({ seconds, ...attachment }) => attachment),
+      attachments: [
+        ...attachments.map(({ seconds, ...attachment }) => attachment),
+        { filename: `consent-${number}.txt`, content: consentEvidence(fields), contentType: 'text/plain; charset=utf-8' },
+      ],
     })
     if (!result?.accepted?.length || result.rejected?.length) throw new Error('SMTP did not accept the recipient')
   }
