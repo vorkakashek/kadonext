@@ -95,7 +95,7 @@ let sceneEntryTween: {
   kill: () => void
   progress: (value: number) => unknown
 } | null = null
-let coldSceneFadeTween: { kill: () => void } | null = null
+let coldSceneFadeAnimation: Animation | null = null
 const titleEl = computed(() =>
   props.sectionEl?.querySelector<HTMLElement>('[data-hero-title-block]') ?? null,
 )
@@ -643,6 +643,7 @@ const swarmMount = ref(false)
 const swarmLit = ref(false)
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
+const heroWebglRequired = useState<boolean>('home-hero-webgl-required', () => false)
 let swarmIdleId: number | null = null
 let swarmFallbackTimer = 0
 let removeSwarmIntent: (() => void) | null = null
@@ -652,7 +653,7 @@ let mobileSwarmDeferred = false
 let requestSwarmMount: (() => void) | null = null
 let stopSurfaceMountWatch: (() => void) | null = null
 
-function scheduleSwarmMount(fromNavigation: boolean) {
+function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
   const mount = () => {
     if (swarmIdleId !== null && 'cancelIdleCallback' in window) {
       window.cancelIdleCallback(swarmIdleId)
@@ -683,6 +684,15 @@ function scheduleSwarmMount(fromNavigation: boolean) {
   // Save-Data may defer the scene; slow estimates still skip speculative asset
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
+  heroWebglRequired.value = coldHomeIntro && !constrained
+  if (heroWebglRequired.value) {
+    // Cold WebGL startup (Three parsing, context creation, HDR/PMREM and shader
+    // compilation) is allowed only while the full-screen intro is static.
+    // HomeIntroSurface waits for `heroWebglLit` before starting clip-path.
+    preloadHomeSceneAssets(mobileLite.value ? 'mobile' : 'desktop')
+    requestAnimationFrame(mount)
+    return
+  }
   mobileSwarmDeferred = mobileLite.value && constrained
   if (mobileLite.value && !mobileSwarmDeferred) {
     // Fetch/parse the motion graph and current mobile HDR in an idle slot.
@@ -882,26 +892,45 @@ async function startColdSceneFade() {
   ) return
 
   coldSceneFadeRunning.value = true
-  // The live canvas is already lit. Remove its same-colour safety cover while
-  // the complete media layer is transparent, then reveal the whole scene as
-  // one opacity clock over the forest Surface backing.
+  if (mobileLite.value) {
+    // Commit live pixels before lifting the safety lid. Reversing this order
+    // exposes the bare Surface. Keep this path free of dynamic imports: the
+    // intro starts as soon as WebGL reports its first fully lit frame.
+    mediaEl.value.style.opacity = '1'
+    mediaEl.value.style.visibility = 'visible'
+    coverMayLift.value = true
+    await nextTick()
+    coldSceneFadeRunning.value = false
+    coldSceneFadeArmed.value = false
+    return
+  }
+
   coverMayLift.value = true
   await nextTick()
-  const { default: gsap } = await import('gsap')
   if (stageUnmounted || !mediaEl.value) return
-
-  gsap.set(mediaEl.value, { opacity: 0, visibility: 'visible' })
-  coldSceneFadeTween?.kill()
-  coldSceneFadeTween = gsap.to(mediaEl.value, {
-    opacity: 1,
-    duration: 0.78,
-    ease: 'power2.out',
-    onComplete: () => {
-      coldSceneFadeTween = null
-      coldSceneFadeRunning.value = false
-      coldSceneFadeArmed.value = false
+  const media = mediaEl.value
+  media.style.opacity = '0'
+  media.style.visibility = 'visible'
+  coldSceneFadeAnimation?.cancel()
+  const fade = media.animate(
+    [{ opacity: 0 }, { opacity: 1 }],
+    {
+      duration: 780,
+      easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
+      fill: 'forwards',
     },
-  })
+  )
+  coldSceneFadeAnimation = fade
+  try {
+    await fade.finished
+  } catch {
+    return
+  }
+  if (coldSceneFadeAnimation !== fade) return
+  media.style.opacity = '1'
+  coldSceneFadeAnimation = null
+  coldSceneFadeRunning.value = false
+  coldSceneFadeArmed.value = false
 }
 
 watch(
@@ -919,17 +948,22 @@ watch(
     () => initialReveal.revealed.value,
     glCoverLocked,
     sceneEntryArmed,
+    homeIntroStarted,
+    homeIntroContentReady,
     homeIntroUnlocked,
     coldSceneFadeArmed,
   ],
-  ([lit, rev, coverLocked, entryArmed, introUnlocked]) => {
+  ([lit, rev, coverLocked, entryArmed, introStarted, introContentReady, introUnlocked]) => {
     if (!lit || !rev || coverLocked) return
     if (entryArmed) {
       void startSceneEntryReveal()
       return
     }
     if (coldSceneFadeArmed.value) {
-      if (introUnlocked) void startColdSceneFade()
+      // Warm the real scene beneath the still-opaque final intro crop. Mobile
+      // can then hand directly to live pixels instead of exposing one
+      // forest-only frame and starting an independent fade afterwards.
+      if (introStarted || introContentReady || introUnlocked) void startColdSceneFade()
       return
     }
     coverMayLift.value = true
@@ -967,7 +1001,7 @@ onMounted(() => {
   heroIntroSettled.value = fromNav
   introPending.value = !fromNav
   swarmLoopReady.value = fromNav
-  scheduleSwarmMount(fromNav)
+  scheduleSwarmMount(fromNav, coldHomeIntro)
 
   // Start the scene as soon as the measured live Surface exists. The scene is
   // still independently covered and is never used as the scroll-unlock gate.
@@ -1016,21 +1050,31 @@ onMounted(() => {
       const gen = ++introGen
       introTl?.kill()
       introTl = null
+      const mobile = mobileLite.value
+      const directColdScene = coldHomeIntro
 
-      // Sync hide before any await — media stays invisible until the intro fade.
+      // The cold mobile scene is already protected by its opaque safety lid and
+      // the outer intro Surface. Keep the media layer paintable so the later
+      // async intro setup cannot overwrite the live-scene handoff back to 0.
       if (mediaEl.value) {
-        mediaEl.value.style.opacity = '0'
-        mediaEl.value.style.visibility = 'hidden'
+        mediaEl.value.style.opacity = directColdScene ? '1' : '0'
+        mediaEl.value.style.visibility = directColdScene ? 'visible' : 'hidden'
       }
 
       const { default: gsap } = await import('gsap')
       if (gen !== introGen) return
 
-      const mobile = mobileLite.value
       const titleGroups = titleCharGroups(isNarrowViewport())
       const titleChars = titleGroups.flat()
 
-      if (mediaEl.value) gsap.set(mediaEl.value, { autoAlpha: 0 })
+      if (mediaEl.value) {
+        gsap.set(
+          mediaEl.value,
+          directColdScene
+            ? { opacity: 1, visibility: 'visible' }
+            : { autoAlpha: 0 },
+        )
+      }
       if (titleChars.length) gsap.set(titleChars, { yPercent: HERO_TITLE_ENTER_Y_PERCENT })
       else if (titleEl.value) gsap.set(titleEl.value, { yPercent: HERO_TITLE_ENTER_Y_PERCENT })
       if (descEls.value.length) gsap.set(descEls.value, { yPercent: 115 })
@@ -1054,7 +1098,9 @@ onMounted(() => {
         if (mediaEl.value) {
           tl.set(
             mediaEl.value,
-            sceneEntryArmed.value || coldHomeIntro
+            directColdScene
+              ? { opacity: 1, visibility: 'visible' }
+              : sceneEntryArmed.value || coldHomeIntro
               ? { opacity: 0, visibility: 'visible' }
               : { autoAlpha: 1 },
             0,
@@ -1076,9 +1122,11 @@ onMounted(() => {
         if (mediaEl.value) {
           tl.set(
             mediaEl.value,
-            sceneEntryArmed.value || coldHomeIntro
-              ? { opacity: 0, visibility: 'visible' }
-              : { autoAlpha: 1 },
+            directColdScene
+              ? { opacity: 1, visibility: 'visible' }
+              : sceneEntryArmed.value
+                ? { opacity: 0, visibility: 'visible' }
+                : { autoAlpha: 1 },
             0,
           )
         }
@@ -1152,12 +1200,13 @@ onUnmounted(() => {
   introTl = null
   sceneEntryTween?.kill()
   sceneEntryTween = null
-  coldSceneFadeTween?.kill()
-  coldSceneFadeTween = null
+  coldSceneFadeAnimation?.cancel()
+  coldSceneFadeAnimation = null
   coldSceneFadeRunning.value = false
   coldSceneFadeArmed.value = false
   emit('sceneEntryChange', false)
   heroSwarmReady.value = false
+  heroWebglRequired.value = false
   cancelGlCoverHold()
   glCoverHopSession.value = false
   finishHeroRevealQuiet()
@@ -1233,6 +1282,7 @@ onUnmounted(() => {
                 'hero-swarm-cover--up': swarmCoverUp,
                 'hero-swarm-cover--lock': glCoverLocked,
                 'hero-swarm-cover--entry': sceneEntryArmed,
+                'hero-swarm-cover--cold-direct': coldSceneFadeArmed && mobileLite,
               }"
               aria-hidden="true"
             />
@@ -1314,6 +1364,10 @@ onUnmounted(() => {
 .hero-swarm-cover--lock {
   opacity: 1;
   visibility: visible;
+  transition: none;
+}
+
+.hero-swarm-cover--cold-direct {
   transition: none;
 }
 

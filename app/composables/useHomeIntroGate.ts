@@ -8,9 +8,16 @@
  */
 const LOCK_CLASS = 'home-intro-lock'
 const MAX_LOCK_MS = 1100
+const MAX_SETTLE_AFTER_SURFACE_MS = 2200
 
 let unlockTimer = 0
 let unlockRaf = 0
+
+function clearUnlockTimer() {
+  if (!unlockTimer) return
+  window.clearTimeout(unlockTimer)
+  unlockTimer = 0
+}
 
 export function useHomeIntroGate() {
   const started = useState<boolean>('home-intro-gate-started', () => false)
@@ -20,12 +27,23 @@ export function useHomeIntroGate() {
   const introSettled = useState<boolean>('home-intro-settled', () => false)
   const unlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
 
+  function scheduleUnlockFallback(delay: number) {
+    clearUnlockTimer()
+    unlockTimer = window.setTimeout(() => {
+      unlockTimer = 0
+      // The SSR primer is a valid visual fallback. Let the hero intro continue
+      // even if the measured live host or its handoff misses the bounded window.
+      surfaceReady.value = true
+      headerReady.value = true
+      contentReady.value = true
+      introSettled.value = true
+      unlock()
+    }, delay)
+  }
+
   function unlock() {
     if (!import.meta.client || unlocked.value) return
-    if (unlockTimer) {
-      window.clearTimeout(unlockTimer)
-      unlockTimer = 0
-    }
+    clearUnlockTimer()
     if (unlockRaf) {
       cancelAnimationFrame(unlockRaf)
       unlockRaf = 0
@@ -39,21 +57,19 @@ export function useHomeIntroGate() {
     started.value = true
     unlocked.value = false
     document.documentElement.classList.add(LOCK_CLASS)
-    unlockTimer = window.setTimeout(() => {
-      // The SSR primer is a valid visual fallback. Let the hero intro continue
-      // even if the measured live host missed the short cold-start window.
-      surfaceReady.value = true
-      headerReady.value = true
-      contentReady.value = true
-      introSettled.value = true
-      unlock()
-    }, MAX_LOCK_MS)
+    scheduleUnlockFallback(MAX_LOCK_MS)
   }
 
   function markSurfaceReady() {
     if (!import.meta.client || surfaceReady.value) return
     surfaceReady.value = true
     if (!started.value) unlock()
+    else {
+      // Surface readiness starts the authored 640 ms morph. Give that motion a
+      // complete relative deadline instead of letting the original cold-boot
+      // timer cut a late mobile start short halfway through its final shape.
+      scheduleUnlockFallback(MAX_SETTLE_AFTER_SURFACE_MS)
+    }
   }
 
   function markHeaderReady() {

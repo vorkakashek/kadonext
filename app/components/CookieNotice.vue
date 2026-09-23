@@ -8,6 +8,29 @@ const visible = ref(false)
 const { t, tm } = useI18n()
 const localePath = useLocalePath()
 const titleLines = computed(() => tm('cookieNotice.titleLines') as string[])
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const homeIntroGate = useHomeIntroGate()
+
+const HOME_INTRO_NOTICE_DELAY_MS = 140
+let mounted = false
+let revealTimer = 0
+
+function reveal() {
+  if (!mounted || visible.value || wasCookieNoticeSeen()) return
+  visible.value = true
+}
+
+function scheduleReveal(afterHomeIntro = false) {
+  if (!mounted || visible.value || revealTimer) return
+  if (afterHomeIntro) {
+    revealTimer = window.setTimeout(() => {
+      revealTimer = 0
+      reveal()
+    }, HOME_INTRO_NOTICE_DELAY_MS)
+    return
+  }
+  reveal()
+}
 
 function dismiss() {
   rememberCookieNotice()
@@ -15,7 +38,23 @@ function dismiss() {
 }
 
 onMounted(() => {
-  visible.value = !wasCookieNoticeSeen()
+  mounted = true
+  // On a first home visit, the notice used to animate its transform and live
+  // backdrop blur while the intro was morphing its full-screen clip-path and
+  // WebGL was compiling. Keep those compositor-heavy phases separate.
+  if (!initialHomeDocument.value || homeIntroGate.unlocked.value) {
+    scheduleReveal()
+  }
+})
+
+watch(homeIntroGate.unlocked, (unlocked) => {
+  if (unlocked) scheduleReveal(initialHomeDocument.value)
+})
+
+onUnmounted(() => {
+  mounted = false
+  if (revealTimer) window.clearTimeout(revealTimer)
+  revealTimer = 0
 })
 </script>
 
@@ -203,6 +242,10 @@ onMounted(() => {
     border-bottom: 0;
     border-left: 0;
     border-radius: 0;
+    /* The sheet is visually opaque on mobile. Avoid a live blur pass over the
+       continuously rendered WebGL scene underneath it. */
+    background: var(--palette-milk);
+    backdrop-filter: none;
     gap: 1.25rem;
   }
 

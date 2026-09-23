@@ -235,6 +235,7 @@ const props = withDefaults(
 )
 
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
 const homeMotionReady = useState<boolean>('home-flow-motion-ready', () => false)
 const {
   activeCaseId,
@@ -342,6 +343,7 @@ let motionBootPromise: Promise<void> | null = null
 let motionBootTimer = 0
 let motionIdleId: number | null = null
 let removeMotionIntent: (() => void) | null = null
+let stopIntroUnlockMotionWatch: (() => void) | null = null
 let removeAppliedScrollFrame: (() => void) | null = null
 let releaseClipPathEl: (() => void) | null = null
 let releaseLiveBoxNudge: (() => void) | null = null
@@ -4179,8 +4181,24 @@ onMounted(async () => {
   ensureHeroRestPlaceholder()
   surfaceViewportWidth = window.innerWidth
   window.addEventListener('resize', onResize, { passive: true })
-  if (coldDirectEntry && !useMobileCorridor()) scheduleColdMotionBoot()
-  else void bootMotionEngine()
+  if (coldDirectEntry) {
+    // The intro owns the critical 640 ms clip-path window. Loading GSAP,
+    // ScrollTrigger and measuring the full scroll corridor inside that window
+    // caused a reproducible one-frame stop on a genuinely cold cache.
+    if (homeIntroUnlocked.value) scheduleColdMotionBoot()
+    else {
+      stopIntroUnlockMotionWatch = watch(
+        homeIntroUnlocked,
+        (unlocked) => {
+          if (!unlocked) return
+          stopIntroUnlockMotionWatch?.()
+          stopIntroUnlockMotionWatch = null
+          scheduleColdMotionBoot()
+        },
+        { flush: 'post' },
+      )
+    }
+  } else void bootMotionEngine()
 })
 
 onUnmounted(() => {
@@ -4204,6 +4222,8 @@ onUnmounted(() => {
   motionIdleId = null
   removeMotionIntent?.()
   removeMotionIntent = null
+  stopIntroUnlockMotionWatch?.()
+  stopIntroUnlockMotionWatch = null
   morphGen += 1
   morphBooting = false
   lastFromEl = null

@@ -114,6 +114,7 @@ const introPending = ref(true)
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
 const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
 const homeIntroHeaderReady = useState<boolean>('home-intro-header-ready', () => false)
+const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
 
 let lastFabScrollY = 0
 const FAB_LABEL_DIR_PX = 8
@@ -230,6 +231,8 @@ let logoToneSyncRaf = 0
 let logoMorphTl: { kill: () => void } | null = null
 let fabFitTl: { kill: () => void } | null = null
 let fabFitResolve: (() => void) | null = null
+let headerPostIntroSetupDone = false
+let stopHeaderIntroUnlockWatch: (() => void) | null = null
 
 /**
  * ScrollTrigger is useful for regular scrolling, but its `isActive` can be
@@ -1030,16 +1033,10 @@ function syncThumbNav() {
   syncMobileScrollMark()
 }
 
-onMounted(() => {
-  navHydrated = true
-  navHerePath.value = stripLocalePrefix(route.fullPath)
-  registerFabFit(fitFabLabel)
-  refreshTokens()
+function runHeaderPostIntroSetup() {
+  if (headerPostIntroSetupDone) return
+  headerPostIntroSetupDone = true
   void gsap()
-  void morph(false)
-  syncThumbNav()
-  onScroll()
-  syncFabViewport()
   void nextTick(() => {
     void fitFabLabel(fabLabelOn.value, true)
     fitDeskChipWord()
@@ -1052,6 +1049,32 @@ onMounted(() => {
     syncMenuFloat()
     scheduleLogoCasesToneSync(true)
   })
+}
+
+onMounted(() => {
+  navHydrated = true
+  navHerePath.value = stripLocalePrefix(route.fullPath)
+  registerFabFit(fitFabLabel)
+  refreshTokens()
+  void morph(false)
+  syncThumbNav()
+  onScroll()
+  syncFabViewport()
+  const coldHomeBoot = initialHomeDocument.value
+    && routeBasePath.value === '/'
+    && !homeIntroUnlocked.value
+  if (coldHomeBoot) {
+    stopHeaderIntroUnlockWatch = watch(
+      homeIntroUnlocked,
+      (unlocked) => {
+        if (!unlocked) return
+        stopHeaderIntroUnlockWatch?.()
+        stopHeaderIntroUnlockWatch = null
+        runHeaderPostIntroSetup()
+      },
+      { flush: 'post' },
+    )
+  } else runHeaderPostIntroSetup()
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('touchstart', armMobileLogoDirection, { passive: true })
   window.addEventListener('pointerdown', armMobileLogoDirection, { passive: true })
@@ -1233,6 +1256,8 @@ onUnmounted(() => {
   if (collapseTimer) window.clearTimeout(collapseTimer)
   if (logoToneSyncRaf) cancelAnimationFrame(logoToneSyncRaf)
   logoToneSyncRaf = 0
+  stopHeaderIntroUnlockWatch?.()
+  stopHeaderIntroUnlockWatch = null
   logoCasesSt?.kill()
   logoCasesSt = null
   mobileMarkCasesSt?.kill()
