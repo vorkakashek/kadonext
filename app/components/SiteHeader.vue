@@ -111,6 +111,9 @@ const caseMobileBackEl = ref<HTMLElement | null>(null)
 const { bottomExtra: fabBottomExtra, style: fabStyle } = useMobileFabGeometry()
 const thumbNav = ref(false)
 const introPending = ref(true)
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
+const homeIntroHeaderReady = useState<boolean>('home-intro-header-ready', () => false)
 
 let lastFabScrollY = 0
 const FAB_LABEL_DIR_PX = 8
@@ -436,15 +439,29 @@ async function gsap() {
   return gsapMod
 }
 
-const LOGO_VIEWBOX_WIDTH = 81
-const LOGO_VIEWBOX_HEIGHT = 27
-/** The «ō» centre in the supplied KADŌ artwork's viewBox. */
-const LOGO_MARK_CENTRE_X = 71.67
+const LOGO_VARIANTS = {
+  ru: {
+    asset: '/brand/kado-logo.svg',
+    viewBox: '0 0 81 27',
+    width: 81,
+    height: 27,
+    /** The «ō» centre in the supplied KADŌ artwork's viewBox. */
+    markCentreX: 71.67,
+  },
+  en: {
+    asset: '/brand/kado-logo-en.svg',
+    viewBox: '0 0 3248 1088',
+    width: 3248,
+    height: 1088,
+    markCentreX: 2871.11,
+  },
+} as const
+const logoVariant = computed(() => LOGO_VARIANTS[locale.value])
 
 function logoMarkExpandedX() {
   // SVG transforms use viewBox units, not rendered CSS pixels. Move the
   // original glyph centre onto the square compact frame's centre.
-  return LOGO_VIEWBOX_HEIGHT / 2 - LOGO_MARK_CENTRE_X
+  return logoVariant.value.height / 2 - logoVariant.value.markCentreX
 }
 
 async function animateDesktopLogo(compact: boolean, immediate = false) {
@@ -459,7 +476,7 @@ async function animateDesktopLogo(compact: boolean, immediate = false) {
 
   const compactX = logoMarkExpandedX()
   const compactWidth = frame.offsetHeight
-  const expandedWidth = frame.offsetHeight * LOGO_VIEWBOX_WIDTH / LOGO_VIEWBOX_HEIGHT
+  const expandedWidth = frame.offsetHeight * logoVariant.value.width / logoVariant.value.height
   const reduce = prefersReducedMotion()
   if (immediate || reduce) {
     g.set(frame, { width: compact ? compactWidth : expandedWidth })
@@ -1052,6 +1069,11 @@ onMounted(() => {
     compact => void nextTick(() => animateDesktopLogo(compact)),
     { flush: 'post' },
   )
+  watch(
+    locale,
+    () => void nextTick(() => animateDesktopLogo(desktopScrollMarkOn.value, true)),
+    { flush: 'post' },
+  )
 
   watch(
     canvasForced,
@@ -1136,9 +1158,15 @@ onMounted(() => {
   // animated sequence during that async gap.
 
   watch(
-    () => initialReveal.revealed.value,
-    async (on) => {
-      if (!on) return
+    [
+      () => initialReveal.revealed.value,
+      homeSurfaceReady,
+      homeIntroHeaderReady,
+      routeBasePath,
+    ],
+    async ([on, surfaceReady, headerReady, basePath]) => {
+      const coldHome = initialHomeDocument.value && basePath === '/'
+      if (!on || (coldHome && (!surfaceReady || !headerReady))) return
       const g = await gsap()
 
       const domOf = (v: unknown): HTMLElement | null => {
@@ -1278,20 +1306,21 @@ onUnmounted(() => {
             ref="logoImgEl"
             class="header-logo"
             :class="{ 'header-logo--inverted': logoInverted }"
+            :style="{ '--logo-aspect': logoVariant.width / logoVariant.height }"
           >
             <svg
               class="header-logo__svg"
-              viewBox="0 0 81 27"
+              :viewBox="logoVariant.viewBox"
               fill="none"
               aria-hidden="true"
             >
               <g ref="logoLettersEl" class="header-logo__letters">
-                <use href="/brand/kado-logo.svg#kado-logo-letters" />
+                <use :href="`${logoVariant.asset}#kado-logo-letters`" />
               </g>
               <use
                 ref="logoMarkEl"
                 class="header-logo__mark"
-                href="/brand/kado-logo.svg#kado-logo-mark"
+                :href="`${logoVariant.asset}#kado-logo-mark`"
               />
             </svg>
           </span>
@@ -1664,10 +1693,11 @@ html.page-canvas-lock .menu-btn--float {
 
 .header-logo {
   --header-logo-height: calc(var(--layout-header-content) * 0.84375);
+  --logo-aspect: 3;
 
   position: relative;
   display: block;
-  width: calc(var(--header-logo-height) * 81 / 27);
+  width: calc(var(--header-logo-height) * var(--logo-aspect));
   height: var(--header-logo-height);
   max-width: none;
   overflow: hidden;
@@ -1680,7 +1710,7 @@ html.page-canvas-lock .menu-btn--float {
   top: 0;
   left: 0;
   display: block;
-  width: calc(var(--header-logo-height) * 81 / 27);
+  width: calc(var(--header-logo-height) * var(--logo-aspect));
   height: 100%;
   max-width: none;
   overflow: visible;

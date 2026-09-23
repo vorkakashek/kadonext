@@ -669,6 +669,8 @@ onUnmounted(() => {
   overflow: hidden;
   padding-top: 0.08em;
   padding-right: 0.04em;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
   vertical-align: bottom;
 }
 

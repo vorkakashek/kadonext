@@ -8,7 +8,7 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 defineProps<{ surfaceReady?: boolean }>()
 
-const { t, tm } = useI18n()
+const { locale, t, tm } = useI18n()
 const aboutTitleLines = computed(() => tm('home.about.titleLines') as string[])
 const aboutParagraphs = computed(() => tm('home.about.paragraphs') as string[])
 
@@ -233,7 +233,7 @@ onUnmounted(() => {
     id="about"
     ref="rootEl"
     class="home-about pointer-events-auto relative z-10 w-full"
-    :class="{ 'is-surface-ready': surfaceReady }"
+    :class="{ 'is-surface-ready': surfaceReady, 'home-about--english': locale === 'en' }"
     aria-labelledby="home-about-title"
   >
     <div class="home-about__layout">
@@ -579,6 +579,17 @@ onUnmounted(() => {
     grid-column: 1 / -1;
     font-size: clamp(2rem, 9.4vw, 3.2rem);
     line-height: 0.94;
+  }
+
+  /* The English title is wider than the Russian copy. Keep both authored
+     lines intact on narrow iPhones instead of letting the reveal mask clip
+     the final characters of “perspective.” */
+  .home-about--english .home-about__title {
+    font-size: clamp(
+      1.625rem,
+      min(9.4vw, calc(9.5238vw - 4.5714px)),
+      3.2rem
+    );
   }
 
   .home-about__portrait {

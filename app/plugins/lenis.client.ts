@@ -40,6 +40,7 @@ const TOUCH_RELEASE_STALE_MS = 110
 const SCROLL_LOCKS = [
   'page-canvas-lock',
   'page-iris-lock',
+  'home-intro-lock',
 ] as const
 
 const SCROLL_KEYS = new Set([

@@ -10,6 +10,8 @@ const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const cursorReady = computed(
   () => enhancementsReady.value && (!initialHomeDocument || heroWebglBooted.value),
 )
+const homeIntroGate = useHomeIntroGate()
+const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
 
 useSiteSeo()
 
@@ -18,6 +20,11 @@ if (import.meta.client && 'scrollRestoration' in history) {
 }
 
 onMounted(() => {
+  // The cold home intro owns the first short scroll gate. It is intentionally
+  // started after hydration: the SSR page remains paintable, and the bounded
+  // fallback below guarantees that a missing live surface cannot dead-lock it.
+  homeIntroGate.start(initialHomeDocument && !route.hash)
+
   const mountEnhancements = () => {
     enhancementsReady.value = true
   }
@@ -30,6 +37,21 @@ onMounted(() => {
     globalThis.setTimeout(mountEnhancements, 400)
   }
 })
+
+watch(
+  homeIntroGate.surfaceReady,
+  (ready) => {
+    if (ready) homeSurfaceReady.value = true
+  },
+  { immediate: true },
+)
+
+watch(
+  () => basePath.value,
+  (path) => {
+    if (path !== '/') homeIntroGate.unlock()
+  },
+)
 </script>
 
 <template>
@@ -66,6 +88,16 @@ html.page-iris-lock {
 
 html.page-canvas-lock body,
 html.page-iris-lock body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.home-intro-lock {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html.home-intro-lock body {
   overflow: hidden;
   overscroll-behavior: none;
 }

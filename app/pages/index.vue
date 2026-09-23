@@ -35,6 +35,14 @@ const formats = useTemplateRef<FormatsExpose>('formats')
 const about = useTemplateRef<AboutExpose>('about')
 const contact = useTemplateRef<ContactExpose>('contact')
 const surfaceReady = ref(false)
+const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
+const homeIntroGate = useHomeIntroGate()
+
+function onSurfaceReady() {
+  surfaceReady.value = true
+  homeSurfaceReady.value = true
+  homeIntroGate.markSurfaceReady()
+}
 
 const fromEl = computed(() => hero.value?.surfaceSlot ?? null)
 const toEl = computed(() => kado.value?.surfaceTarget ?? null)
@@ -75,6 +83,10 @@ onMounted(() => {
       class="pointer-events-none absolute inset-0 z-[1] overflow-x-clip"
       aria-hidden="true"
     />
+    <HomeIntroSurface
+      :target-el="fromEl"
+      :surface-ready="surfaceReady"
+    />
     <LazyFlowSurfaceHost
       v-if="mountSurface"
       :from-el="fromEl"
@@ -95,7 +107,7 @@ onMounted(() => {
       :contact-surface-el="contactSurfaceEl"
       :contact-fields-el="contactFieldsEl"
       :plan="heroToKadoPlan"
-      @ready="surfaceReady = true"
+      @ready="onSurfaceReady"
     />
     <main class="home-page pointer-events-none relative">
       <HomeHero ref="hero" :surface-ready="surfaceReady" />

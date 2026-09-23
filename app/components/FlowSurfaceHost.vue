@@ -942,6 +942,9 @@ function ensureHeroRestPlaceholder() {
   const pose = poseAtScrollY(doc, Math.min(window.scrollY, revealEnd))
   syncStageRest(pose)
   if (window.scrollY <= revealEnd + window.innerHeight * 0.35) {
+    // The cold intro mask is forest. Prepare the exact same live backing before
+    // announcing readiness so its one-frame handoff can never expose stone.
+    paintKadoSurfaceTone()
     if (useMobileCorridor() && window.scrollY < revealEnd - 0.5) {
       pinMobileHeroRevealFrame(pose)
       announceSurfaceReady()
@@ -2152,6 +2155,7 @@ function paintHeroRest() {
   mobileScrubBridge = null
   scrubLiveP = 0
   scrubTargetP = 0
+  paintKadoSurfaceTone()
   if (heroPose) paintBox(heroPose, 0)
 }
 

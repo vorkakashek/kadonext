@@ -13,26 +13,6 @@ const projectTypeError = useState('home-contact-project-type-error', () => false
 const formHeight = useState('home-contact-form-height', () => 0)
 const submitted = useState('home-contact-submitted', () => false)
 const successCollapsing = useState('home-contact-success-collapsing', () => submitted.value)
-let taskFocusObserver: IntersectionObserver | null = null
-
-onMounted(() => {
-  const input = taskInputEl.value
-  if (!input) return
-
-  const desktop = window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)')
-  taskFocusObserver = new IntersectionObserver(([entry]) => {
-    if (!entry?.isIntersecting || entry.intersectionRatio < 1 || !desktop.matches) return
-    if (projectType.value.trim() || document.visibilityState !== 'visible') return
-    if (document.documentElement.classList.contains('page-canvas-lock')) return
-    if (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]')) return
-
-    input.focus({ preventScroll: true })
-    taskFocusObserver?.disconnect()
-  }, { threshold: 1, rootMargin: '0px 0px -20% 0px' })
-  taskFocusObserver.observe(input)
-})
-
-onUnmounted(() => taskFocusObserver?.disconnect())
 
 const taskIsRaised = computed(() => projectType.value.length > 0)
 const hasProjectType = computed(() => projectType.value.trim().length > 0)
@@ -60,8 +40,8 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   >
     <div v-if="!successCollapsing" class="home-contact__lead" :class="{ 'is-submitted': submitted }">
         <header class="home-contact__intro">
-          <h2 v-html="t('home.contact.title')" />
-          <p><span class="home-contact__personal">{{ t('home.contact.personalPrefix') }}</span><span v-html="t('home.contact.personal')" /></p>
+          <h2>{{ t('home.contact.title') }}</h2>
+          <p>{{ t('home.contact.personal') }}</p>
         </header>
 
         <div class="home-contact__task" :class="{ 'has-value': taskIsRaised, 'has-error': projectTypeError }">
@@ -156,6 +136,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
 .home-contact__intro {
   grid-column: 3 / span 8;
+  text-align: center;
 }
 
 .home-contact__task {
@@ -171,7 +152,8 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 }
 
 .home-contact__intro p {
-  margin: clamp(1.5rem, 2.25vw, 2.5rem) 0 0;
+  max-width: 48rem;
+  margin: clamp(1.5rem, 2.25vw, 2.5rem) auto 0;
   font-size: var(--type-case-body-large);
   letter-spacing: -0.025em;
   line-height: 1.3;
@@ -331,11 +313,6 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   .home-contact__intro p {
     width: 100%;
     font-size: calc(var(--type-case-body-large) * 0.9);
-  }
-
-  .home-contact__personal,
-  .home-contact__intro p br {
-    display: none;
   }
 
   .home-contact__task {

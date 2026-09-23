@@ -2366,29 +2366,13 @@ async function bootScene() {
 }
 
 .hero-swarm-backdrop {
-  background: radial-gradient(
-    ellipse 88% 96% at 70% 42%,
-    var(--hero-scene-moss) 0%,
-    var(--hero-scene-forest) 72%,
-    var(--hero-scene-forest) 100%
-  );
+  background: var(--hero-scene-forest);
 }
 
 .hero-swarm {
   cursor: grab;
   /* Belt-and-suspenders: never let the GL surface own vertical gestures. */
   touch-action: pan-y;
-}
-
-@media (max-width: 1199px) {
-  .hero-swarm-backdrop {
-    background: radial-gradient(
-      ellipse 105% 78% at 50% 30%,
-      var(--hero-scene-moss) 0%,
-      var(--hero-scene-forest) 76%,
-      var(--hero-scene-forest) 100%
-    );
-  }
 }
 
 /* Before the live scene is ready, keep the GL layer out of the compositor.

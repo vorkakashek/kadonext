@@ -72,6 +72,12 @@ const emit = defineEmits<{
 
 const mask = useFlowSurfaceMask()
 const initialReveal = useInitialReveal()
+const route = useRoute()
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
+const homeIntroStarted = useState<boolean>('home-intro-gate-started', () => false)
+const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
+const homeIntroContentReady = useState<boolean>('home-intro-content-ready', () => false)
 const heroIntroSettled = useState('home-hero-intro-settled', () => false)
 const focusEl = ref<HTMLElement | null>(null)
 const sceneEntryEl = ref<HTMLElement | null>(null)
@@ -83,10 +89,13 @@ const sloganY = ref(0)
 /** Cold entry: the complete green scene rises before the Surface crop is restored. */
 const sceneEntryArmed = ref(false)
 const sceneEntryRunning = ref(false)
+const coldSceneFadeArmed = ref(false)
+const coldSceneFadeRunning = ref(false)
 let sceneEntryTween: {
   kill: () => void
   progress: (value: number) => unknown
 } | null = null
+let coldSceneFadeTween: { kill: () => void } | null = null
 const titleEl = computed(() =>
   props.sectionEl?.querySelector<HTMLElement>('[data-hero-title-block]') ?? null,
 )
@@ -641,6 +650,7 @@ let stageUnmounted = false
 let swarmIntentPending = false
 let mobileSwarmDeferred = false
 let requestSwarmMount: (() => void) | null = null
+let stopSurfaceMountWatch: (() => void) | null = null
 
 function scheduleSwarmMount(fromNavigation: boolean) {
   const mount = () => {
@@ -846,11 +856,11 @@ async function startSceneEntryReveal() {
   const startY = Math.max(0, window.innerHeight - destination.top + 1)
   sceneEntryTween = gsap.fromTo(
     scene,
-    { y: startY, '--hero-scene-entry-opacity': 0 },
+    { y: startY, '--hero-scene-entry-opacity': 1 },
     {
       y: 0,
       '--hero-scene-entry-opacity': 1,
-      duration: mobileLite.value ? 0.92 : 1.12,
+      duration: mobileLite.value ? 0.84 : 0.96,
       ease: 'power4.out',
       onComplete: () => {
         // Keep the settled entry factor inline. Scroll opacity remains a
@@ -863,6 +873,37 @@ async function startSceneEntryReveal() {
   )
 }
 
+async function startColdSceneFade() {
+  if (
+    !coldSceneFadeArmed.value
+    || coldSceneFadeRunning.value
+    || stageUnmounted
+    || !mediaEl.value
+  ) return
+
+  coldSceneFadeRunning.value = true
+  // The live canvas is already lit. Remove its same-colour safety cover while
+  // the complete media layer is transparent, then reveal the whole scene as
+  // one opacity clock over the forest Surface backing.
+  coverMayLift.value = true
+  await nextTick()
+  const { default: gsap } = await import('gsap')
+  if (stageUnmounted || !mediaEl.value) return
+
+  gsap.set(mediaEl.value, { opacity: 0, visibility: 'visible' })
+  coldSceneFadeTween?.kill()
+  coldSceneFadeTween = gsap.to(mediaEl.value, {
+    opacity: 1,
+    duration: 0.78,
+    ease: 'power2.out',
+    onComplete: () => {
+      coldSceneFadeTween = null
+      coldSceneFadeRunning.value = false
+      coldSceneFadeArmed.value = false
+    },
+  })
+}
+
 watch(
   [swarmLit, swarmVisible],
   () => {
@@ -873,11 +914,22 @@ watch(
 
 /** Reveal a lit canvas first; ordinary SPA returns only need the safety lid. */
 watch(
-  [swarmLit, () => initialReveal.revealed.value, glCoverLocked, sceneEntryArmed],
-  ([lit, rev, coverLocked, entryArmed]) => {
+  [
+    swarmLit,
+    () => initialReveal.revealed.value,
+    glCoverLocked,
+    sceneEntryArmed,
+    homeIntroUnlocked,
+    coldSceneFadeArmed,
+  ],
+  ([lit, rev, coverLocked, entryArmed, introUnlocked]) => {
     if (!lit || !rev || coverLocked) return
     if (entryArmed) {
       void startSceneEntryReveal()
+      return
+    }
+    if (coldSceneFadeArmed.value) {
+      if (introUnlocked) void startColdSceneFade()
       return
     }
     coverMayLift.value = true
@@ -901,7 +953,11 @@ onMounted(() => {
 
   const fromNav = skipHeroIntro.value
   if (fromNav) skipHeroIntro.value = false
+  const coldHomeIntro = initialHomeDocument.value && !route.hash
+  coldSceneFadeArmed.value = coldHomeIntro
+  coldSceneFadeRunning.value = false
   const animateSceneEntry = !fromNav
+    && !coldHomeIntro
     && sceneOpacity.value > SCENE_LIVE_OPACITY
     && !prefersReducedMotion()
   sceneEntryArmed.value = animateSceneEntry
@@ -913,15 +969,34 @@ onMounted(() => {
   swarmLoopReady.value = fromNav
   scheduleSwarmMount(fromNav)
 
+  // Start the scene as soon as the measured live Surface exists. The scene is
+  // still independently covered and is never used as the scroll-unlock gate.
+  // This removes the old fixed 1100 ms desktop wait without making intro text
+  // race the Surface's first committed pose.
+  stopSurfaceMountWatch = watch(
+    homeSurfaceReady,
+    (ready) => {
+      if (!ready || fromNav || mobileSwarmDeferred || swarmMount.value) return
+      requestAnimationFrame(() => requestSwarmMount?.())
+    },
+    { immediate: true },
+  )
+
   watch(pageCanvasBusy, (on) => {
     if (on) introTl?.pause()
     else introTl?.resume()
   })
 
   watch(
-    () => initialReveal.revealed.value,
-    async (on) => {
-      if (!on) {
+    [
+      () => initialReveal.revealed.value,
+      homeSurfaceReady,
+      homeIntroStarted,
+      homeIntroContentReady,
+    ],
+    async ([on, surfaceReady, introStarted, introContentReady]) => {
+      const introGateWaiting = introStarted && !introContentReady
+      if (!on || !surfaceReady || introGateWaiting) {
         if (fromNav) return
         swarmLoopReady.value = false
         introPending.value = true
@@ -979,7 +1054,7 @@ onMounted(() => {
         if (mediaEl.value) {
           tl.set(
             mediaEl.value,
-            sceneEntryArmed.value
+            sceneEntryArmed.value || coldHomeIntro
               ? { opacity: 0, visibility: 'visible' }
               : { autoAlpha: 1 },
             0,
@@ -1001,7 +1076,7 @@ onMounted(() => {
         if (mediaEl.value) {
           tl.set(
             mediaEl.value,
-            sceneEntryArmed.value
+            sceneEntryArmed.value || coldHomeIntro
               ? { opacity: 0, visibility: 'visible' }
               : { autoAlpha: 1 },
             0,
@@ -1015,17 +1090,21 @@ onMounted(() => {
             tl.to(
               chars,
               { yPercent: 0, duration: 1.1, stagger: 0.055, ease: 'power4.out' },
-              0.12,
+              coldHomeIntro ? 0 : 0.12,
             )
           })
         } else if (titleEl.value) {
-          tl.to(titleEl.value, { yPercent: 0, duration: 1.1, ease: 'power4.out' }, 0.12)
+          tl.to(
+            titleEl.value,
+            { yPercent: 0, duration: 1.1, ease: 'power4.out' },
+            coldHomeIntro ? 0 : 0.12,
+          )
         }
         if (descEls.value.length) {
           tl.to(
             descEls.value,
             { yPercent: 0, duration: 1.1, stagger: 0.18, ease: 'power4.out' },
-            0.34,
+            coldHomeIntro ? 0.06 : 0.34,
           )
         }
       } else {
@@ -1034,17 +1113,21 @@ onMounted(() => {
             tl.to(
               chars,
               { yPercent: 0, duration: 1.1, stagger: 0.055, ease: 'power4.out' },
-              0.5,
+              coldHomeIntro ? 0 : 0.5,
             )
           })
         } else if (titleEl.value) {
-          tl.to(titleEl.value, { yPercent: 0, duration: 1.1, ease: 'power4.out' }, 0.5)
+          tl.to(
+            titleEl.value,
+            { yPercent: 0, duration: 1.1, ease: 'power4.out' },
+            coldHomeIntro ? 0 : 0.5,
+          )
         }
         if (descEls.value.length) {
           tl.to(
             descEls.value,
             { yPercent: 0, duration: 1.1, stagger: 0.18, ease: 'power4.out' },
-            0.95,
+            coldHomeIntro ? 0.06 : 0.95,
           )
         }
       }
@@ -1055,6 +1138,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   stageUnmounted = true
+  stopSurfaceMountWatch?.()
+  stopSurfaceMountWatch = null
   if (swarmIdleId !== null && 'cancelIdleCallback' in window) {
     window.cancelIdleCallback(swarmIdleId)
   }
@@ -1067,6 +1152,10 @@ onUnmounted(() => {
   introTl = null
   sceneEntryTween?.kill()
   sceneEntryTween = null
+  coldSceneFadeTween?.kill()
+  coldSceneFadeTween = null
+  coldSceneFadeRunning.value = false
+  coldSceneFadeArmed.value = false
   emit('sceneEntryChange', false)
   heroSwarmReady.value = false
   cancelGlCoverHold()
