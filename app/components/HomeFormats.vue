@@ -266,12 +266,14 @@ async function setupEntranceMotion() {
   )
   const title = header.querySelector<HTMLElement>('.work-formats__title')
   const intro = header.querySelector<HTMLElement>('.work-formats__intro')
+  const pricing = header.querySelector<HTMLElement>('.work-formats__pricing')
   const items = Array.from(
     root.querySelectorAll<HTMLElement>('.work-formats__item'),
   )
   const animatedElements = [
     ...chars,
     ...(intro ? [intro] : []),
+    ...(pricing ? [pricing] : []),
     ...items.flatMap(item => Array.from(
       item.querySelectorAll<HTMLElement>(
         '.work-formats__number-text, .work-formats__name-text, .work-formats__description, .work-formats__thumb-slot, .work-formats__thumb img',
@@ -305,6 +307,7 @@ async function setupEntranceMotion() {
     if (chars.length) {
       gsap.set(chars, { yPercent: 115 })
       if (intro) gsap.set(intro, { autoAlpha: 0, y: 24 })
+      if (pricing) gsap.set(pricing, { autoAlpha: 0, y: 24 })
 
       const headerReveal = gsap.timeline({
         paused: mobileThumbsEnabled.value,
@@ -329,6 +332,14 @@ async function setupEntranceMotion() {
           duration: 0.72,
           ease: 'power3.out',
         }, mobileThumbsEnabled.value ? 0.16 : 0.3)
+      }
+      if (pricing) {
+        headerReveal.to(pricing, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.72,
+          ease: 'power3.out',
+        }, mobileThumbsEnabled.value ? 0.28 : 0.42)
       }
 
       if (mobileThumbsEnabled.value) {
@@ -501,6 +512,10 @@ onUnmounted(() => {
         <p class="work-formats__intro">
           {{ t('home.formats.intro') }}
         </p>
+        <div class="work-formats__pricing">
+          <p class="work-formats__price">{{ t('home.formats.price') }}</p>
+          <p class="work-formats__price-note">{{ t('home.formats.priceNote') }}</p>
+        </div>
       </header>
 
       <div class="work-formats__body">
@@ -693,6 +708,25 @@ onUnmounted(() => {
   font-size: var(--type-lead);
   letter-spacing: -0.025em;
   line-height: 1.3;
+}
+
+.work-formats__pricing {
+  max-width: 38rem;
+  margin-top: clamp(1.5rem, 2vw, 2rem);
+}
+
+.work-formats__price {
+  margin: 0;
+  font-size: clamp(1.25rem, 1.65vw, 1.5rem);
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+
+.work-formats__price-note {
+  margin: 0.5rem 0 0;
+  color: color-mix(in srgb, var(--palette-ink) 68%, transparent);
+  font-size: clamp(0.9375rem, 1.1vw, 1rem);
+  line-height: 1.5;
 }
 
 .work-formats__body {

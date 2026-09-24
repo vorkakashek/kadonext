@@ -569,7 +569,9 @@ function focusConfirmation() {
         />
         </div>
         <div class="contact-form__description-meta">
-          <span :id="`${props.formId}-description-hint`" class="contact-form__hint" v-html="t('contactForm.descriptionHint')" />
+          <div class="contact-form__description-hint-wrap">
+            <span :id="`${props.formId}-description-hint`" class="contact-form__hint" v-html="t('contactForm.descriptionHint')" />
+          </div>
           <ContactVoiceDeviceSelect v-model="deviceId" class="contact-form__voice-device" :devices="devices" :disabled="formLocked" @refresh="voice.refreshDevices()" />
         </div>
         <ContactVoiceInput :form-id="props.formId" :disabled="submitting" @focus-record-button="modeButtonEl?.focus({ preventScroll: true })" />
@@ -697,7 +699,22 @@ function focusConfirmation() {
   --description-font-size: clamp(1.65rem, 3vw, 3.5rem);
 }
 .contact-form__description-meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; margin-top: 0.8rem; }
-.contact-form__description-meta .contact-form__hint { flex: 1; min-width: 0; margin-top: 0; }
+.contact-form__description-hint-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  flex: 1;
+  min-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 300ms ease, opacity 220ms ease, visibility 0s linear 300ms;
+}
+.contact-form__description-hint-wrap .contact-form__hint { min-height: 0; overflow: hidden; margin-top: 0; }
+.contact-form__row:focus-within + .contact-form__description-meta .contact-form__description-hint-wrap {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows 300ms ease, opacity 220ms ease, visibility 0s;
+}
 .contact-form__voice-device { width: clamp(8rem, 20%, 12rem); flex: none; }
 .contact-form__mode-control {
   position: absolute;
@@ -1035,7 +1052,9 @@ function focusConfirmation() {
 
 @media (max-width: 767.98px) {
   .contact-form__editor { --description-font-size: clamp(1.45rem, 7.2vw, 2.3rem); }
-  .contact-form__description-meta { flex-direction: column; gap: 0.75rem; }
+  .contact-form__description-meta { flex-direction: column; gap: 0; transition: gap 300ms ease; }
+  .contact-form__row:focus-within + .contact-form__description-meta { gap: 0.75rem; }
+  .contact-form__description-hint-wrap { align-self: stretch; }
   .contact-form__voice-device { align-self: flex-end; width: clamp(8rem, 40vw, 12rem); }
   .contact-form-shell {
     display: block;
@@ -1105,5 +1124,13 @@ function focusConfirmation() {
     animation: none;
   }
   .contact-form__sending { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-form__description-hint-wrap,
+  .contact-form__row:focus-within + .contact-form__description-meta .contact-form__description-hint-wrap,
+  .contact-form__description-meta {
+    transition: none;
+  }
 }
 </style>

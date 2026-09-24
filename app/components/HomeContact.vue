@@ -42,6 +42,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
         <header class="home-contact__intro">
           <h2>{{ t('home.contact.title') }}</h2>
           <p>{{ t('home.contact.personal') }}</p>
+          <p class="home-contact__price">{{ t('home.contact.price') }}</p>
         </header>
 
         <div class="home-contact__task" :class="{ 'has-value': taskIsRaised, 'has-error': projectTypeError }">
@@ -66,14 +67,16 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
             @clear="projectType = ''; projectTypeError = false"
           />
           <div id="home-contact-task-suggestions" class="home-contact__suggestions" :aria-label="t('home.contact.suggestionsLabel')">
-            <button
-              v-for="type in projectTypes"
-              :key="type"
-              type="button"
-              @click="appendProjectType(type)"
-            >
-              {{ type }}
-            </button>
+            <div class="home-contact__suggestions-list">
+              <button
+                v-for="type in projectTypes"
+                :key="type"
+                type="button"
+                @click="appendProjectType(type)"
+              >
+                {{ type }}
+              </button>
+            </div>
           </div>
           <p
             v-if="projectTypeError"
@@ -154,9 +157,16 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 .home-contact__intro p {
   max-width: 48rem;
   margin: clamp(1.5rem, 2.25vw, 2.5rem) auto 0;
-  font-size: var(--type-case-body-large);
+  font-size: clamp(1.25rem, 1.45vw, 1.625rem);
   letter-spacing: -0.025em;
   line-height: 1.3;
+}
+
+.home-contact__intro .home-contact__price {
+  margin-top: 0.75rem;
+  color: color-mix(in srgb, var(--palette-ink) 70%, transparent);
+  font-size: clamp(1rem, 1.1vw, 1.125rem);
+  line-height: 1.4;
 }
 
 .home-contact__task {
@@ -218,11 +228,29 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 }
 
 .home-contact__suggestions {
-  display: flex;
+  display: grid;
+  grid-template-rows: 1fr;
   padding-top: 0.85rem;
+  opacity: 1;
+  transition: grid-template-rows 300ms ease, padding-top 300ms ease, opacity 220ms ease, visibility 0s;
+}
+
+.home-contact__suggestions-list {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0;
+}
+
+.home-contact__task.has-value:not(:focus-within) .home-contact__suggestions {
+  grid-template-rows: 0fr;
+  padding-top: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: grid-template-rows 300ms ease, padding-top 300ms ease, opacity 220ms ease, visibility 0s linear 300ms;
 }
 
 .home-contact__suggestions button {
@@ -312,7 +340,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
   .home-contact__intro p {
     width: 100%;
-    font-size: calc(var(--type-case-body-large) * 0.9);
+    font-size: clamp(1.0625rem, 4.4vw, 1.1875rem);
   }
 
   .home-contact__task {
@@ -358,6 +386,13 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   .home-contact__task,
   .home-contact__task label,
   .home-contact__suggestions button {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-contact__suggestions,
+  .home-contact__task.has-value:not(:focus-within) .home-contact__suggestions {
     transition: none;
   }
 }

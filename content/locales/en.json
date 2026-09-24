@@ -1,13 +1,13 @@
 {
   "seo": {
     "defaultTitle": "KADO — bespoke website design and development",
-    "defaultDescription": "KADO is an author-led web design and development studio. I create distinctive websites for businesses, from the first outline to launch.",
+    "defaultDescription": "KADO is an author-led website design and development studio. I create distinctive sites for brands and service businesses, from structure and visual direction to launch.",
     "caseTitle": "{title} — KADO",
     "imageAlt": "KADO — an author-led website design and development studio",
     "caseImageAlt": "{title} — a website design case study in the KADO portfolio",
     "home": {
       "title": "KADO — bespoke website design and development",
-      "description": "KADO is an author-led studio creating distinctive business websites, from the first outline to animation and launch. Explore the work and tell me about your project."
+      "description": "KADO creates websites for brands and service businesses, from structure and visual direction to development and launch. The founder leads the key stages personally. Explore the work and tell me about your project."
     },
     "projects": {
       "title": "Projects — website design and development portfolio | KADO",
@@ -101,8 +101,8 @@
         "business"
       ],
       "descriptionLines": [
-        "I create distinctive websites.",
-        "From structure to launch."
+        "For restaurants, local brands and service businesses.",
+        "End-to-end websites, from structure and design to launch."
       ],
       "sloganLines": [
         "freedom of form.",
@@ -113,7 +113,7 @@
       "imageAlt": "Stone",
       "title": "Kadō — the way of flowers.",
       "definition": "The Japanese art of composition, where the freedom of natural forms finds precise order.",
-      "body": "KADO brings this principle into the digital world: each project finds its own visual language, shaped into a clear system that works."
+      "body": "KADO connects a brand's character with the purpose of its website: a distinct visual idea takes shape through clear structure and careful execution."
     },
     "cases": {
       "title": "Projects",
@@ -127,32 +127,34 @@
     },
     "formats": {
       "title": "Ways to work together.",
-      "intro": "Bring an idea, a finished design, or an existing website.",
+      "intro": "Bring an idea, a finished design or an existing website.",
+      "price": "New end-to-end websites start at ₽600,000.",
+      "priceNote": "I define the scope, timeline and final price after discussing your project. Design, development from supplied designs and work on an existing site are priced separately.",
       "items": [
         {
           "title": "End-to-end website",
-          "description": "When I take the whole project from the first brief to launch.",
+          "description": "For a new site from start to finish: structure, visual direction, design, development and launch.",
           "preview": "/home/work/001-960.webp",
           "previewAvif": "/home/work/001-960.avif",
           "alt": "Japanese restaurant homepage displayed on a tablet"
         },
         {
           "title": "Design and art direction",
-          "description": "When a product needs a visual language of its own and a coherent interface system.",
+          "description": "For a product that needs its own visual language and a coherent interface system.",
           "preview": "/home/work/002-960.webp",
           "previewAvif": "/home/work/002-960.avif",
           "alt": "Branded packaging for the Kitaycheck UI kit"
         },
         {
           "title": "Development and motion",
-          "description": "When a finished design needs to be built faithfully in the browser and brought to life through motion.",
+          "description": "For a finished design: responsive development and motion that supports the content.",
           "preview": "/home/work/003-960.webp",
           "previewAvif": "/home/work/003-960.avif",
           "alt": "Mobile interface for a medical website on a smartphone"
         },
         {
           "title": "Post-launch growth",
-          "description": "When a live website needs new sections, updates and ongoing support.",
+          "description": "For a live website: new sections, updates and support as the project grows.",
           "preview": "/home/work/004-960.webp",
           "previewAvif": "/home/work/004-960.avif",
           "alt": "Digital product dashboard in a dark 3D composition"
@@ -166,15 +168,16 @@
       "location": "moscow  ·  worldwide",
       "heading": "About me",
       "paragraphs": [
-        "My name is Anton. I am a designer, developer and the founder of KADO. I personally lead the key stages of every project: getting to the heart of the brief, shaping the structure and visual direction, designing interactions and contributing to development. After launch, I stay involved: supporting the website, releasing updates and refining its functionality and visual language as the project evolves.",
-        "I create websites as clear digital spaces, each with its own character, logic and motion that serves the content rather than existing for effect."
+        "I'm Anton, a designer, developer and founder of KADO. I lead the key stages myself: understanding the brief, shaping the structure, setting the visual direction and making sure the idea becomes a working website. When a project needs a photographer, copywriter or 3D specialist, I bring them in for that task and make their roles clear.",
+        "Form matters, but a site also needs clear structure, an easy path to the right information and reliable behaviour across screens. The work moves from the brief and concept through design and development to checks before launch. I can stay involved with updates and further development afterwards."
       ],
       "socialsLabel": "Social media"
     },
     "contact": {
       "label": "Discuss a project",
-      "title": "shall we discuss your project?",
-      "personal": "Tell me about your task or project. I read and reply to every message myself.",
+      "title": "let's start a project.",
+      "personal": "Tell me what you are working on. I'll read your message myself and suggest where to start.",
+      "price": "New end-to-end websites start at ₽600,000.",
       "taskLabel": "What do you need?",
       "clearTask": "Clear project type",
       "suggestionsLabel": "Suggestions",
@@ -191,7 +194,7 @@
   "projects": {
     "catalog": {
       "title": "Projects",
-      "description": "Case studies: challenge, idea, system, outcome."
+      "description": "KADO case studies: the brief, key decisions and my role in each project."
     },
     "detail": {
       "notFound": "Case study not found",
@@ -211,7 +214,7 @@
         "label": "Audience",
         "title": "Audience",
         "client": "HookahPlace Audience",
-        "blurb": "I brought identity, content and service journeys into one clear digital experience.",
+        "blurb": "The site carries the venue's atmosphere from the first impression through to the menu and booking.",
         "focusTags": [
           "stillness",
           "rhythm",
@@ -230,7 +233,7 @@
         "label": "Keys Store",
         "title": "Keys Store",
         "client": "Keys-Store.com",
-        "blurb": "I brought games, subscriptions and Steam items into one clear digital system.",
+        "blurb": "A shared catalog system helps customers choose a game, subscription or Steam item and move to checkout.",
         "focusTags": [
           "system",
           "speed",
@@ -251,7 +254,7 @@
         "label": "Baltika Brew",
         "title": "Baltika Brew",
         "client": "Baltika",
-        "blurb": "I connected the interface and 3D so the packaging could lead the digital story.",
+        "blurb": "A 3D model ties the product range into a coherent visual system for the site.",
         "focusTags": [
           "object",
           "motion",
@@ -270,7 +273,7 @@
         "label": "SCHMIDT",
         "title": "SCHMIDT",
         "client": "SCHMIDT",
-        "blurb": "I unfolded a two-century-old brand into one continuous horizontal composition.",
+        "blurb": "A horizontal journey reveals the brand's story through the product, its details and motion.",
         "focusTags": [
           "rhythm",
           "contrast",
@@ -707,7 +710,7 @@
     "fieldset": "Project details",
     "descriptionLabel": "a little about the project",
     "clearDescription": "Clear project description",
-    "descriptionHint": "What are you creating, and what should the website achieve?<br>A few sentences are enough. You can also add a voice message.",
+    "descriptionHint": "What are you creating, and for whom? What should visitors understand or do on the site?<br>A few sentences or a voice message are enough.",
     "contactLabel": "how can I reach you?",
     "contactTitle": "Enter the contact details I should use to reach you.",
     "contactHint": "name, Telegram or email",

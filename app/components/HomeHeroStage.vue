@@ -6,7 +6,7 @@
  */
 import { flowSurfaceMask, useFlowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 import { useInitialReveal } from '~/composables/useInitialReveal'
-import { preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
+import { preloadHomeMotionBundles, preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
 import { isCoarsePointer, isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
   subscribeAppliedScrollFrame,
@@ -689,7 +689,9 @@ function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
     // Cold WebGL startup (Three parsing, context creation, HDR/PMREM and shader
     // compilation) is allowed only while the full-screen intro is static.
     // HomeIntroSurface waits for `heroWebglLit` before starting clip-path.
-    preloadHomeSceneAssets(mobileLite.value ? 'mobile' : 'desktop')
+    // The scene mounts on the next frame and loads its HDR itself. Fetching the
+    // same asset here races that request and can transfer it twice on a cold load.
+    void preloadHomeMotionBundles()
     requestAnimationFrame(mount)
     return
   }
