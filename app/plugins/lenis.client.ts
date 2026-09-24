@@ -473,13 +473,12 @@ export default defineNuxtPlugin((nuxtApp) => {
       }
       return
     }
-    const reducedMotion = immediate
     const top = homeSectionScrollTop(target)
     const targetId = target === document.documentElement ? 'home' : target.id
     const thumb = isThumbNav()
     const approachDistance = Math.max(HOME_ANCHOR_TIMING.minimumApproachPx,
       window.innerHeight * HOME_ANCHOR_TIMING.mobileApproachViewport)
-    const surfaceMotion = !reducedMotion && isHomeAnchorTarget(targetId)
+    const surfaceMotion = !immediate && isHomeAnchorTarget(targetId)
       ? beginHomeAnchorMotion(targetId, top)
       : null
     let settleTimer = 0
@@ -553,7 +552,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       lenis.scrollTo(top, {
         duration: 3,
         easing: sectionScrollEasing,
-        immediate: reducedMotion,
+        immediate,
         force: immediate,
         onComplete: finish,
       })
@@ -563,7 +562,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       window.scrollTo({
         top,
         left: 0,
-        behavior: reducedMotion ? 'instant' : 'smooth',
+        behavior: immediate ? 'instant' : 'smooth',
       })
       onNativeScroll()
     }

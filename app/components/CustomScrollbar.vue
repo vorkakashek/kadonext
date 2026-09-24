@@ -29,7 +29,6 @@ let dragging = false
 let dragOffset = 0
 let targetY = 0
 let lerpRaf = 0
-let reducedMotion = false
 
 const { surfaceOn: canvasSurface } = usePageCanvas()
 const homeCases = useHomeCases()
@@ -71,7 +70,7 @@ function metrics() {
   thumbH.value = Math.min(usable, Math.max(MIN_THUMB, capped))
   const maxY = Math.max(0, usable - thumbH.value)
   targetY = maxScroll > 0 ? maxY * (sy / maxScroll) : 0
-  if (dragging || reducedMotion) {
+  if (dragging) {
     thumbY.value = targetY
   }
   return { maxScroll, usable, ch, sh, inset, nav }
@@ -79,7 +78,7 @@ function metrics() {
 
 function tickLerp() {
   lerpRaf = 0
-  if (dragging || reducedMotion) {
+  if (dragging) {
     thumbY.value = targetY
     return
   }
@@ -94,7 +93,7 @@ function tickLerp() {
 }
 
 function ensureLerp() {
-  if (dragging || reducedMotion) {
+  if (dragging) {
     thumbY.value = targetY
     return
   }
@@ -204,7 +203,6 @@ watch(
 )
 
 onMounted(() => {
-  reducedMotion = prefersReducedMotion()
   metrics()
   thumbY.value = targetY
   window.addEventListener('scroll', onScroll, { passive: true })

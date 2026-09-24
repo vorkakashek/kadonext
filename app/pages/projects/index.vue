@@ -54,48 +54,37 @@ async function setupCatalogRevealMotion() {
     const cards = Array.from(grid.querySelectorAll<HTMLElement>('.projects-card'))
     const headerTitleChars = Array.from(header.querySelectorAll<HTMLElement>('.projects-catalog__title-char'))
     const headerDetails = Array.from(header.querySelectorAll<HTMLElement>('.projects-catalog__header-motion'))
-    const reduced = prefersReducedMotion()
     const firstRowCount = window.matchMedia('(min-width: 768px)').matches
       ? Math.min(3, cards.length)
       : Math.min(1, cards.length)
 
-    if (reduced) {
-      gsap.set([...headerTitleChars, ...headerDetails], { clearProps: 'transform' })
-    } else {
-      gsap.set([...headerTitleChars, ...headerDetails], { yPercent: 115 })
-      const headerTimeline = gsap.timeline({
-        paused: true,
-        defaults: { ease: 'power3.out' },
-      })
-      if (headerTitleChars.length) {
-        headerTimeline.to(headerTitleChars, {
-          yPercent: 0,
-          duration: 1.1,
-          stagger: 0.055,
-          ease: 'power4.out',
-        }, 0)
-      }
-      if (headerDetails.length) {
-        headerTimeline.to(headerDetails, {
-          yPercent: 0,
-          duration: 0.82,
-          stagger: 0.04,
-        }, 0.24)
-      }
-      initialRevealTimelines.push(headerTimeline)
+    gsap.set([...headerTitleChars, ...headerDetails], { yPercent: 115 })
+    const headerTimeline = gsap.timeline({
+      paused: true,
+      defaults: { ease: 'power3.out' },
+    })
+    if (headerTitleChars.length) {
+      headerTimeline.to(headerTitleChars, {
+        yPercent: 0,
+        duration: 1.1,
+        stagger: 0.055,
+        ease: 'power4.out',
+      }, 0)
     }
+    if (headerDetails.length) {
+      headerTimeline.to(headerDetails, {
+        yPercent: 0,
+        duration: 0.82,
+        stagger: 0.04,
+      }, 0.24)
+    }
+    initialRevealTimelines.push(headerTimeline)
 
     cards.forEach((card, index) => {
       const image = card.querySelector<HTMLImageElement>('.projects-card__cover img')
       const titleChars = Array.from(card.querySelectorAll<HTMLElement>('.projects-card__title-char'))
       const details = Array.from(card.querySelectorAll<HTMLElement>('.projects-card__detail-motion'))
       if (!image) return
-
-      if (reduced) {
-        gsap.set(image, { clearProps: 'clip-path' })
-        gsap.set([...titleChars, ...details], { clearProps: 'transform' })
-        return
-      }
 
       gsap.set(image, { clipPath: 'inset(0 100% 0 0)' })
       gsap.set([...titleChars, ...details], { yPercent: 115 })
@@ -140,26 +129,24 @@ async function setupCatalogRevealMotion() {
       }
     })
 
-    if (!reduced) {
-      const surfaceParallaxDistance = () => Math.min(
-        header.offsetHeight * (window.matchMedia('(max-width: 767px)').matches ? 1.35 : 1.05),
-        document.documentElement.clientHeight * (window.matchMedia('(max-width: 767px)').matches ? 0.58 : 0.48),
-      ) * 1.1
-      const parallaxTimeline = gsap.timeline({
-        scrollTrigger: {
-          trigger: catalog,
-          start: 'top top',
-          end: () => `+=${Math.max(header.offsetHeight * 1.35, document.documentElement.clientHeight * 0.7)}`,
-          scrub: 0.7,
-          invalidateOnRefresh: true,
-        },
-      })
-      parallaxTimeline
-        .to(surface, {
-          y: () => -surfaceParallaxDistance(),
-          ease: 'none',
-        }, 0)
-    }
+    const surfaceParallaxDistance = () => Math.min(
+      header.offsetHeight * (window.matchMedia('(max-width: 767px)').matches ? 1.35 : 1.05),
+      document.documentElement.clientHeight * (window.matchMedia('(max-width: 767px)').matches ? 0.58 : 0.48),
+    ) * 1.1
+    const parallaxTimeline = gsap.timeline({
+      scrollTrigger: {
+        trigger: catalog,
+        start: 'top top',
+        end: () => `+=${Math.max(header.offsetHeight * 1.35, document.documentElement.clientHeight * 0.7)}`,
+        scrub: 0.7,
+        invalidateOnRefresh: true,
+      },
+    })
+    parallaxTimeline
+      .to(surface, {
+        y: () => -surfaceParallaxDistance(),
+        ease: 'none',
+      }, 0)
   }, grid)
 
   playInitialCardReveal()
@@ -189,7 +176,6 @@ const PROJECT_CARD_POSITION_BLEND_IN_MS = 1800
 function projectCardMotionEnabled(event: PointerEvent) {
   return event.pointerType !== 'touch'
     && window.matchMedia('(hover: hover) and (pointer: fine)').matches
-    && !prefersReducedMotion()
 }
 
 function animateProjectCard(card: HTMLElement, motion: ProjectCardMotion, now: number) {

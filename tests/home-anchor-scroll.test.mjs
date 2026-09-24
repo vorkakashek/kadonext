@@ -7,7 +7,7 @@ import * as anchorContract from '../app/utils/homeAnchorMotion.ts'
 import { baseRoutePath } from '../app/utils/localeRouting.ts'
 
 // Exercise the actual Nuxt scroll driver with native scrolling, without a browser.
-function harness({ reduced = false, thumb = true } = {}) {
+function harness({ thumb = true } = {}) {
   const calls = []
   const listeners = new Map()
   const timers = new Map()
@@ -16,7 +16,7 @@ function harness({ reduced = false, thumb = true } = {}) {
   const window = {
     scrollY: 800,
     innerHeight: 900,
-    matchMedia: query => ({ matches: query.includes('reduce)') && reduced }),
+    matchMedia: () => ({ matches: false }),
     scrollTo(options) {
       calls.push(['scroll', options.top, options.behavior])
       if (options.behavior !== 'smooth') this.scrollY = options.top
@@ -51,6 +51,7 @@ function harness({ reduced = false, thumb = true } = {}) {
     .replaceAll('import.meta.hot', 'false')
   const context = createContext({
     exports: {}, require: name => modules[name], defineNuxtPlugin: fn => fn,
+    useState: (_key, init) => ({ value: init() }),
     window, document: { documentElement: root, hidden: false },
     navigator: { userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 1 },
     performance: { now: () => 0 },
@@ -113,12 +114,8 @@ test('a repeated anchor cancels its predecessor and starts a fresh freeze', () =
   assert.equal(h.listenerCount(), 0)
 })
 
-test('reduced motion and startup positioning bypass the surface freeze', () => {
+test('startup positioning bypasses the surface freeze', () => {
   const target = { id: 'contact', isConnected: true, top: 4000 }
-  const reduced = harness({ reduced: true })
-  reduced.scroll(target)
-  reduced.emit('scrollend')
-  assert.deepEqual(reduced.calls, [['scroll', 4000, 'instant']])
   const startup = harness()
   startup.scroll(target, true)
   assert.deepEqual(startup.calls, [['scroll', 4000, 'instant']])

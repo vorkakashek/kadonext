@@ -220,8 +220,7 @@ async function revealSuccess() {
   const frog = successFrogEl.value
   const title = successTitleEl.value
   const body = successBodyEl.value
-  const reducedMotion = prefersReducedMotion()
-  if (reducedMotion || !frog || !title || !body) {
+  if (!frog || !title || !body) {
     successEntering.value = false
     successFlightFrame.value = false
     successReady.value = true
@@ -348,10 +347,9 @@ async function collapseSubmittedForm() {
     // instead of pushing it farther back into the About→Contact morph.
     const minimumSettledScroll = Math.min(fromScroll, contactDockScroll)
     const toScroll = Math.max(minimumSettledScroll, requestedScroll)
-    const reducedMotion = prefersReducedMotion()
     successCollapsePending = false
 
-    if (sectionDelta <= 1 || reducedMotion) {
+    if (sectionDelta <= 1) {
       writeSectionHeight(toSectionHeight)
       nuxtApp.$setScrollPosition(toScroll)
       restoreSectionStyles()
@@ -1126,11 +1124,4 @@ function focusConfirmation() {
   .contact-form__sending { animation: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .contact-form__description-hint-wrap,
-  .contact-form__row:focus-within + .contact-form__description-meta .contact-form__description-hint-wrap,
-  .contact-form__description-meta {
-    transition: none;
-  }
-}
 </style>

@@ -15,7 +15,6 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   const RESISTANCE_NORMALIZER = 1 - Math.exp(-RESISTANCE_EXPONENT)
   let mounted = false
   let active = false
-  let reducedMotion: MediaQueryList | null = null
   let resizeObserver: ResizeObserver | null = null
   let lockObserver: MutationObserver | null = null
   let touchTarget: HTMLElement | null = null
@@ -51,7 +50,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   let nativeTouchGesture = false
 
   function available() {
-    return active && !document.hidden && !reducedMotion?.matches
+    return active && !document.hidden
       && !['page-canvas-lock', 'page-iris-lock'].some(name =>
         document.documentElement.classList.contains(name),
       )
@@ -359,8 +358,6 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     if (!mounted || active) return
     active = true
     measure()
-    reducedMotion = reducedMotionMediaQuery()
-    reducedMotion.addEventListener('change', syncAvailability)
     resizeObserver = new ResizeObserver(measure)
     resizeObserver.observe(document.documentElement)
     if (footer.value) resizeObserver.observe(footer.value)
@@ -388,7 +385,6 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     reset()
     resizeObserver?.disconnect()
     lockObserver?.disconnect()
-    reducedMotion?.removeEventListener('change', syncAvailability)
     window.removeEventListener('resize', measure)
     window.removeEventListener('scroll', onScroll)
     window.removeEventListener('wheel', onWheel, true)

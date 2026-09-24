@@ -18,13 +18,6 @@ export function setChipBgOrigin(
   el.style.setProperty('--chip-bg-y', `${((e.clientY - box.top) / h) * 100}%`)
 }
 
-function prefersReduce() {
-  return (
-    typeof window !== 'undefined'
-    && prefersReducedMotion()
-  )
-}
-
 /**
  * Click → add `chip-press-play` (doesn’t replace other classes).
  * One CSS keyframe plays shrink→expand to the end, then the class is removed.
@@ -33,7 +26,6 @@ export function useChipPress() {
   const pressKey = ref<string | null>(null)
 
   async function playChipPress(id: string) {
-    if (prefersReduce()) return
     if (pressKey.value === id) {
       pressKey.value = null
       await nextTick()
@@ -55,7 +47,6 @@ let plaqueEl: HTMLElement | null = null
 let plaqueTimer = 0
 
 export function beginChipPress(el: HTMLElement) {
-  if (prefersReduce()) return
   window.clearTimeout(plaqueTimer)
   if (plaqueEl && plaqueEl !== el) plaqueEl.removeAttribute(PRESS_ATTR)
   plaqueEl = el

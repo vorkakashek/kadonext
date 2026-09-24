@@ -12,8 +12,8 @@ import {
   HemisphereLight,
   MathUtils,
   Mesh,
+  MeshMatcapMaterial,
   MeshPhysicalMaterial,
-  MeshStandardMaterial,
   PerspectiveCamera,
   Plane,
   Quaternion,
@@ -21,6 +21,7 @@ import {
   Scene,
   SphereGeometry,
   SRGBColorSpace,
+  TextureLoader,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -49,12 +50,16 @@ import { flowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 
 const { t } = useI18n()
 
-/** Flip this to A/B studio looks (files in /public/env). */
-const HDRI_PRESETS = {
-  studioSoft: '/env/studio_small_09_256.hdr',
-  studioWarm: '/env/studio_small_03_256.hdr',
+/** Desktop keeps the richer PBR studio environment. */
+const DESKTOP_HDRI = '/env/studio_small_09_256.hdr'
+const MOBILE_MATCAP_URLS = {
+  whiteMatte: '/textures/hero-matcap-white-matte.webp',
+  whiteSoft: '/textures/hero-matcap-white-soft.webp',
+  whiteFrosted: '/textures/hero-matcap-white-frosted.webp',
+  blackGloss: '/textures/hero-matcap-black-gloss.webp',
+  blackMatte: '/textures/hero-matcap-black-matte.webp',
 } as const
-const ACTIVE_HDRI: keyof typeof HDRI_PRESETS = 'studioSoft'
+type MobileMatcapKind = keyof typeof MOBILE_MATCAP_URLS
 /** Desktop breakpoint — full ball count, richer materials, cursor interaction. */
 const DESKTOP_MIN_WIDTH = 1200
 const BALL_COUNT_DESKTOP = 32
@@ -431,10 +436,6 @@ async function morphDesktopMotionIcon(sceneEnabled: boolean) {
     : DESKTOP_PLAY_ICON_PATH
   desktopIconMorph?.kill()
   desktopIconMorph = null
-  if (prefersReducedMotion()) {
-    path.setAttribute('d', target)
-    return
-  }
   // The paid MorphSVG helper is needed only after this explicit control is
   // used. Keeping it out of Hero boot removes its parser/runtime from the
   // already heavy Three.js initialization task.
@@ -478,6 +479,7 @@ let removePointerListeners: (() => void) | null = null
 let removeScrollPause: (() => void) | null = null
 let sharedGeometry: BufferGeometry | null = null
 let envMap: Texture | null = null
+let mobileMatcaps: Texture[] = []
 let balls: Ball[] = []
 let loopRunning = false
 let lastFrame = 0
@@ -524,6 +526,8 @@ function disposeScene() {
   sharedGeometry = null
   envMap?.dispose()
   envMap = null
+  for (const matcap of mobileMatcaps) matcap.dispose()
+  mobileMatcaps = []
   for (const ball of balls) {
     const material = ball.mesh.material
     if (Array.isArray(material)) material.forEach((m) => m.dispose())
@@ -658,14 +662,13 @@ async function bootScene() {
   const host = canvasHost.value
   if (!host) return
 
-  const reduced = prefersReducedMotion()
   const isCoarse = isCoarsePointer()
   const isMobile = isNarrowViewport()
   const isIOS = isAppleTouchDevice()
   /**
-   * Mobile / coarse / iOS: budget for fill-rate — Standard mats, DPR 1 and
-   * baked helix seats (no physics). MSAA preserves silhouettes while stable
-   * direct lights replace runtime HDR/PMREM.
+   * Mobile / coarse / iOS: budget for fill-rate — baked materials, DPR 1 and
+   * a compact orbit with lightweight physics. MSAA preserves silhouettes without
+   * runtime HDR/PMREM.
    */
   const lite = isMobile || isIOS || isCoarse
   const wide =
@@ -750,14 +753,26 @@ async function bootScene() {
   // Keep HDR parsing and PMREM out of the already large scene chunk. This
   // second-stage import starts only after the renderer exists and remains
   // independently cacheable from the core interaction code.
-  const environmentPromise = import('~/utils/loadHeroEnvironment').then(
-    ({ loadHeroEnvironment }) => loadHeroEnvironment(
-      gl,
-      lite ? HDRI_PRESETS.studioWarm : HDRI_PRESETS[ACTIVE_HDRI],
-      () => {},
-      { surroundingsExposure: 0.16 },
-    ),
-  )
+  const environmentPromise = lite
+    ? null
+    : import('~/utils/loadHeroEnvironment').then(
+        ({ loadHeroEnvironment }) => loadHeroEnvironment(
+          gl,
+          DESKTOP_HDRI,
+          () => {},
+          { surroundingsExposure: 0.16 },
+        ),
+      )
+  const mobileMatcapPromise = lite
+    ? (() => {
+        const loader = new TextureLoader()
+        return Promise.all(Object.entries(MOBILE_MATCAP_URLS).map(async ([kind, url]) => {
+          const texture = await loader.loadAsync(url)
+          texture.colorSpace = SRGBColorSpace
+          return [kind, texture] as const
+        })).then(entries => Object.fromEntries(entries) as Record<MobileMatcapKind, Texture>)
+      })()
+    : null
 
   renderer = gl
   host.appendChild(gl.domElement)
@@ -765,27 +780,30 @@ async function bootScene() {
   // shell as soon as it is behind us; lighting may continue under the cover.
   emit('booted')
 
-  // Neutral, low ambient light keeps the silhouette dimensional without a
-  // coloured cast or a bright studio halo at grazing angles.
-  const hemi = new HemisphereLight(0xd9d8d2, 0x171717, lite ? 0.28 : 0.12)
-  scene.add(hemi)
+  // Mobile lighting and reflections are baked into matcaps. Real lights remain
+  // for the desktop PBR scene only.
+  if (!lite) {
+    const hemi = new HemisphereLight(0xd9d8d2, 0x171717, 0.12)
+    scene.add(hemi)
 
-  const key = new DirectionalLight(COLORS.white, lite ? 0.6 : 0.55)
-  key.position.set(3.8, 5.2, 4.5)
-  scene.add(key)
+    const key = new DirectionalLight(COLORS.white, 0.55)
+    key.position.set(3.8, 5.2, 4.5)
+    scene.add(key)
 
-  const fill = new DirectionalLight(0xa7aaa5, lite ? 0.2 : 0.12)
-  fill.position.set(-4.5, 1.2, 2.8)
-  scene.add(fill)
+    const fill = new DirectionalLight(0xa7aaa5, 0.12)
+    fill.position.set(-4.5, 1.2, 2.8)
+    scene.add(fill)
+  }
+
+  const mobileMaterial = (kind: MobileMatcapKind) => {
+    const material = new MeshMatcapMaterial({ color: 0xffffff, toneMapped: false })
+    material.userData.mobileMatcap = kind
+    return material
+  }
 
   const matte = (color: Color) => {
     const material = lite
-      ? new MeshStandardMaterial({
-          color,
-          roughness: 0.86,
-          metalness: 0,
-          envMapIntensity: 0.9,
-        })
+      ? mobileMaterial(color.equals(COLORS.dark) ? 'blackMatte' : 'whiteMatte')
       : new MeshPhysicalMaterial({
           color,
           roughness: 0.86,
@@ -802,15 +820,10 @@ async function bootScene() {
     return material
   }
 
-  /** Desktop: real glass. Lite: bright Standard stand-in — no transmission fill cost. */
+  /** Desktop: real glass. Lite: baked frosted finish with no transmission pass. */
   const frosted = (color: Color) =>
     lite
-      ? new MeshStandardMaterial({
-          color: color.clone().lerp(new Color('#eef4fa'), 0.35),
-          roughness: 0.28,
-          metalness: 0,
-          envMapIntensity: 1.25,
-        })
+      ? mobileMaterial('whiteFrosted')
       : new MeshPhysicalMaterial({
           color,
           roughness: 0.48,
@@ -832,12 +845,7 @@ async function bootScene() {
 
   const glossy = (color: Color) =>
     lite
-      ? new MeshStandardMaterial({
-          color,
-          roughness: 0.22,
-          metalness: 0,
-          envMapIntensity: 1.15,
-        })
+      ? mobileMaterial(color.equals(COLORS.dark) ? 'blackGloss' : 'whiteSoft')
       : new MeshPhysicalMaterial({
           color,
           roughness: 0.18,
@@ -982,9 +990,30 @@ async function bootScene() {
   }
 
   const applyEnvAssets = async () => {
+    if (mobileMatcapPromise) {
+      let maps: Record<MobileMatcapKind, Texture>
+      try {
+        maps = await mobileMatcapPromise
+      } catch {
+        await settleAndEmitLit()
+        return
+      }
+      if (gen !== bootGen || renderer !== gl) {
+        Object.values(maps).forEach(texture => texture.dispose())
+        return
+      }
+      mobileMatcaps = Object.values(maps)
+      for (const ball of balls) {
+        const material = ball.mesh.material as MeshMatcapMaterial
+        material.matcap = maps[material.userData.mobileMatcap as MobileMatcapKind]
+        material.needsUpdate = true
+      }
+      await settleAndEmitLit()
+      return
+    }
     let preparedEnvironment: Texture
     try {
-      preparedEnvironment = await environmentPromise
+      preparedEnvironment = await environmentPromise!
     } catch {
       await settleAndEmitLit()
       return
@@ -1110,7 +1139,7 @@ async function bootScene() {
 
   /** Wire unlock ASAP so the first tap can open the iOS permission sheet. */
   const attachGyroSensors = () => {
-    if (!lite || reduced || typeof window === 'undefined') return
+    if (!lite || typeof window === 'undefined') return
     if (isIOS && !GYRO_ENABLE_IOS) return
     if (removeGyroListeners) return
 
@@ -1246,7 +1275,7 @@ async function bootScene() {
 
   const scheduleGyroAttach = () => {
     if (gyroAttachScheduled) return
-    if (!lite || reduced) return
+    if (!lite) return
     if (isIOS && !GYRO_ENABLE_IOS) return
     gyroAttachScheduled = true
     // Immediate — delayed wire missed the first tap (no permission sheet).
@@ -1345,52 +1374,34 @@ async function bootScene() {
   }
 
   const seatAll = () => {
-    if (!reduced) {
-      // Scatter outside the ring, then let springs pull home — avoids the
-      // “stuck overlapping → explode” pop and gives both layouts one entrance.
-      camera.updateMatrixWorld(true)
-      camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
-      camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
-      camForward
-        .setFromMatrixColumn(camera.matrixWorld, 2)
-        .normalize()
-        .negate()
-      const n = balls.length
-      const scatterRatio = lite ? ENTRY_SCATTER_RATIO_MOBILE : ENTRY_SCATTER_RATIO
-      const scatterR = Math.max(ringRadius * scatterRatio, (balls[0]?.radius ?? 0) * 6 || 1)
-      const depthMax = ringRadius * LITE_DEPTH_MAX_RATIO
-      for (let i = 0; i < n; i++) {
-        const ball = balls[i]!
-        pointOnOrbit(ball.angle, ball.phase, seat)
-        moveOutsideFocus(seat, ball.radius)
-        ball.seat.copy(seat)
-        push.copy(seat).sub(anchor)
-        const sz = MathUtils.clamp(
-          push.dot(camForward) * LITE_DEPTH_KEEP,
-          -depthMax,
-          depthMax,
-        )
-        const a = (i / n) * Math.PI * 2 + 0.4
-        const r = scatterR * (0.9 + (i % 4) * 0.05)
-        ball.position
-          .copy(anchor)
-          .addScaledVector(camRight, Math.cos(a) * r)
-          .addScaledVector(camUp, Math.sin(a) * r)
-          .addScaledVector(camForward, sz)
-        ball.velocity.set(0, 0, 0)
-        ball.pointerInside = false
-        ball.mesh.position.copy(ball.position)
-      }
-      // Gyro / cursor / idle knocks stay muted while physics gathers inward.
-      settleLeft = SETTLE_MS
-      swarmHapticReset()
-      return
-    }
-
-    for (const ball of balls) {
-      pointOnOrbit(ball.angle, ball.phase, ball.position)
-      moveOutsideFocus(ball.position, ball.radius)
-      ball.seat.copy(ball.position)
+    // Scatter outside the ring, then let springs pull home — avoids the
+    // “stuck overlapping → explode” pop and gives both layouts one entrance.
+    camera.updateMatrixWorld(true)
+    camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
+    camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
+    camForward.setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate()
+    const n = balls.length
+    const scatterRatio = lite ? ENTRY_SCATTER_RATIO_MOBILE : ENTRY_SCATTER_RATIO
+    const scatterR = Math.max(ringRadius * scatterRatio, (balls[0]?.radius ?? 0) * 6 || 1)
+    const depthMax = ringRadius * LITE_DEPTH_MAX_RATIO
+    for (let i = 0; i < n; i++) {
+      const ball = balls[i]!
+      pointOnOrbit(ball.angle, ball.phase, seat)
+      moveOutsideFocus(seat, ball.radius)
+      ball.seat.copy(seat)
+      push.copy(seat).sub(anchor)
+      const sz = MathUtils.clamp(
+        push.dot(camForward) * LITE_DEPTH_KEEP,
+        -depthMax,
+        depthMax,
+      )
+      const a = (i / n) * Math.PI * 2 + 0.4
+      const r = scatterR * (0.9 + (i % 4) * 0.05)
+      ball.position
+        .copy(anchor)
+        .addScaledVector(camRight, Math.cos(a) * r)
+        .addScaledVector(camUp, Math.sin(a) * r)
+        .addScaledVector(camForward, sz)
       ball.velocity.set(0, 0, 0)
       ball.pointerInside = false
       ball.mesh.position.copy(ball.position)
@@ -1700,7 +1711,7 @@ async function bootScene() {
 
     const dt = Math.min(32, now - lastFrame)
     lastFrame = now
-    if (!lite && !reduced) {
+    if (!lite) {
       const target = desktopSceneEnabled.value ? 1 : 0
       const blend = 1 - Math.exp(-dt / DESKTOP_MOTION_EASE_MS)
       desktopMotionScale += (target - desktopMotionScale) * blend
@@ -1714,9 +1725,9 @@ async function bootScene() {
         pointerVel.set(0, 0, 0)
       }
     }
-    const step = reduced ? 0 : dt * (lite ? 1 : desktopMotionScale)
+    const step = dt * (lite ? 1 : desktopMotionScale)
 
-    if (!reduced) {
+    {
       if (lite) {
         if (
           tipFromGrav &&
@@ -1767,7 +1778,7 @@ async function bootScene() {
         ? -(gyroPitch - gyroPhysicsRestPitch)
         : 0
 
-      if (!reduced) {
+      {
         // Keep the mobile camera fixed. Device motion may disturb individual
         // balls, but must not translate the complete 3D composition.
         camera.position.set(
@@ -1806,18 +1817,10 @@ async function bootScene() {
 
       for (let i = 0; i < balls.length; i++) {
         const ball = balls[i]!
-        if (!reduced) ball.angle += ORBIT_SPEED * step
+        ball.angle += ORBIT_SPEED * step
         pointOnOrbit(ball.angle, ball.phase, seat)
         moveOutsideFocus(seat, ball.radius)
         const seatDepth = flattenSeat()
-
-        // Reduced-motion: stick to seats. Intro settle: physics gathers from scatter.
-        if (reduced) {
-          ball.position.copy(seat)
-          ball.velocity.set(0, 0, 0)
-          ball.mesh.position.copy(ball.position)
-          continue
-        }
 
         // Motion stays in the screen plane; depth locked to the seat layer.
         {
@@ -1886,7 +1889,7 @@ async function bootScene() {
               .multiplyScalar(overlap * LITE_SEP_FORCE * step)
             ball.velocity.add(push)
             other.velocity.sub(push)
-            if (!settling && !reduced && motionEnabled.value) {
+            if (!settling && motionEnabled.value) {
               const key = swarmHapticPairKey(i, j)
               hapticAlive.add(key)
               swarmHapticContact(key, overlap)
@@ -1986,7 +1989,7 @@ async function bootScene() {
     for (let i = 0; i < balls.length; i++) {
       const ball = balls[i]!
 
-      if (!reduced) ball.angle += ORBIT_SPEED * step
+      ball.angle += ORBIT_SPEED * step
       pointOnOrbit(ball.angle, ball.phase, seat)
       moveOutsideFocus(seat, ball.radius)
 
@@ -1997,16 +2000,6 @@ async function bootScene() {
         ball.position.add(push)
       }
       ball.seat.copy(seat)
-
-      // Reduced motion keeps the finished composition without an entrance.
-      // Otherwise `settling` deliberately runs the same spring gather as mobile.
-      if (reduced) {
-        ball.position.copy(seat)
-        ball.velocity.set(0, 0, 0)
-        ball.pointerInside = false
-        ball.mesh.position.copy(ball.position)
-        continue
-      }
 
       if (!settling) {
         const chaos = CHAOS_IDLE * step
@@ -2188,7 +2181,7 @@ async function bootScene() {
             .multiplyScalar(overlap * SEPARATION_FORCE * step)
           ball.velocity.add(push)
           other.velocity.sub(push)
-          if (!settling && !reduced) {
+          if (!settling) {
             const key = swarmHapticPairKey(i, j)
             hapticAlive.add(key)
             swarmHapticContact(key, overlap)

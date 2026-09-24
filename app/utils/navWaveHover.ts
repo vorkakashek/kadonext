@@ -44,12 +44,6 @@ export async function onNavWaveEnter(e: NavWaveEvent) {
   const parts = navWaveParts(e.currentTarget)
   if (!parts) return
   const { path, reveal, root } = parts
-  if (prefersReducedMotion()) {
-    applyWaveAmp(root, path, 0)
-    reveal.setAttribute('x', '0')
-    reveal.setAttribute('width', String(NAV_WAVE_VB_W))
-    return
-  }
   const g = await gsap()
   navWaveTls.get(root)?.kill()
 

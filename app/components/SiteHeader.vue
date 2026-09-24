@@ -480,8 +480,7 @@ async function animateDesktopLogo(compact: boolean, immediate = false) {
   const compactX = logoMarkExpandedX()
   const compactWidth = frame.offsetHeight
   const expandedWidth = frame.offsetHeight * logoVariant.value.width / logoVariant.value.height
-  const reduce = prefersReducedMotion()
-  if (immediate || reduce) {
+  if (immediate) {
     g.set(frame, { width: compact ? compactWidth : expandedWidth })
     g.set(letters, { autoAlpha: compact ? 0 : 1 })
     g.set(mark, {
@@ -643,10 +642,7 @@ async function morph(animate: boolean, onComplete?: () => void) {
   if (m.expanded < 1) return
 
   const width = m.collapseSides ? m.collapsed : m.expanded
-  const reduce =
-    typeof window !== 'undefined'
-    && prefersReducedMotion()
-  const snap = !animate || reduce || boxNear(
+  const snap = !animate || boxNear(
     bar,
     width,
     m.height,
@@ -898,7 +894,6 @@ async function fitFabLabel(on: boolean, instant = false) {
   const label = fab.querySelector('.menu-sizer-menu') as HTMLElement | null
   if (!word || !label) return
   const g = await gsap()
-  const reduced = prefersReducedMotion()
   const labelW = Math.ceil(label.scrollWidth)
   document.documentElement.style.setProperty(
     '--menu-fab-expanded-width',
@@ -913,7 +908,7 @@ async function fitFabLabel(on: boolean, instant = false) {
   const prev = fabFitResolve
   fabFitResolve = null
   prev?.()
-  if (instant || reduced) {
+  if (instant) {
     g.set(word, { width: on ? labelW : 0 })
     g.set(fab, {
       paddingLeft: on ? 24 : 14,

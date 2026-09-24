@@ -110,7 +110,6 @@ export function useSoftSectionSnap(options: {
 
     const start = readScroll()
     const dist = Math.abs(y - start)
-    const reduced = prefersReducedMotion()
 
     animating = true
     locked.value = true
@@ -119,7 +118,7 @@ export function useSoftSectionSnap(options: {
 
     safetyTimer = window.setTimeout(unlock, DURATION_SEC * 1000 + 2000)
 
-    if (reduced || dist < 2) {
+    if (dist < 2) {
       writeScroll(y)
       unlock()
       return

@@ -123,7 +123,6 @@ async function switchLanguage() {
   if (switching.value) return
   const targetLocale = nextLocale.value
   const targetPath = localizedPath(route.fullPath, targetLocale)
-  const reducedMotion = prefersReducedMotion()
   switching.value = true
   document.documentElement.classList.add('language-switch-lock')
   try {
@@ -135,8 +134,8 @@ async function switchLanguage() {
     const iris = irisEl.value
     if (iris) {
       iris.style.opacity = '1'
-      applyIrisClip(iris, reducedMotion ? cover : start)
-      if (!reducedMotion) await expandIris(start, cover)
+      applyIrisClip(iris, start)
+      await expandIris(start, cover)
     }
 
     await setLocale(targetLocale)
@@ -148,7 +147,7 @@ async function switchLanguage() {
     await waitFrames()
     window.dispatchEvent(new Event('resize'))
 
-    if (!reducedMotion) await fadeIris()
+    await fadeIris()
   } finally {
     irisTween?.kill()
     irisTween = null

@@ -29,7 +29,6 @@ const contentEndEl = ref<HTMLElement | null>(null)
 defineExpose({ rootEl, surfaceEl, titleEl, contentEndEl })
 
 let mobileMedia: MediaQueryList | null = null
-let reducedMotionMedia: MediaQueryList | null = null
 let biographyMotionCtx: { revert: () => void } | null = null
 let biographyMotionObservers: IntersectionObserver[] = []
 
@@ -51,7 +50,6 @@ async function setupBiographyMotion() {
   gsap.registerPlugin(ScrollTrigger)
 
   const isMobile = !!mobileMedia?.matches
-  const reducedMotion = !!reducedMotionMedia?.matches
   const title = titleEl.value
   const baseTitleLines = Array.from(
     root.querySelectorAll<HTMLElement>('.home-about__title-copy:not(.home-about__title-copy--inverse) .home-about__title-line-text'),
@@ -72,21 +70,6 @@ async function setupBiographyMotion() {
   const socialItems = Array.from(
     copy?.querySelectorAll<HTMLElement>('.home-about__social-link') ?? [],
   )
-  const animatedElements = [
-    ...titleLines,
-    ...(portraitPicture ? [portraitPicture] : []),
-    ...(portraitImage ? [portraitImage] : []),
-    ...metaLines,
-    ...(copyTitle ? [copyTitle] : []),
-    ...paragraphs,
-    ...socialItems,
-  ]
-
-  if (reducedMotion) {
-    gsap.set(animatedElements, { clearProps: 'all' })
-    return
-  }
-
   const observeTimeline = (
     trigger: HTMLElement,
     timeline: ReturnType<typeof gsap.timeline>,
@@ -215,16 +198,13 @@ async function onMotionMediaChange() {
 
 onMounted(async () => {
   mobileMedia = window.matchMedia('(max-width: 767.98px)')
-  reducedMotionMedia = reducedMotionMediaQuery()
   mobileMedia.addEventListener('change', onMotionMediaChange)
-  reducedMotionMedia.addEventListener('change', onMotionMediaChange)
   await setupBiographyMotion()
 })
 
 onUnmounted(() => {
   clearBiographyMotion()
   mobileMedia?.removeEventListener('change', onMotionMediaChange)
-  reducedMotionMedia?.removeEventListener('change', onMotionMediaChange)
 })
 </script>
 

@@ -390,10 +390,4 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .home-contact__suggestions,
-  .home-contact__task.has-value:not(:focus-within) .home-contact__suggestions {
-    transition: none;
-  }
-}
 </style>

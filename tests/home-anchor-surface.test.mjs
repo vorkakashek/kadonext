@@ -52,7 +52,7 @@ function harness() {
     HOME_ANCHOR_DESTINATIONS, isHomeAnchorTarget,
     props: { formatsSurfaceEl: {} },
     window: { scrollY: 4000 }, document: { hidden: false }, performance: { now: () => now },
-    systemReducedMotion: () => false, proxyPose: () => null,
+    proxyPose: () => null,
     stableViewportHeight: () => 900,
     suspendDetachedSurfaceHost: () => false,
     desktopReturnOwnsPaint: () => false,

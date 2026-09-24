@@ -30,7 +30,7 @@ export function preloadHomeMotionBundles() {
   )
 }
 
-/** Cache the matching compact Hero environment before the live scene mounts. */
+/** Warm motion modules and the desktop Hero environment before scene mount. */
 export function preloadHomeSceneAssets(modeOrEvent?: 'desktop' | 'mobile' | Event) {
   void preloadHomeMotionBundles()
   if (typeof window === 'undefined') return
@@ -48,9 +48,9 @@ export function preloadHomeSceneAssets(modeOrEvent?: 'desktop' | 'mobile' | Even
   const mobile = requestedMode
     ? requestedMode === 'mobile'
     : window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches
-  const environmentUrl = mobile
-    ? '/env/studio_small_03_256.hdr'
-    : '/env/studio_small_09_256.hdr'
+  // Mobile uses baked matcaps and has no HDR/PMREM startup cost.
+  if (mobile) return
+  const environmentUrl = '/env/studio_small_09_256.hdr'
   void fetch(environmentUrl, {
     credentials: 'same-origin',
   }).catch(() => undefined)

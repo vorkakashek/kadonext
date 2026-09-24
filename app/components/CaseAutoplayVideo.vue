@@ -11,13 +11,11 @@ const props = defineProps<{
 
 const videoEl = ref<HTMLVideoElement | null>(null)
 const rootEl = ref<HTMLElement | null>(null)
-const reducedMotion = ref(false)
 const responsivePosterVisible = ref(!!props.poster && !!props.mobilePoster)
 const useMobileSource = ref(false)
 const activeSrc = computed(() => useMobileSource.value && props.mobileSrc ? props.mobileSrc : props.src)
 const { motionActive } = useCaseDetailExperience()
 
-let motionQuery: MediaQueryList | null = null
 let sourceQuery: MediaQueryList | null = null
 let observer: IntersectionObserver | null = null
 let inView = false
@@ -26,7 +24,7 @@ function syncPlayback() {
   const video = videoEl.value
   if (!video) return
 
-  if (reducedMotion.value || !motionActive.value || !inView) {
+  if (!motionActive.value || !inView) {
     video.pause()
     return
   }
@@ -34,11 +32,6 @@ function syncPlayback() {
   void video.play().catch(() => {
     // Browsers may decline muted autoplay despite the required attributes.
   })
-}
-
-function syncMotionPreference() {
-  reducedMotion.value = motionQuery?.matches ?? false
-  syncPlayback()
 }
 
 function hideResponsivePoster() {
@@ -63,22 +56,18 @@ onMounted(() => {
   sourceQuery.addEventListener('change', syncVideoSource)
   void syncVideoSource()
 
-  motionQuery = reducedMotionMediaQuery()
-  motionQuery.addEventListener('change', syncMotionPreference)
-
   observer = new IntersectionObserver(([entry]) => {
     inView = entry?.isIntersecting ?? false
     syncPlayback()
   }, { threshold: 0.15 })
   if (rootEl.value) observer.observe(rootEl.value)
 
-  syncMotionPreference()
+  syncPlayback()
 })
 
 watch(motionActive, syncPlayback)
 
 onBeforeUnmount(() => {
-  motionQuery?.removeEventListener('change', syncMotionPreference)
   sourceQuery?.removeEventListener('change', syncVideoSource)
   observer?.disconnect()
 })

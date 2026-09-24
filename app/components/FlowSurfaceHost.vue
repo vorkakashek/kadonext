@@ -74,12 +74,6 @@ import {
 } from '~/utils/flowSurfaceContract'
 import { preloadGsapBundle } from '~/utils/preloadHomeMotion'
 
-/** The site's minimal mode keeps the core Surface choreography intact. */
-function systemReducedMotion() {
-  return import.meta.client
-    && prefersReducedMotion()
-}
-
 type MobileHop = 'term' | 'word'
 type MobileStage = 'scrub' | MobileHop
 
@@ -1834,7 +1828,7 @@ function enterMobileFormatsFrame() {
   const proxy = { t: 0 }
   formatsSettleTween = gsapMod.default.to(proxy, {
     t: 1,
-    duration: systemReducedMotion() ? 0 : duration,
+    duration,
     ease: MOBILE_CASE_HOP_EASE,
     onUpdate: () => {
       mobileFormatsProgress = startProgress + (1 - startProgress) * proxy.t
@@ -1894,7 +1888,7 @@ function leaveMobileFormatsFrame() {
   const proxy = { t: 0 }
   formatsSettleTween = gsapMod.default.to(proxy, {
     t: 1,
-    duration: systemReducedMotion() ? 0 : duration,
+    duration,
     ease: MOBILE_CASE_HOP_EASE,
     onUpdate: () => {
       mobileFormatsProgress = startProgress * (1 - proxy.t)
@@ -1969,7 +1963,7 @@ function enterMobileAboutFrame() {
     const proxy = { t: 0 }
     aboutSettleTween = gsapMod.default.to(proxy, {
       t: 1,
-      duration: systemReducedMotion() ? 0 : duration,
+      duration,
       ease: MOBILE_CASE_HOP_EASE,
       onUpdate: () => {
         mobileAboutProgress = startProgress + (1 - startProgress) * proxy.t
@@ -2030,7 +2024,7 @@ function leaveMobileAboutFrame() {
     const proxy = { t: 0 }
     aboutSettleTween = gsapMod.default.to(proxy, {
       t: 1,
-      duration: systemReducedMotion() ? 0 : duration,
+      duration,
       ease: MOBILE_CASE_HOP_EASE,
       onUpdate: () => {
         mobileAboutProgress = startProgress * (1 - proxy.t)
@@ -3065,7 +3059,7 @@ function tweenToHop(hop: MobileHop, animate: boolean) {
       liveBox = from
     }
     const from = liveBox ?? dest
-    if (!animate || systemReducedMotion()) {
+    if (!animate) {
       paintBox(dest, 1)
       settleHop(hop)
       return
@@ -3124,7 +3118,6 @@ function enterScrub(animate: boolean, fromOverride?: SurfaceBox | null) {
     if (
       !animate
       || !current
-      || systemReducedMotion()
     ) {
       scrubLiveP = p
       paintScrubAt(p)
@@ -3393,7 +3386,6 @@ function captureCurrentSurfaceSnapshot(box: SurfaceBox): SurfaceVisualSnapshot {
 function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
   if (!isHomeAnchorTarget(targetId)) return null
   if (!keepAliveActive || morphBooting || !frame.value || !liveBox) return null
-  if (systemReducedMotion()) return null
   const source = proxyPose() ?? (pinTo.value ? readBox(frame.value) : liveBox)
   if (!source) return null
   returnDockScrollY = null
@@ -3507,7 +3499,6 @@ function paintAnchorSurfaceHandoff(now: number) {
   setCaseMediaVisible(false)
   motion.elapsed += Math.min(64, Math.max(0, now - motion.updatedAt))
   motion.updatedAt = now
-  if (systemReducedMotion()) motion.elapsed = ANCHOR_SURFACE_DURATION_MS
   const progress = clampUnit(motion.elapsed / ANCHOR_SURFACE_DURATION_MS)
   const eased = smoothUnit(progress)
   const documentSpace = mobileActive && (!motion.targetId
@@ -3864,25 +3855,6 @@ function buildMorph() {
       return
     }
 
-    const reduced = systemReducedMotion()
-    if (reduced && mobileActive) {
-      buildMobileMorph(ScrollTrigger)
-      paintMobileScrollCorridor()
-      homeMotionReady.value = true
-      announceSurfaceReady()
-      return
-    }
-    if (reduced) {
-      target.h = 1
-      target.v = 1
-      live.h = 1
-      live.v = 1
-      paintDesktop()
-      homeMotionReady.value = true
-      announceSurfaceReady()
-      return
-    }
-
     target.h = 0
     target.v = 0
     live.h = 0
@@ -4159,7 +4131,6 @@ onMounted(async () => {
   hostUnmounted = false
   mobileSectionBootPending.value = useMobileCorridor()
     && !!window.location.hash
-    && !systemReducedMotion()
     && !returningHomeFromCaseDetail()
   initialCasesHashEntry.value = window.location.hash === '#cases'
     && initialHomeDocument.value

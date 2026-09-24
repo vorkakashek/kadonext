@@ -54,7 +54,6 @@ let savedScrollY = 0
 let navFromCanvas = false
 
 const shownCurrentId = ref(matchFramePath(route.fullPath))
-const reducedMotion = ref(false)
 const isNarrow = ref(false)
 const isThumb = ref(false)
 if (import.meta.client) {
@@ -555,7 +554,7 @@ async function ensureFrameCentered(
   const minDelta = Math.max(10, scroller.clientHeight * 0.03)
   if (dx < minDelta && dy < minDelta) return
 
-  const smooth = behavior === 'smooth' && !reducedMotion.value
+  const smooth = behavior === 'smooth'
   if (!smooth) {
     scroller.scrollLeft = left
     scroller.scrollTop = top
@@ -638,7 +637,7 @@ function swapCloseWord(to: 'menu' | 'back', instant = false) {
   if (!gsapMod) return
   wordTween?.kill()
   wordTween = null
-  const snap = instant || reducedMotion.value
+  const snap = instant
   const yPercent = to === 'menu' ? 0 : -50
   const w = measureCloseWord(to)
   const fabPad = 24
@@ -697,7 +696,7 @@ function spinCloseDots(up: boolean, instant = false) {
   dotsTween?.kill()
   dotsTween = null
   const rotation = up ? 90 : 0
-  if (instant || reducedMotion.value) {
+  if (instant) {
     gsapMod.set(el, { rotation })
     return
   }
@@ -728,10 +727,6 @@ async function playPlaqueEnter() {
   if (chrome.length) g.set(chrome, { autoAlpha: 0, y: 14 })
   if (preview) g.set(preview, { autoAlpha: 0, y: 18, scale: 0.985 })
   if (activeBg) g.set(activeBg, { autoAlpha: 0 })
-  if (reducedMotion.value) {
-    resetEnterProps()
-    return
-  }
   const tl = g.timeline({
     delay: PLAQUE_ENTER_DELAY_S,
     onComplete: () => {
@@ -810,13 +805,6 @@ async function onMailEnter() {
   const parts = mailWaveParts()
   if (!parts) return
   const { path, reveal } = parts
-  if (reducedMotion.value) {
-    mailWaveAmp = 0
-    path.setAttribute('d', mailWavePath(0))
-    reveal.setAttribute('x', '0')
-    reveal.setAttribute('width', String(NAV_WAVE_VB_W))
-    return
-  }
   const g = await gsap()
   mailWaveTl?.kill()
   const morph = { amp: NAV_WAVE_AMP }
@@ -990,14 +978,9 @@ async function playOpen() {
     if (!g || !isOpenRun(gen)) return
 
     const dotsReady = !isThumb.value && !!menuButtonEl()?.matches(':hover')
-    if (reducedMotion.value) {
-      swapCloseWord('back', true)
-      spinCloseDots(true, true)
-    } else {
-      swapCloseWord('back')
-      if (dotsReady) spinCloseDots(true, true)
-      else spinCloseDots(true)
-    }
+    swapCloseWord('back')
+    if (dotsReady) spinCloseDots(true, true)
+    else spinCloseDots(true)
 
     showCanvasSurface()
     pinPageScroll()
@@ -1011,18 +994,10 @@ async function playOpen() {
     }
     const clipRoot = irisClipEl()
     if (clipRoot) {
-      applyIrisClip(clipRoot, reducedMotion.value ? irisCoverFrom(tapPill) : tapPill)
+      applyIrisClip(clipRoot, tapPill)
     }
 
     void ensureFrameCentered(shownCurrentId.value, 'instant', gen)
-
-    if (reducedMotion.value) {
-      syncNavChrome()
-      if (clipRoot) clearIrisClip(clipRoot)
-      setIrisLive(false)
-      await playPlaqueEnter()
-      return
-    }
 
     void playPlaqueEnter()
     await tweenIris({ dir: 'open', pill: tapPill })
@@ -1055,15 +1030,6 @@ async function playClose() {
   if (homeClose) heroGlRevealBusy.value = true
 
   try {
-    if (reducedMotion.value) {
-      swapCloseWord('menu', true)
-      spinCloseDots(false, true)
-      await unlockSession()
-      hideCanvasSurface()
-      if (!homeClose) finishMenuCloseQuiet()
-      return
-    }
-
     if (!gsapMod) await gsap()
     if (!isCloseRun(gen)) return
     const pill = captureMenuPill()
@@ -1125,16 +1091,6 @@ async function goToFrame(frame: SiteNavFrame) {
   try {
     navFromCanvas = true
     navHopActive.value = true
-
-    if (reducedMotion.value) {
-      if (frame.id === 'home') skipHeroIntro.value = true
-      await unlockSession({ restoreScroll: false })
-      hideCanvasSurface()
-      open.value = false
-      await router.push(localePath(frame.to))
-      await waitForRoutePaint()
-      return
-    }
 
     if (frame.to === '/' || frame.to.startsWith('/#')) {
       skipHeroIntro.value = true
@@ -1264,7 +1220,6 @@ watch(locale, async () => {
 }, { flush: 'post' })
 
 onMounted(() => {
-  reducedMotion.value = prefersReducedMotion()
   const syncChromeMode = () => {
     isNarrow.value = isNarrowViewport()
     isThumb.value = isThumbNav()

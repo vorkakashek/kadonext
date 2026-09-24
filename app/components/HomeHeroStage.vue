@@ -557,9 +557,6 @@ async function setupExitMotion(sectionEl: HTMLElement) {
   await nextTick()
 
   ctx = gsap.context(() => {
-    const reduced = prefersReducedMotion()
-    if (reduced) return
-
     ScrollTrigger.config({ ignoreMobileResize: true })
 
     const nextBlock = sectionEl.nextElementSibling as HTMLElement | null
@@ -673,8 +670,8 @@ function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
     return
   }
 
-  // The SSR/CSS Hero is the complete first frame. Three.js, shader compilation
-  // and PMREM progressively upgrade it without blocking visible content.
+  // The SSR/CSS Hero is the complete first frame. Three.js upgrades it after
+  // startup; only desktop needs HDR decoding and PMREM.
   const connection = (navigator as Navigator & {
     connection?: { effectiveType?: string; saveData?: boolean }
   }).connection
@@ -684,7 +681,8 @@ function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
   // Save-Data may defer the scene; slow estimates still skip speculative asset
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
-  heroWebglRequired.value = coldHomeIntro && !constrained
+  const coldMobileIntro = coldHomeIntro && mobileLite.value
+  heroWebglRequired.value = coldHomeIntro && !mobileLite.value && !constrained
   if (heroWebglRequired.value) {
     // Cold WebGL startup (Three parsing, context creation, HDR/PMREM and shader
     // compilation) is allowed only while the full-screen intro is static.
@@ -695,9 +693,28 @@ function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
     requestAnimationFrame(mount)
     return
   }
+  if (coldMobileIntro && !constrained) {
+    // Let the surface and title become usable before Three and shader
+    // compilation take the main thread. The stone lid remains until
+    // the first lit WebGL frame, then the scene replaces it in place.
+    const stop = watch(heroIntroSettled, (settled) => {
+      if (!settled) return
+      stop()
+      requestAnimationFrame(() => {
+        if (stageUnmounted || swarmMount.value) return
+        if (typeof window.requestIdleCallback === 'function') {
+          swarmIdleId = window.requestIdleCallback(mount, { timeout: 800 })
+        } else {
+          swarmFallbackTimer = window.setTimeout(mount, 120)
+        }
+      })
+    })
+    removeSwarmIntent = stop
+    return
+  }
   mobileSwarmDeferred = mobileLite.value && constrained
   if (mobileLite.value && !mobileSwarmDeferred) {
-    // Fetch/parse the motion graph and current mobile HDR in an idle slot.
+    // Fetch/parse the motion graph in an idle slot.
     // Do not mount WebGL here:
     // Android can discard a canvas below visibility:hidden. The intro timeline
     // mounts it as soon as the media layer becomes paintable.
@@ -995,7 +1012,6 @@ onMounted(() => {
   const animateSceneEntry = !fromNav
     && !coldHomeIntro
     && sceneOpacity.value > SCENE_LIVE_OPACITY
-    && !prefersReducedMotion()
   sceneEntryArmed.value = animateSceneEntry
   sceneEntryRunning.value = false
   emit('sceneEntryChange', animateSceneEntry)
@@ -1012,7 +1028,7 @@ onMounted(() => {
   stopSurfaceMountWatch = watch(
     homeSurfaceReady,
     (ready) => {
-      if (!ready || fromNav || mobileSwarmDeferred || swarmMount.value) return
+      if (!ready || fromNav || mobileSwarmDeferred || (coldHomeIntro && mobileLite.value) || swarmMount.value) return
       requestAnimationFrame(() => requestSwarmMount?.())
     },
     { immediate: true },
@@ -1108,8 +1124,8 @@ onMounted(() => {
             0,
           )
         }
-        if (!mobileSwarmDeferred) {
-          // Mount only after the media layer is visible, then let HDR/PMREM and
+        if (!mobileSwarmDeferred && !coldHomeIntro) {
+          // Mount only after the media layer is visible, then let texture load and
           // shader compilation run under the opaque stone lid while the copy
           // finishes its entrance.
           tl.call(() => requestSwarmMount?.(), [], 0.08)

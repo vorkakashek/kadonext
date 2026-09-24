@@ -9,6 +9,16 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
+  // Nginx can serve the matching prerendered locale at `/` without changing
+  // the URL. The response cookie and HTML language must agree before we keep it.
+  if (import.meta.client && to.path === '/') {
+    const negotiated = document.cookie.match(/(?:^|; )kadonext-root-locale=(ru|en)(?:;|$)/)?.[1]
+    if ((negotiated === 'ru' || negotiated === 'en') && document.documentElement.lang === negotiated) {
+      await setLocale(negotiated)
+      return
+    }
+  }
+
   // Static HTML cannot inspect Accept-Language. The early head script normally
   // redirects before Nuxt boots; this covers client-side and script-delayed visits.
   if (import.meta.server) return

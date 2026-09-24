@@ -24,8 +24,7 @@ watch(motionActive, (active) => {
 }, { immediate: true })
 
 function scrollToTop() {
-  const reducedMotion = prefersReducedMotion()
-  window.scrollTo({ top: 0, left: 0, behavior: reducedMotion ? 'auto' : 'smooth' })
+  window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
 }
 </script>
 

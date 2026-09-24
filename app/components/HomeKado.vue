@@ -199,13 +199,6 @@ async function setupLineFill(force = false) {
   const trigger = bodyFocusEl.value
   if (!host || !trigger) return
 
-  if (prefersReducedMotion()) {
-    host.textContent = bodyText.value
-    host.style.color = 'var(--palette-ink)'
-    kadoWord.value = null
-    return
-  }
-
   const inks = buildLineFill(host)
   if (!inks.length) return
 
@@ -283,7 +276,6 @@ async function setupStoneLevitation() {
   if (levitateCtx || levitationSetupBusy) return
 
   if (typeof window === 'undefined') return
-  if (prefersReducedMotion()) return
   const el = stoneEl.value
   if (!el) return
 

@@ -28,9 +28,6 @@
       78%, 100% { transform: translate(0, 0) rotate(0deg); }
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      .phone { animation: none; }
-    }
   </style>
 
   <!-- Tabler device-mobile (MIT), animated for the tilt hint. -->

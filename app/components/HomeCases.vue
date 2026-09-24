@@ -334,13 +334,6 @@ function selectAdjacentCase(direction: 1 | -1) {
   if (next) void selectCase(next)
 }
 
-function prefersReduce() {
-  return (
-    typeof window !== 'undefined'
-    && prefersReducedMotion()
-  )
-}
-
 function isMobileCases() {
   return isAppleTouchDevice() || isNarrowViewport() || isCoarsePointer()
 }
@@ -511,7 +504,6 @@ function measureMobileStageCollapse(): MobileStageCollapseMetrics | null {
   // Override the CSS first-paint fallback while measuring natural content.
   stage.style.minHeight = '0px'
   tail.style.height = '0px'
-  if (prefersReduce()) return null
 
   const naturalHeight = stage.getBoundingClientRect().height
   const viewportHeight = mobileCasesHeight.value
@@ -623,11 +615,6 @@ async function setupIntroMotion() {
 
   const gsap = await ensureGsap()
   const parts = introMotionParts()
-  if (prefersReduce()) {
-    if (parts.all.length) gsap.set(parts.all, { clearProps: 'transform' })
-    return
-  }
-
   introCtx = gsap.context(() => {
     setIntroHidden(gsap, parts)
 
@@ -660,16 +647,6 @@ async function setupRailMotion() {
   const gsap = await ensureGsap()
   const links = railAnimTargets()
   if (!links.length) return
-  if (prefersReduce()) {
-    gsap.set(links, { clearProps: 'opacity,visibility,transform' })
-    gsap.set(rail, {
-      '--cases-rule-scale': 1,
-      '--cases-backdrop-opacity': 1,
-      '--cases-backdrop-scale': 1,
-    })
-    return
-  }
-
   railCtx = gsap.context(() => {
     let tailRetracted = false
     const syncBackdropTail = () => {
@@ -808,16 +785,6 @@ async function setupEnterMotion() {
   if (!section) return
 
   const gsap = await ensureGsap()
-  if (prefersReduce()) {
-    const rail = mobileCases.value ? railAnimTargets() : []
-    const parts = stageCopyParts()
-    if (rail.length) gsap.set(rail, { clearProps: 'opacity,visibility,transform' })
-    if (parts.all.length) {
-      gsap.set(parts.all, { clearProps: 'opacity,visibility,transform' })
-    }
-    return
-  }
-
   let localEnter: { kill: () => void } | null = null
 
   const playIn = () => {
@@ -1233,17 +1200,6 @@ async function selectCase(item: HomeCase) {
   warmCaseMedia(item)
 
   const gsap = await ensureGsap()
-
-  if (prefersReduce()) {
-    selectHomeCase(item.id, !!item.inverse)
-    await nextTick()
-    measureMobileStageCollapse()
-    scheduleMobileStageCollapse()
-    scrollActiveCaseLinkIntoView('auto')
-    revealActiveCaseUnderline()
-    scheduleCaseArrow()
-    return
-  }
 
   const gen = ++switchGen
   beginCaseSwitch()

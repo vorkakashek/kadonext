@@ -45,17 +45,8 @@ export function useViewportFocus(
   let ctx: { revert: () => void } | null = null
 
   onMounted(async () => {
-    const reduced = prefersReducedMotion()
     const targets = getTargets().filter((el): el is HTMLElement => !!el)
     if (!targets.length) return
-
-    if (reduced) {
-      for (const el of targets) {
-        el.style.filter = 'none'
-        el.style.opacity = '1'
-      }
-      return
-    }
 
     const gsap = (await import('gsap')).default
     const { ScrollTrigger } = await import('gsap/ScrollTrigger')

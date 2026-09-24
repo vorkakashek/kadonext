@@ -10,9 +10,6 @@ defineProps<{
 
 const sectionEl = ref<HTMLElement | null>(null)
 const videoEl = ref<HTMLVideoElement | null>(null)
-const reducedMotion = ref(false)
-
-let motionQuery: MediaQueryList | null = null
 let observer: IntersectionObserver | null = null
 let inView = false
 
@@ -20,7 +17,7 @@ function syncPlayback() {
   const video = videoEl.value
   if (!video) return
 
-  if (reducedMotion.value || document.hidden || !inView) {
+  if (document.hidden || !inView) {
     video.pause()
     return
   }
@@ -30,19 +27,11 @@ function syncPlayback() {
   })
 }
 
-function syncMotionPreference() {
-  reducedMotion.value = motionQuery?.matches ?? false
-  syncPlayback()
-}
-
 function onVisibilityChange() {
   syncPlayback()
 }
 
 onMounted(() => {
-  motionQuery = reducedMotionMediaQuery()
-  motionQuery.addEventListener('change', syncMotionPreference)
-
   observer = new IntersectionObserver(
     ([entry]) => {
       if (!entry) return
@@ -54,11 +43,10 @@ onMounted(() => {
   if (sectionEl.value) observer.observe(sectionEl.value)
 
   document.addEventListener('visibilitychange', onVisibilityChange)
-  syncMotionPreference()
+  syncPlayback()
 })
 
 onBeforeUnmount(() => {
-  motionQuery?.removeEventListener('change', syncMotionPreference)
   observer?.disconnect()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })

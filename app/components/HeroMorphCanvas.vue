@@ -27,7 +27,6 @@ onMounted(() => {
   const host = canvasHost.value
   if (!host) return
 
-  const reduced = prefersReducedMotion()
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 40)
@@ -107,7 +106,7 @@ onMounted(() => {
     mesh.rotation.y = now * 0.00018
     mesh.rotation.x = Math.sin(now * 0.00011) * 0.12
 
-    if (!reduced && mesh.morphTargetInfluences) {
+    if (mesh.morphTargetInfluences) {
       const elapsed = now - phaseStart
 
       if (phase === 'hold') {

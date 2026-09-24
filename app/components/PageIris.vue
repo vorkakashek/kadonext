@@ -52,10 +52,6 @@ let stopBefore: (() => void) | null = null
 let stopAfter: (() => void) | null = null
 let stopError: (() => void) | null = null
 
-function reducedMotion() {
-  return prefersReducedMotion()
-}
-
 function captureOrigin(e: Event) {
   const t = e.target
   if (!(t instanceof Element)) return
@@ -85,7 +81,6 @@ function shouldSkip(
   if (!from.matched.length) return true
   if (to.fullPath === from.fullPath) return true
   if (to.path === from.path) return true
-  if (reducedMotion()) return true
   if (caseDetailTransitionActive.value) return true
   if (surfaceOn.value) return true
   if (document.documentElement.classList.contains('language-switch-lock')) return true

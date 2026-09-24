@@ -131,9 +131,7 @@ function paintPreview(timestamp: number) {
   const elapsedMs = lastPaintTime
     ? Math.min(timestamp - lastPaintTime, 32)
     : 1000 / 60
-  const follow = reducedMotion
-    ? 1
-    : 1 - Math.exp(-elapsedMs / previewFollowResponseMs)
+  const follow = 1 - Math.exp(-elapsedMs / previewFollowResponseMs)
   lastPaintTime = timestamp
 
   currentX += (targetX - currentX) * follow
@@ -238,8 +236,6 @@ function onViewportResize() {
 
 let hoverMedia: MediaQueryList | null = null
 let mobileThumbMedia: MediaQueryList | null = null
-let reducedMotionMedia: MediaQueryList | null = null
-let reducedMotion = false
 let entranceMotionCtx: { revert: () => void } | null = null
 let entranceMotionObservers: IntersectionObserver[] = []
 
@@ -270,23 +266,6 @@ async function setupEntranceMotion() {
   const items = Array.from(
     root.querySelectorAll<HTMLElement>('.work-formats__item'),
   )
-  const animatedElements = [
-    ...chars,
-    ...(intro ? [intro] : []),
-    ...(pricing ? [pricing] : []),
-    ...items.flatMap(item => Array.from(
-      item.querySelectorAll<HTMLElement>(
-        '.work-formats__number-text, .work-formats__name-text, .work-formats__description, .work-formats__thumb-slot, .work-formats__thumb img',
-      ),
-    )),
-  ]
-
-  if (reducedMotion) {
-    gsap.set(animatedElements, { clearProps: 'all' })
-    gsap.set(items, { clearProps: '--work-formats-divider-scale' })
-    return
-  }
-
   const observeTimeline = (
     trigger: HTMLElement,
     timeline: ReturnType<typeof gsap.timeline>,
@@ -427,7 +406,6 @@ async function setupEntranceMotion() {
 function syncHoverPreviewMode() {
   hoverPreviewEnabled.value = !!hoverMedia?.matches
   mobileThumbsEnabled.value = !!mobileThumbMedia?.matches
-  reducedMotion = !!reducedMotionMedia?.matches
   if (!hoverPreviewEnabled.value) {
     previewActivationId += 1
     previewVisible.value = false
@@ -458,11 +436,9 @@ onDeactivated(() => {
 onMounted(async () => {
   hoverMedia = window.matchMedia('(hover: hover) and (pointer: fine)')
   mobileThumbMedia = window.matchMedia('(max-width: 767.98px)')
-  reducedMotionMedia = reducedMotionMediaQuery()
   syncHoverPreviewMode()
   hoverMedia.addEventListener('change', syncHoverPreviewMode)
   mobileThumbMedia.addEventListener('change', onMotionMediaChange)
-  reducedMotionMedia.addEventListener('change', onMotionMediaChange)
   window.addEventListener('scroll', onViewportScroll, { passive: true })
   window.addEventListener('resize', onViewportResize, { passive: true })
   await setupEntranceMotion()
@@ -473,7 +449,6 @@ onUnmounted(() => {
   if (frame) cancelAnimationFrame(frame)
   hoverMedia?.removeEventListener('change', syncHoverPreviewMode)
   mobileThumbMedia?.removeEventListener('change', onMotionMediaChange)
-  reducedMotionMedia?.removeEventListener('change', onMotionMediaChange)
   window.removeEventListener('scroll', onViewportScroll)
   window.removeEventListener('resize', onViewportResize)
 })

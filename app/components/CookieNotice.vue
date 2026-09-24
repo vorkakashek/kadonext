@@ -178,17 +178,19 @@ onUnmounted(() => {
   }
 }
 
-.cookie-notice-enter-active,
+.cookie-notice-enter-active {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
 .cookie-notice-leave-active {
-  transition:
-    opacity var(--motion-base),
-    transform var(--motion-layout) cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.38s cubic-bezier(0.64, 0, 0.78, 0);
+  will-change: transform;
 }
 
 .cookie-notice-enter-from,
 .cookie-notice-leave-to {
-  opacity: 0;
-  transform: translateY(1.25rem) scale(0.98);
+  transform: translate3d(0, calc(100% + 4rem), 0);
 }
 
 @media (min-width: 768px) {
@@ -258,11 +260,4 @@ onUnmounted(() => {
   }
 }
 
-@media not all {
-  .cookie-notice-enter-active,
-  .cookie-notice-leave-active,
-  .cookie-notice__button {
-    transition: none;
-  }
-}
 </style>

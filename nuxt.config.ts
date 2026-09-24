@@ -31,8 +31,6 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ['@nuxt/fonts'],
-
   hooks: {
     'pages:extend'(pages) {
       const addLocaleAliases = (page: typeof pages[number]) => {
@@ -90,44 +88,6 @@ export default defineNuxtConfig({
     },
   },
 
-  fonts: {
-    defaults: {
-      // Preload only the face used by above-the-fold UI. Other weights load
-      // when their sections approach instead of competing on mobile startup.
-      preload: false,
-    },
-    // The site is fully self-hosted: avoid provider metadata requests during builds.
-    providers: {
-      adobe: false,
-      bunny: false,
-      fontshare: false,
-      fontsource: false,
-      google: false,
-      googleicons: false,
-      npm: false,
-    },
-    families: [
-      {
-        name: 'Fixel Text',
-        provider: 'local',
-        weights: [300, 400, 500, 600, 700],
-        styles: ['normal'],
-        display: 'swap',
-        // The local WOFF2 files contain both extended Latin and Cyrillic.
-        // `latin` is only the local provider's filename lookup key.
-        subsets: ['latin'],
-      },
-      {
-        name: 'Fixel Display',
-        provider: 'local',
-        weights: [300, 400, 500, 600, 700],
-        styles: ['normal'],
-        display: 'swap',
-        subsets: ['latin'],
-      },
-    ],
-  },
-
   app: {
     head: {
       htmlAttrs: { lang: 'ru' },
@@ -153,7 +113,7 @@ export default defineNuxtConfig({
         {
           key: 'locale-redirect',
           innerHTML:
-            "try{var p=location.pathname;if(!/^\\/(?:ru|en)(?:\\/|$)/.test(p)){var m=document.cookie.match(/(?:^|; )kadonext-locale=(ru|en)(?:;|$)/);var s=localStorage.getItem('kadonext-locale');var n=(navigator.languages&&navigator.languages[0])||navigator.language||'';var l=m?m[1]:(s==='ru'||s==='en'?s:(/^ru(?:-|$)/i.test(n)?'ru':'en'));document.cookie='kadonext-locale='+l+'; Path=/; Max-Age=31536000; SameSite=Lax';localStorage.setItem('kadonext-locale',l);location.replace('/'+l+(p==='/'?'/':p)+location.search+location.hash)}}catch(e){}",
+            "try{var p=location.pathname;var r=document.cookie.match(/(?:^|; )kadonext-root-locale=(ru|en)(?:;|$)/);if(!/^\\/(?:ru|en)(?:\\/|$)/.test(p)&&!(p==='/'&&r&&document.documentElement.lang===r[1])){var m=document.cookie.match(/(?:^|; )kadonext-locale=(ru|en)(?:;|$)/);var s=localStorage.getItem('kadonext-locale');var n=(navigator.languages&&navigator.languages[0])||navigator.language||'';var l=m?m[1]:(s==='ru'||s==='en'?s:(/^ru(?:-|$)/i.test(n)?'ru':'en'));document.cookie='kadonext-locale='+l+'; Path=/; Max-Age=31536000; SameSite=Lax';localStorage.setItem('kadonext-locale',l);location.replace('/'+l+(p==='/'?'/':p)+location.search+location.hash)}}catch(e){}",
           tagPosition: 'head',
         },
       ],

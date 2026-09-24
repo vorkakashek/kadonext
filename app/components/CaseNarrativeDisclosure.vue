@@ -12,12 +12,8 @@ const emit = defineEmits<{
 
 const open = ref(false)
 
-async function toggle() {
+function toggle() {
   open.value = !open.value
-  await nextTick()
-  if (prefersReducedMotion()) {
-    emit('layoutChange')
-  }
 }
 
 function handleTransition(event: TransitionEvent) {
