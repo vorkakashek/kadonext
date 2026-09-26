@@ -294,7 +294,7 @@ onUnmounted(() => {
               <!-- Temporary line signs reserve the final icon footprint. -->
               <svg
                 v-if="iconVariants[index] === 'compact'"
-                viewBox="0 0 160 160"
+                viewBox="20 20 120 120"
                 fill="none"
               >
                 <rect data-icon-stroke data-draw-delay="0" x="29" y="35" width="102" height="90" rx="13" />
@@ -325,7 +325,7 @@ onUnmounted(() => {
               </svg>
               <svg
                 v-else-if="iconVariants[index] === 'signature'"
-                viewBox="0 0 160 160"
+                viewBox="20 20 120 120"
                 fill="none"
               >
                 <path
@@ -339,7 +339,7 @@ onUnmounted(() => {
                 <circle data-icon-dot cx="31" cy="108" r="7" />
                 <circle data-icon-dot cx="129" cy="51" r="7" />
               </svg>
-              <svg v-else viewBox="0 0 160 160" fill="none">
+              <svg v-else viewBox="20 20 120 120" fill="none">
                 <rect data-icon-stroke data-draw-delay="0.02" x="27" y="32" width="106" height="29" rx="8" />
                 <rect data-icon-stroke data-draw-delay="0.16" x="27" y="66" width="106" height="29" rx="8" />
                 <rect data-icon-stroke data-draw-delay="0.09" x="27" y="100" width="106" height="29" rx="8" />
@@ -480,7 +480,7 @@ onUnmounted(() => {
 }
 
 .project-formats__icon {
-  width: clamp(9rem, 14vw, 14rem);
+  width: clamp(6.75rem, 10.5vw, 10.5rem);
   aspect-ratio: 1;
   grid-column: 1 / span 2;
   color: color-mix(in srgb, var(--palette-ink) 76%, transparent);
@@ -623,13 +623,18 @@ onUnmounted(() => {
   .project-formats__item-grid {
     min-height: 0;
     padding-block: clamp(4rem, 18vw, 6rem);
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns:
+      minmax(0, clamp(4.1rem, 20.4vw, 5.95rem))
+      minmax(0, 1fr);
+    column-gap: clamp(1rem, 4vw, 1.5rem);
   }
 
   .project-formats__icon {
-    width: clamp(8.5rem, 42vw, 12.5rem);
-    margin-bottom: clamp(3rem, 12vw, 4.5rem);
-    grid-column: 1 / -1;
+    width: 100%;
+    margin-bottom: 0;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
   }
 
   .project-formats__copy,
@@ -643,19 +648,24 @@ onUnmounted(() => {
 
   .project-formats__copy h3 {
     max-width: 11ch;
-    font-size: clamp(2.25rem, 10.5vw, 3.5rem);
-    grid-column: 1 / -1;
+    font-size: clamp(2rem, 9.25vw, 3.1rem);
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
     order: 1;
+    text-wrap: balance;
   }
 
   .project-formats__description {
     font-size: var(--type-body);
     grid-column: 1 / -1;
+    grid-row: 3;
     order: 3;
   }
 
   .project-formats__scope {
     grid-column: 1 / -1;
+    grid-row: 4;
     order: 4;
   }
 
@@ -668,6 +678,7 @@ onUnmounted(() => {
   .project-formats__meta-shell {
     aspect-ratio: auto;
     margin-top: clamp(2rem, 8vw, 3rem);
+    grid-row: 2;
     order: 2;
   }
 

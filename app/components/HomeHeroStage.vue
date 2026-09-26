@@ -75,6 +75,7 @@ const mask = useFlowSurfaceMask()
 const initialReveal = useInitialReveal()
 const route = useRoute()
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const plainColdDocument = computed(() => PLAIN_COLD_HOME && initialHomeDocument.value)
 const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
 const homeIntroStarted = useState<boolean>('home-intro-gate-started', () => false)
 const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
@@ -688,25 +689,13 @@ function scheduleSwarmMount(
   // Save-Data may defer the scene; slow estimates still skip speculative asset
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
-  if (plainColdHome && mobileLite.value) {
-    // The finished HTML/CSS frame is already visible. Start the live upgrade in
-    // the first quiet slot after hydration, but keep the delay tightly bounded:
-    // the scene is core Hero content and must not wait on a multi-second timer.
-    const onIntent = () => mount()
-    window.addEventListener('pointerdown', onIntent, { once: true, passive: true })
-    window.addEventListener('keydown', onIntent, { once: true })
-    removeSwarmIntent = () => {
-      window.removeEventListener('pointerdown', onIntent)
-      window.removeEventListener('keydown', onIntent)
-    }
-    requestAnimationFrame(() => {
-      if (stageUnmounted || swarmMount.value) return
-      if (typeof window.requestIdleCallback === 'function') {
-        swarmIdleId = window.requestIdleCallback(mount, { timeout: constrained ? 1600 : 500 })
-      } else {
-        swarmFallbackTimer = window.setTimeout(mount, constrained ? 600 : 120)
-      }
-    })
+  if (plainColdHome) {
+    // The production entry has no full-screen cover. Paint its static Surface
+    // first, then prepare WebGL while the authored copy is still hidden. The
+    // copy readiness gate below waits for `lit`, so context/shader work cannot
+    // hitch either end of h1 + description and the scene is already present
+    // when that entrance begins instead of arriving a few seconds afterwards.
+    requestAnimationFrame(mount)
     return
   }
   if (coldHomeIntro && !constrained && !mobileLite.value) {
@@ -1026,7 +1015,7 @@ onMounted(() => {
   removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedParallaxFrame)
   window.addEventListener('resize', onCopyParallaxResize, { passive: true })
 
-  const plainColdHome = PLAIN_COLD_HOME && initialHomeDocument.value
+  const plainColdHome = plainColdDocument.value
   const fromNavigation = skipHeroIntro.value
   const fromNav = fromNavigation
   if (skipHeroIntro.value) skipHeroIntro.value = false
@@ -1076,14 +1065,22 @@ onMounted(() => {
       homeIntroStarted,
       homeIntroContentReady,
       criticalFontReady,
+      heroWebglLit,
     ],
-    async ([on, surfaceReady, introStarted, introContentReady, fontReady]) => {
+    async ([on, surfaceReady, introStarted, introContentReady, fontReady, sceneLit]) => {
       // Desktop copy should enter with the Surface morph, not wait for its
       // 640 ms crop plus opacity handoff to finish. Mobile keeps the stricter
       // gate because its direct handoff owns the whole first-screen reveal.
       const introGateWaiting = mobileLite.value && introStarted && !introContentReady
       const criticalFontWaiting = (coldHomeIntro || plainColdHome) && !fontReady
-      if (!on || !surfaceReady || introGateWaiting || criticalFontWaiting) {
+      const plainSceneWaiting = plainColdHome && !sceneLit
+      if (
+        !on
+        || !surfaceReady
+        || introGateWaiting
+        || criticalFontWaiting
+        || plainSceneWaiting
+      ) {
         if (fromNav) return
         swarmLoopReady.value = false
         introPending.value = true
@@ -1314,7 +1311,7 @@ onUnmounted(() => {
             }"
             :class="[
               swarmInteractive ? 'pointer-events-auto' : 'pointer-events-none',
-              introPending ? 'hero-intro-hide' : '',
+              introPending && !plainColdDocument ? 'hero-intro-hide' : '',
             ]"
           >
             <ClientOnly>
