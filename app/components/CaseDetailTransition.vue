@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import gsap from 'gsap'
 import { warmCaseDetailRoute } from '~/utils/caseDetailRouteWarmup'
+import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
+import type { HomeSectionId } from '~/utils/homeSections'
 
 const router = useRouter()
+const nuxtApp = useNuxtApp()
 const {
   request,
   active,
@@ -207,11 +210,8 @@ async function findTarget(selector: string) {
   return null
 }
 
-/** Keep a hash destination pinned while the remounted home layout settles. */
-function startRouteHashPin(to: string) {
-  const hashAt = to.indexOf('#')
-  if (hashAt < 0) return { ready: Promise.resolve(), stop: () => {} }
-  const id = decodeURIComponent(to.slice(hashAt + 1))
+/** Keep a requested section pinned while the remounted home layout settles. */
+function startRouteSectionPin(id?: HomeSectionId) {
   if (!id) return { ready: Promise.resolve(), stop: () => {} }
 
   let raf = 0
@@ -233,15 +233,11 @@ function startRouteHashPin(to: string) {
       finishReady()
       return
     }
-    const target = document.getElementById(id)
+    const target = id === 'home' ? document.documentElement : document.getElementById(id)
     if (target) {
-      const rect = target.getBoundingClientRect()
-      if (Math.abs(rect.top) > 0.75) {
-        window.scrollTo({
-          top: Math.max(0, window.scrollY + rect.top),
-          left: 0,
-          behavior: 'auto',
-        })
+      const top = homeSectionScrollTop(target)
+      if (Math.abs(window.scrollY - top) > 0.75) {
+        nuxtApp.$setScrollPosition(top)
         stableFrames = 0
       } else {
         stableFrames += 1
@@ -349,7 +345,7 @@ watch(request, async (next) => {
   // needs its own first upload.
   await nextPaint()
 
-  const hashPinSession: { stop?: () => void } = {}
+  const sectionPinSession: { stop?: () => void } = {}
   try {
     if (next.direction === 'open' && next.rect) {
       // Keep the source route mounted until the proxy fills the viewport. On
@@ -435,9 +431,9 @@ watch(request, async (next) => {
       if (next.historyBack) await returnThroughHistory(next.to)
       else await router.push(next.to)
       await nextPaint()
-      const hashPin = startRouteHashPin(next.to)
-      hashPinSession.stop = hashPin.stop
-      await hashPin.ready
+      const sectionPin = startRouteSectionPin(next.homeSection)
+      sectionPinSession.stop = sectionPin.stop
+      await sectionPin.ready
       const target = next.targetSelector ? await findTarget(next.targetSelector) : null
       if (target) await waitForTargetImagePaint(target)
       return target
@@ -459,7 +455,7 @@ watch(request, async (next) => {
         duration: RETURN_FLIGHT_DURATION,
         ease: 'power3.inOut',
       }, 0)
-      if (next.to.split('#')[0] === '/' && targetEl.hasAttribute('data-case-media')) {
+      if (baseRoutePath(next.to) === '/' && targetEl.hasAttribute('data-case-media')) {
         animateHomeCorners(flight, frame, homeMediaRadius(targetEl), RETURN_FLIGHT_DURATION, false)
       }
       flight.to(image, {
@@ -492,7 +488,7 @@ watch(request, async (next) => {
     }
     gsap.set(root, { opacity: 0 })
   } finally {
-    hashPinSession.stop?.()
+    sectionPinSession.stop?.()
     if (next.direction === 'close') {
       completeDetailReturn()
       completeCaseDetailExit()

@@ -7,6 +7,7 @@ const photoEl = ref<HTMLElement | null>(null)
 const visualIsActive = ref(false)
 const { t } = useI18n()
 const localePath = useLocalePath()
+const assetUrl = useCdnAsset()
 
 useFooterPhotoRubberBand(footerEl, photoEl)
 
@@ -77,27 +78,27 @@ onUnmounted(() => {
         <source
           media="(max-width: 767.98px)"
           type="image/avif"
-          srcset="/home/kira-photo-vertical-480.avif 480w, /home/kira-photo-vertical-960.avif 960w, /home/kira-photo-vertical-1200.avif 1200w"
+          :srcset="assetUrl('/home/kira-photo-vertical-480.avif 480w, /home/kira-photo-vertical-960.avif 960w, /home/kira-photo-vertical-1200.avif 1200w')"
           sizes="100vw"
         >
         <source
           media="(max-width: 767.98px)"
           type="image/webp"
-          srcset="/home/kira-photo-vertical-480.webp 480w, /home/kira-photo-vertical-960.webp 960w, /home/kira-photo-vertical-1200.webp 1200w"
+          :srcset="assetUrl('/home/kira-photo-vertical-480.webp 480w, /home/kira-photo-vertical-960.webp 960w, /home/kira-photo-vertical-1200.webp 1200w')"
           sizes="100vw"
         >
         <source
           type="image/avif"
-          srcset="/home/kira-photo-480.avif 480w, /home/kira-photo-960.avif 960w, /home/kira-photo-1440.avif 1440w, /home/kira-photo-1920.avif 1920w, /home/kira-photo-2760.avif 2760w, /home/kira-photo-3840.avif 3840w"
+          :srcset="assetUrl('/home/kira-photo-480.avif 480w, /home/kira-photo-960.avif 960w, /home/kira-photo-1440.avif 1440w, /home/kira-photo-1920.avif 1920w, /home/kira-photo-2760.avif 2760w, /home/kira-photo-3840.avif 3840w')"
           sizes="100vw"
         >
         <source
           type="image/webp"
-          srcset="/home/kira-photo-480.webp 480w, /home/kira-photo-960.webp 960w, /home/kira-photo-1440.webp 1440w, /home/kira-photo-1920.webp 1920w, /home/kira-photo-2760.webp 2760w, /home/kira-photo-3840.webp 3840w"
+          :srcset="assetUrl('/home/kira-photo-480.webp 480w, /home/kira-photo-960.webp 960w, /home/kira-photo-1440.webp 1440w, /home/kira-photo-1920.webp 1920w, /home/kira-photo-2760.webp 2760w, /home/kira-photo-3840.webp 3840w')"
           sizes="100vw"
         >
         <img
-          src="/home/kira-photo.webp"
+          :src="assetUrl('/home/kira-photo.webp')"
           :alt="t('footer.photoAlt')"
           width="3840"
           height="1482"
@@ -191,7 +192,7 @@ onUnmounted(() => {
 }
 
 .home-footer__legal-note {
-  color: color-mix(in srgb, currentColor 35%, transparent);
+  color: color-mix(in srgb, currentColor 76%, transparent);
   font-size: calc(var(--type-nav) * 0.66);
   letter-spacing: -0.015em;
   line-height: 1.45;

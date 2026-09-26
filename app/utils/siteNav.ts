@@ -1,6 +1,7 @@
 /** Primary site routes + Page Canvas frames (spec §9.2). */
 
 import type { LocaleCode } from '~/generated/locales/manifest'
+import type { HomeSectionId } from './homeSections'
 import { stripLocalePrefix } from './localeRouting'
 
 export type SiteNavFrameKind = 'page'
@@ -21,6 +22,8 @@ export interface SiteNavFrame {
   kind: SiteNavFrameKind
   /** Route for page frames. */
   to: string
+  /** Optional in-page destination, intentionally kept out of the URL. */
+  section?: HomeSectionId
   labelKey: string
   blurbKey: string
   /** Display index in canvas (01…). */
@@ -34,8 +37,8 @@ export interface SiteNavFrame {
 /** Header shortcuts (subset). */
 export const headerLinks = [
   { labelKey: 'navigation.header.projects', to: '/projects' },
-  { labelKey: 'navigation.header.services', to: '/#services' },
-  { labelKey: 'navigation.header.contact', to: '/#contact' },
+  { labelKey: 'navigation.header.services', to: '/', section: 'services' },
+  { labelKey: 'navigation.header.contact', to: '/', section: 'contact' },
 ] as const
 
 /** Full Page Canvas — link list + hover preview. */
@@ -63,7 +66,8 @@ export const canvasFrames: SiteNavFrame[] = [
   {
     id: 'services',
     kind: 'page',
-    to: '/#services',
+    to: '/',
+    section: 'services',
     labelKey: 'navigation.frames.services.label',
     blurbKey: 'navigation.frames.services.blurb',
     index: '03',
@@ -71,33 +75,46 @@ export const canvasFrames: SiteNavFrame[] = [
     previews: previewSet('services'),
   },
   {
+    id: 'prices',
+    kind: 'page',
+    to: '/',
+    section: 'project-formats',
+    labelKey: 'navigation.frames.prices.label',
+    blurbKey: 'navigation.frames.prices.blurb',
+    index: '04',
+    motif: 'services',
+    previews: previewSet('prices', 'services'),
+  },
+  {
     id: 'about',
     kind: 'page',
-    to: '/#about',
+    to: '/',
+    section: 'about',
     labelKey: 'navigation.frames.about.label',
     blurbKey: 'navigation.frames.about.blurb',
-    index: '04',
+    index: '05',
     motif: 'about',
     previews: previewSet('about'),
   },
   {
     id: 'contact',
     kind: 'page',
-    to: '/#contact',
+    to: '/',
+    section: 'contact',
     labelKey: 'navigation.frames.contact.label',
     blurbKey: 'navigation.frames.contact.blurb',
-    index: '05',
+    index: '06',
     motif: 'contact',
     previews: previewSet('contact'),
   },
 ]
 
-function previewSet(id: string): Record<LocaleCode, SiteNavPreviewSet> {
+function previewSet(id: string, mobileId = id): Record<LocaleCode, SiteNavPreviewSet> {
   const paths = (prefix: string): SiteNavPreviewSet => ({
     desktop: `${prefix}/${id}.jpg`,
     desktopBw: `${prefix}/${id}-bw.jpg`,
-    mobile: `${prefix}/${id}-m.jpg`,
-    mobileBw: `${prefix}/${id}-m-bw.jpg`,
+    mobile: `${prefix}/${mobileId}-m.jpg`,
+    mobileBw: `${prefix}/${mobileId}-m-bw.jpg`,
   })
 
   return {
@@ -107,8 +124,8 @@ function previewSet(id: string): Record<LocaleCode, SiteNavPreviewSet> {
 }
 
 export function matchFramePath(path: string): string {
-  const clean = stripLocalePrefix(path).replace(/\/+$/, '') || '/'
-  const exact = canvasFrames.find((f) => clean === f.to)
+  const clean = stripLocalePrefix(path).split('#', 1)[0]?.replace(/\/+$/, '') || '/'
+  const exact = canvasFrames.find((f) => !f.section && clean === f.to)
   if (exact) return exact.id
   if (clean === '/') return 'home'
   const pathOnly = clean.split('#', 1)[0] || '/'

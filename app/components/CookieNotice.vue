@@ -1,65 +1,47 @@
 <script setup lang="ts">
 import {
-  rememberCookieNotice,
-  wasCookieNoticeSeen,
+  COOKIE_NOTICE_COOKIE,
+  COOKIE_NOTICE_MAX_AGE,
 } from '~/utils/cookieNotice'
 
-const visible = ref(false)
+const noticeCookie = useCookie<string | null>(COOKIE_NOTICE_COOKIE, {
+  default: () => null,
+  maxAge: COOKIE_NOTICE_MAX_AGE,
+  path: '/',
+  sameSite: 'lax',
+  secure: useRequestURL().protocol === 'https:',
+})
+const visible = ref(noticeCookie.value !== '1')
 const { t, tm } = useI18n()
 const localePath = useLocalePath()
 const titleLines = computed(() => tm('cookieNotice.titleLines') as string[])
-const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
-const homeIntroGate = useHomeIntroGate()
+const noticeTextParts = computed(() => {
+  const words = t('cookieNotice.text').trim().split(/\s+/)
+  if (words.length < 2) return words
 
-const HOME_INTRO_NOTICE_DELAY_MS = 140
-let mounted = false
-let revealTimer = 0
-
-function reveal() {
-  if (!mounted || visible.value || wasCookieNoticeSeen()) return
-  visible.value = true
-}
-
-function scheduleReveal(afterHomeIntro = false) {
-  if (!mounted || visible.value || revealTimer) return
-  if (afterHomeIntro) {
-    revealTimer = window.setTimeout(() => {
-      revealTimer = 0
-      reveal()
-    }, HOME_INTRO_NOTICE_DELAY_MS)
-    return
+  const totalLength = words.reduce((sum, word) => sum + word.length, 0) + words.length - 1
+  let currentLength = 0
+  let splitAt = 1
+  for (let index = 0; index < words.length - 1; index++) {
+    currentLength += words[index]!.length + (index > 0 ? 1 : 0)
+    splitAt = index + 1
+    if (currentLength >= totalLength / 2) break
   }
-  reveal()
-}
+  return [
+    words.slice(0, splitAt).join(' '),
+    words.slice(splitAt).join(' '),
+  ]
+})
 
 function dismiss() {
-  rememberCookieNotice()
+  noticeCookie.value = '1'
   visible.value = false
 }
 
-onMounted(() => {
-  mounted = true
-  // On a first home visit, the notice used to animate its transform and live
-  // backdrop blur while the intro was morphing its full-screen clip-path and
-  // WebGL was compiling. Keep those compositor-heavy phases separate.
-  if (!initialHomeDocument.value || homeIntroGate.unlocked.value) {
-    scheduleReveal()
-  }
-})
-
-watch(homeIntroGate.unlocked, (unlocked) => {
-  if (unlocked) scheduleReveal(initialHomeDocument.value)
-})
-
-onUnmounted(() => {
-  mounted = false
-  if (revealTimer) window.clearTimeout(revealTimer)
-  revealTimer = 0
-})
 </script>
 
 <template>
-  <Transition name="cookie-notice">
+  <Transition name="cookie-notice" appear>
     <aside
       v-if="visible"
       class="cookie-notice pointer-events-auto"
@@ -67,15 +49,19 @@ onUnmounted(() => {
     >
       <div class="cookie-notice__copy">
         <h2 id="cookie-notice-title">
-          <span v-for="line in titleLines" :key="line">{{ line }}</span>
+          <span
+            v-for="line in titleLines"
+            :key="line"
+            class="cookie-notice__title-line"
+          >{{ line }}</span>
         </h2>
-        <p class="cookie-notice__text">
-          <span>{{ t('cookieNotice.text') }}</span>
-          <span class="cookie-notice__note">
+        <div class="cookie-notice__text">
+          <p v-for="part in noticeTextParts" :key="part">{{ part }}</p>
+          <p class="cookie-notice__note">
             {{ t('cookieNotice.note') }}
-            <NuxtLink :to="localePath('/privacy')">{{ t('cookieNotice.details') }}</NuxtLink>
-          </span>
-        </p>
+            <NuxtLink :to="localePath('/privacy')" no-prefetch>{{ t('cookieNotice.details') }}</NuxtLink>
+          </p>
+        </div>
       </div>
 
       <button class="cookie-notice__button" type="button" @click="dismiss">
@@ -100,6 +86,7 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--palette-milk) 96%, transparent);
   box-shadow: 0 1.25rem 4rem color-mix(in srgb, var(--palette-ink) 14%, transparent);
   color: var(--palette-ink);
+  font-family: "Fixel Critical", ui-sans-serif, system-ui, sans-serif;
   gap: clamp(1.25rem, 2vw, 2rem);
   outline: none;
   backdrop-filter: blur(16px);
@@ -128,10 +115,15 @@ onUnmounted(() => {
 }
 
 .cookie-notice__text {
+  display: grid;
   max-width: 55ch;
   font-size: 0.9rem;
   letter-spacing: -0.015em;
   line-height: 1.42;
+}
+
+.cookie-notice__text p {
+  margin: 0;
 }
 
 .cookie-notice__note {
@@ -178,19 +170,23 @@ onUnmounted(() => {
   }
 }
 
-.cookie-notice-enter-active {
-  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+.cookie-notice-enter-active,
+.cookie-notice-leave-active {
+  transition:
+    transform 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.28s ease-out;
+  will-change: transform, opacity;
 }
 
 .cookie-notice-leave-active {
-  transition: transform 0.38s cubic-bezier(0.64, 0, 0.78, 0);
-  will-change: transform;
+  transition-duration: 0.38s, 0.24s;
+  transition-timing-function: cubic-bezier(0.64, 0, 0.78, 0), ease-in;
 }
 
 .cookie-notice-enter-from,
 .cookie-notice-leave-to {
   transform: translate3d(0, calc(100% + 4rem), 0);
+  opacity: 0;
 }
 
 @media (min-width: 768px) {
@@ -218,12 +214,21 @@ onUnmounted(() => {
   }
 
   .cookie-notice__text {
-    max-width: 80ch;
+    display: block;
+    max-width: none;
+  }
+
+  .cookie-notice__text p {
+    display: inline;
+  }
+
+  .cookie-notice__text p + p::before {
+    content: " ";
   }
 
   .cookie-notice__note {
     display: inline;
-    margin-left: 0.25em;
+    margin-left: 0;
   }
 
   .cookie-notice__button {

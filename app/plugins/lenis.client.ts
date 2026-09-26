@@ -7,7 +7,7 @@ import { createTouchScrollOwnership } from '~/utils/touchScrollOwnership'
 import { createFormSwipeGuard } from '~/utils/formSwipeGuard'
 import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
 import { isThumbNav } from '~/utils/mobileViewport'
-import { beginHomeAnchorMotion, HOME_ANCHOR_TIMING, isHomeAnchorTarget } from '~/utils/homeAnchorMotion'
+import { beginHomeSectionMotion, HOME_SECTION_TIMING, isHomeMotionSection } from '~/utils/homeSectionMotion'
 import { WHEEL_DURATION, wheelEasing } from '~/utils/wheelScroll'
 import {
   CASE_RAIL_TOUCH_EVENT,
@@ -476,10 +476,10 @@ export default defineNuxtPlugin((nuxtApp) => {
     const top = homeSectionScrollTop(target)
     const targetId = target === document.documentElement ? 'home' : target.id
     const thumb = isThumbNav()
-    const approachDistance = Math.max(HOME_ANCHOR_TIMING.minimumApproachPx,
-      window.innerHeight * HOME_ANCHOR_TIMING.mobileApproachViewport)
-    const surfaceMotion = !immediate && isHomeAnchorTarget(targetId)
-      ? beginHomeAnchorMotion(targetId, top)
+    const approachDistance = Math.max(HOME_SECTION_TIMING.minimumApproachPx,
+      window.innerHeight * HOME_SECTION_TIMING.mobileApproachViewport)
+    const surfaceMotion = !immediate && isHomeMotionSection(targetId)
+      ? beginHomeSectionMotion(targetId, top)
       : null
     let settleTimer = 0
     let approachTimer = 0
@@ -544,7 +544,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     window.addEventListener('scroll', onNativeScroll, { passive: true })
     if (surfaceMotion && !thumb) {
       // A fixed early beat replaces a distance threshold tied to Lenis's long tail.
-      approachTimer = window.setTimeout(beginApproach, HOME_ANCHOR_TIMING.desktopStartDelayMs)
+      approachTimer = window.setTimeout(beginApproach, HOME_SECTION_TIMING.desktopStartDelayMs)
     }
     if (lenis) {
       // Replace wheel/release inertia and explicitly wake the otherwise idle RAF.

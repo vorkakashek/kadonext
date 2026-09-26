@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { createContext, runInContext } from 'node:vm'
 import ts from 'typescript'
-import * as anchorContract from '../app/utils/homeAnchorMotion.ts'
+import * as sectionContract from '../app/utils/homeSectionMotion.ts'
 import { baseRoutePath } from '../app/utils/localeRouting.ts'
 
-// Exercise the actual Nuxt scroll driver with native scrolling, without a browser.
+// Exercise the actual Nuxt section-scroll driver with native scrolling, without a browser.
 function harness({ thumb = true } = {}) {
   const calls = []
   const listeners = new Map()
@@ -38,7 +38,7 @@ function harness({ thumb = true } = {}) {
     '~/utils/mobileViewport': { isThumbNav: () => thumb },
     '~/utils/wheelScroll': {},
     '~/utils/caseRailTouch': { createCaseRailTouchAxis: () => () => ({}) },
-    '~/utils/homeAnchorMotion': { ...anchorContract, beginHomeAnchorMotion() {
+    '~/utils/homeSectionMotion': { ...sectionContract, beginHomeSectionMotion() {
       calls.push(['freeze'])
       return {
         approach: top => calls.push(['approach', top]),
@@ -73,7 +73,7 @@ function harness({ thumb = true } = {}) {
   }
 }
 
-test('anchor freezes before scrolling and settles only after final-position repair', () => {
+test('section navigation freezes before scrolling and settles only after final-position repair', () => {
   const h = harness()
   const contact = { id: 'contact', isConnected: true, top: 4000 }
   h.scroll(contact)
@@ -101,7 +101,7 @@ test('wheel, touch and keyboard interruption stop the trip and release at the ac
   }
 })
 
-test('a repeated anchor cancels its predecessor and starts a fresh freeze', () => {
+test('a repeated section command cancels its predecessor and starts a fresh freeze', () => {
   const h = harness()
   h.scroll({ id: 'services', isConnected: true, top: 2500 })
   h.window.scrollY = 1600
@@ -122,7 +122,7 @@ test('startup positioning bypasses the surface freeze', () => {
   assert.equal(startup.listenerCount(), 0)
 })
 
-test('home-top uses smooth scrolling; a detached anchor releases its hold', () => {
+test('home-top uses smooth scrolling; a detached target releases its hold', () => {
   const h = harness()
   h.scroll(h.root)
   assert.deepEqual(h.calls, [['freeze'], ['scroll', 0, 'smooth']])
@@ -165,7 +165,7 @@ test('desktop starts after 350 ms while far from the anchor; mobile keeps its di
 })
 
 test('cancellation clears the early desktop kickoff; every named section uses the contract', () => {
-  for (const id of ['services', 'about', 'contact']) {
+  for (const id of ['services', 'project-formats', 'about', 'contact']) {
     const h = harness({ thumb: false })
     h.scroll({ id, isConnected: true, top: 4000 })
     assert.equal(h.calls[0][0], 'freeze')
@@ -176,48 +176,55 @@ test('cancellation clears the early desktop kickoff; every named section uses th
   }
 })
 
-test('localized home hash removal keeps the logo return on the smooth-scroll driver', async () => {
+test('legacy localized section hashes are removed without restoring the section', async () => {
   let mounted
+  let guard
   const calls = []
-  const root = { id: 'home', classList: { contains: () => false } }
+  const pendingSection = { value: null }
+  const defaultScrollBehavior = () => ({ top: 0, behavior: 'auto' })
   const router = {
-    currentRoute: { value: { fullPath: '/ru/', path: '/ru/', hash: '' } },
-    options: { scrollBehavior: () => ({ top: 0, behavior: 'auto' }) },
+    currentRoute: { value: { fullPath: '/ru/#cases', path: '/ru/', hash: '#cases', query: {} } },
+    options: { scrollBehavior: defaultScrollBehavior },
+    beforeEach(callback) { guard = callback; return () => {} },
+    async replace(target) { calls.push(['replace', target]) },
   }
   const modules = {
-    '~/utils/mobileViewport': { isThumbNav: () => false },
-    '~/utils/homeSectionScroll': { homeSectionScrollTop: () => 0 },
-    '~/utils/homeAnchorMotion': { isHomeAnchorTarget: anchorContract.isHomeAnchorTarget },
+    '~/utils/homeSections': { isHomeSectionId: value => ['home', 'cases', 'services', 'project-formats', 'about', 'contact'].includes(value) },
     '~/utils/localeRouting': { baseRoutePath },
   }
   const source = readFileSync(new URL('../app/plugins/home-section-scroll.client.ts', import.meta.url), 'utf8')
-    .replaceAll('import.meta.hot?.dispose', '(() => {})')
+    .replaceAll('import.meta.hot', 'false')
   const context = createContext({
     exports: {}, require: name => modules[name], defineNuxtPlugin: fn => fn,
-    useRouter: () => router, nextTick: () => Promise.resolve(),
+    useRouter: () => router,
+    useState: () => pendingSection,
+    history: { state: {}, replaceState: (...args) => calls.push(['history', ...args]) },
     window: {
-      location: { pathname: '/ru/', hash: '' },
-      addEventListener() {}, removeEventListener() {},
+      location: { pathname: '/ru/', hash: '#cases', search: '' },
+      scrollTo: options => calls.push(['scroll', options.top]),
     },
-    document: {
-      documentElement: root,
-      getElementById: () => null,
-    },
-    performance: { getEntriesByType: () => [] },
+    document: { documentElement: { classList: { contains: () => false } } },
   })
   runInContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, context)
-  context.exports.default({
+  await context.exports.default({
     hook(name, callback) { if (name === 'app:mounted') mounted = callback },
-    $scrollToSection(target) { calls.push(target) },
   })
   mounted()
 
-  const result = await router.options.scrollBehavior(
-    { path: '/ru/', fullPath: '/ru/', hash: '' },
-    { path: '/ru/', fullPath: '/ru/#cases', hash: '#cases' },
-    null,
+  assert.equal(calls.filter(call => call[0] === 'scroll').length, 2)
+  assert.equal(calls.some(call => call[0] === 'history' && call.at(-1) === '/ru/'), true)
+  assert.equal(
+    JSON.stringify(guard({ path: '/ru/', hash: '#contact', query: { source: 'old-link' } })),
+    JSON.stringify({ path: '/ru/', query: { source: 'old-link' }, replace: true }),
   )
-
-  assert.equal(result, false)
-  assert.deepEqual(calls, [root])
+  assert.notEqual(router.options.scrollBehavior, defaultScrollBehavior)
+  assert.deepEqual(
+    await router.options.scrollBehavior({ path: '/ru/' }, { path: '/en/' }, null),
+    { top: 0, behavior: 'auto' },
+  )
+  pendingSection.value = 'contact'
+  assert.equal(
+    await router.options.scrollBehavior({ path: '/ru/' }, { path: '/ru/projects' }, null),
+    false,
+  )
 })

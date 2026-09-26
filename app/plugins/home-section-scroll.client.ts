@@ -1,81 +1,60 @@
-import { isThumbNav } from '~/utils/mobileViewport'
-import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
-import { isHomeAnchorTarget } from '~/utils/homeAnchorMotion'
 import { baseRoutePath } from '~/utils/localeRouting'
+import { isHomeSectionId, type HomeSectionId } from '~/utils/homeSections'
 
-/** Keep Nuxt's page/history scrolling; ease home anchors and returns to the top. */
-export default defineNuxtPlugin((nuxtApp) => {
+/**
+ * Section destinations are UI commands, not route state. Strip old internal
+ * fragments so browser history and native anchor restoration can no longer
+ * compete with the Lenis-owned scroll position.
+ */
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const router = useRouter()
+  const defaultScrollBehavior = router.options.scrollBehavior
+  const pendingSection = useState<HomeSectionId | null>('home-pending-section', () => null)
+
+  function withoutHomeSectionHash(path: string, hash: string) {
+    if (baseRoutePath(path) !== '/' || !isHomeSectionId(hash.slice(1))) return null
+    return path
+  }
+
+  const removeGuard = router.beforeEach((to) => {
+    if (!withoutHomeSectionHash(to.path, to.hash)) return
+    return {
+      path: to.path,
+      query: to.query,
+      replace: true,
+    }
+  })
+
+  const cleanInitialPath = withoutHomeSectionHash(window.location.pathname, window.location.hash)
+  if (cleanInitialPath) {
+    history.replaceState(history.state, '', `${cleanInitialPath}${window.location.search}`)
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    await router.replace({ path: router.currentRoute.value.path, query: router.currentRoute.value.query })
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }
+
   nuxtApp.hook('app:mounted', () => {
-    const router = useRouter()
-    const defaultScrollBehavior = router.options.scrollBehavior
-
     const scrollBehavior: NonNullable<typeof defaultScrollBehavior> = async (to, from, savedPosition) => {
       const samePage = baseRoutePath(to.path) === baseRoutePath(from.path)
-      // A language switch changes only the locale alias and copy. Returning
-      // Nuxt's default position here used to move the locked document to the
-      // top; menu close then restored the saved Y and every scrubbed timeline
-      // visibly replayed Hero → Kado while catching up. Keep the live page at
-      // its current position for the whole covered language transition.
       if (
         samePage
         && document.documentElement.classList.contains('language-switch-lock')
       ) return false
-
-      const homeToHome = baseRoutePath(to.path) === '/' && baseRoutePath(from.path) === '/'
-      const sectionLink = homeToHome
-        && isHomeAnchorTarget(to.hash.slice(1))
-      const homeTopLink = homeToHome && !to.hash && !!from.hash
-      const locked = ['page-canvas-lock', 'page-iris-lock'].some(
-        name => document.documentElement.classList.contains(name),
-      )
-      if ((!sectionLink && !homeTopLink) || savedPosition || locked) {
-        const position = await defaultScrollBehavior?.(to, from, savedPosition) ?? false
-        if (position && !savedPosition && baseRoutePath(to.path) === '/'
-          && to.hash === '#contact' && !isThumbNav()) {
-          const target = document.getElementById('contact')
-          if (target) return { top: homeSectionScrollTop(target), left: 0, behavior: position.behavior }
-        }
-        return position
-      }
-
-      await nextTick()
-      if (router.currentRoute.value.fullPath !== to.fullPath) return false
-      const target = homeTopLink ? document.documentElement : document.getElementById(to.hash.slice(1))
-      if (!target) return defaultScrollBehavior?.(to, from, savedPosition) ?? false
-      nuxtApp.$scrollToSection(target)
-      return false
+      // A named home destination owns its final position. Nuxt/Vue Router's
+      // default top reset is scheduled independently from router.push(), so it
+      // can otherwise overwrite the section command a frame later.
+      if (baseRoutePath(to.path) === '/' && pendingSection.value) return false
+      return await defaultScrollBehavior?.(to, from, savedPosition) ?? false
     }
-
     router.options.scrollBehavior = scrollBehavior
-    let initialAnchorCancelled = false
-    const cancelInitialAnchor = () => {
-      initialAnchorCancelled = true
-      window.removeEventListener('pointerdown', cancelInitialAnchor, true)
-      window.removeEventListener('wheel', cancelInitialAnchor, true)
-      window.removeEventListener('keydown', cancelInitialAnchor, true)
-    }
-    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
-    if (baseRoutePath(window.location.pathname) === '/' && window.location.hash === '#contact'
-      && !isThumbNav() && navigation?.type !== 'back_forward') {
-      window.addEventListener('pointerdown', cancelInitialAnchor, { capture: true, passive: true })
-      window.addEventListener('wheel', cancelInitialAnchor, { capture: true, passive: true })
-      window.addEventListener('keydown', cancelInitialAnchor, { capture: true })
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!initialAnchorCancelled && baseRoutePath(router.currentRoute.value.path) === '/'
-            && router.currentRoute.value.hash === '#contact') {
-            const target = document.getElementById('contact')
-            if (target) nuxtApp.$scrollToSection(target, true)
-          }
-          cancelInitialAnchor()
-        })
+
+    if (import.meta.hot) {
+      import.meta.hot.dispose(() => {
+        removeGuard()
+        if (router.options.scrollBehavior === scrollBehavior) {
+          router.options.scrollBehavior = defaultScrollBehavior
+        }
       })
     }
-    import.meta.hot?.dispose(() => {
-      cancelInitialAnchor()
-      if (router.options.scrollBehavior === scrollBehavior) {
-        router.options.scrollBehavior = defaultScrollBehavior
-      }
-    })
   })
 })

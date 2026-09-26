@@ -17,8 +17,52 @@ function gzipSize(path) {
   return gzipSync(readFileSync(path), { level: 9 }).byteLength
 }
 
+function localAssetPath(url) {
+  const pathname = /^https?:\/\//i.test(url) ? new URL(url).pathname : url
+  return resolve(outputRoot, pathname.replace(/^\//, '').split('?', 1)[0])
+}
+
+function normalizeAssetUrl(url, parentUrl = '/') {
+  const base = /^https?:\/\//i.test(parentUrl)
+    ? parentUrl
+    : new URL(parentUrl, 'https://kadonext.local').href
+  const resolvedUrl = new URL(url, base)
+  return `${resolvedUrl.pathname}${resolvedUrl.search}`
+}
+
+function staticModuleImports(source) {
+  const imports = []
+  const pattern = /\bfrom\s*["']([^"']+)["']|(?:^|[;\n}])\s*import\s*["']([^"']+)["']/g
+  for (const match of source.matchAll(pattern)) {
+    const specifier = match[1] ?? match[2]
+    if (specifier?.startsWith('.') || specifier?.startsWith('/')) imports.push(specifier)
+  }
+  return imports
+}
+
+function collectStaticModuleGraph(entryUrls) {
+  const graph = new Set(entryUrls.map(url => normalizeAssetUrl(url)))
+  const queue = [...graph]
+
+  while (queue.length) {
+    const url = queue.shift()
+    const path = localAssetPath(url)
+    if (!existsSync(path) || !path.endsWith('.js')) continue
+
+    const source = readFileSync(path, 'utf8')
+    for (const specifier of staticModuleImports(source)) {
+      const dependencyUrl = normalizeAssetUrl(specifier, url)
+      if (!dependencyUrl.endsWith('.js') || graph.has(dependencyUrl)) continue
+      graph.add(dependencyUrl)
+      queue.push(dependencyUrl)
+    }
+  }
+
+  return [...graph]
+}
+
 const html = readFileSync(htmlPath, 'utf8')
-const urls = [...new Set([
+const entryUrls = [...new Set([
   ...Array.from(
     html.matchAll(/<link\s+rel="modulepreload"[^>]+href="([^"]+)"/g),
     (match) => match[1],
@@ -31,11 +75,16 @@ const urls = [...new Set([
     html.matchAll(/const start=\(\)=>import\("([^"]+)"\)/g),
     (match) => match[1],
   ),
+  ...Array.from(
+    html.matchAll(/const src="([^"]+)";const mobile=/g),
+    (match) => match[1],
+  ),
 ])]
+const urls = collectStaticModuleGraph(entryUrls)
 
 const rows = []
 for (const url of urls) {
-  const path = resolve(outputRoot, url.replace(/^\//, ''))
+  const path = localAssetPath(url)
   const bytes = readFileSync(path).byteLength
   rows.push({
     file: url,
@@ -75,10 +124,14 @@ const assetUrls = Array.from(
   html.matchAll(/<link\s+rel="(?:stylesheet|preload)"[^>]+href="([^"]+)"/g),
   (match) => match[1],
 ).filter((url) => !url.startsWith('http'))
+assetUrls.push(...Array.from(
+  html.matchAll(/url\((?:["']?)([^)"']*\/fonts\/fixel\/FixelCritical\.woff2)(?:["']?)\)/g),
+  (match) => match[1],
+))
 const criticalAssets = []
 for (const url of new Set(assetUrls)) {
   const cleanUrl = url.split('?')[0]
-  const path = resolve(outputRoot, cleanUrl.replace(/^\//, ''))
+  const path = localAssetPath(cleanUrl)
   if (!existsSync(path)) continue
   criticalAssets.push({ url, gzipBytes: gzipSize(path) })
 }
@@ -103,8 +156,9 @@ console.table(
     gzipKB: (row.gzipBytes / 1024).toFixed(1),
   })),
 )
-console.log(`Initial entry/modulepreloads: ${rows.length}`)
-console.log(`Initial JS: ${(totals.bytes / 1024).toFixed(1)} KB minified / ${(totals.gzipBytes / 1024).toFixed(1)} KB gzip`)
+console.log(`Initial JS entries: ${entryUrls.length}`)
+console.log(`Initial synchronous JS requests: ${rows.length}`)
+console.log(`Initial synchronous JS: ${(totals.bytes / 1024).toFixed(1)} KB minified / ${(totals.gzipBytes / 1024).toFixed(1)} KB gzip`)
 console.log(`Largest initial chunk: ${largest ? `${largest.file} (${(largest.bytes / 1024).toFixed(1)} KB)` : 'none'}`)
 console.log(`Largest client chunk: ${largestClientChunk ? `${largestClientChunk.file} (${(largestClientChunk.bytes / 1024).toFixed(1)} KB minified / ${(largestClientChunk.gzipBytes / 1024).toFixed(1)} KB gzip)` : 'none'}`)
 console.log(`Prerendered HTML: ${(readFileSync(htmlPath).byteLength / 1024).toFixed(1)} KB`)
@@ -113,6 +167,9 @@ console.log(`Estimated critical transfer: ${(criticalTransferBytes / 1024).toFix
 if (checking) {
   const budgets = JSON.parse(readFileSync(budgetsPath, 'utf8'))
   const failures = []
+  if (rows.length > budgets.initialJsRequests) {
+    failures.push(`initial JS requests ${rows.length} exceeds ${budgets.initialJsRequests}`)
+  }
   if (totals.gzipBytes > budgets.criticalJsGzipBytes) {
     failures.push(`initial JS gzip ${totals.gzipBytes} B exceeds ${budgets.criticalJsGzipBytes} B`)
   }

@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<{
   entering: false,
   flightFrame: false,
 })
+const assetUrl = useCdnAsset()
 
 // Use the recorder's perceptual level; ignore quiet room noise.
 const celebrationTalking = ref(false)
@@ -142,7 +143,7 @@ onBeforeUnmount(() => {
       <path d="M734 760H894V850H861V1015H828V1048H762V1015H729V850H734Z" fill="#171915" />
       <path d="M767 760H857V866H824V982H800V1015H767V982H734V866H767Z" fill="#718563" />
     </g>
-    <image href="/images/contact/voice-frog-muted-v2.webp" width="1254" height="1254" />
+    <image :href="assetUrl('/images/contact/voice-frog-muted-v2.webp')" width="1254" height="1254" />
     <g v-if="lidHeight > 0" class="voice-frog__lids" :clip-path="`url(#${eyeClipId})`" shape-rendering="crispEdges">
       <rect x="323" y="397" width="617" :height="lidHeight" fill="#718563" />
       <rect x="323" :y="397 + lidHeight - 11" width="617" height="11" fill="#171915" />

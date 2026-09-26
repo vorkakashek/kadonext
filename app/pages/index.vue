@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { heroToKadoPlan } from '~/utils/flowSurfaceMorph'
+import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
+
+useHead({ htmlAttrs: { class: 'home-document' } })
 
 // The home route owns the expensive WebGL and ScrollTrigger scene. Preserve it
 // across case-detail hops so route replacement only moves the existing subtree
@@ -16,6 +19,10 @@ interface KadoExpose {
 }
 interface CasesExpose { rootEl: HTMLElement | null; mediaEl: HTMLElement | null }
 interface FormatsExpose { rootEl: HTMLElement | null; surfaceEl: HTMLElement | null }
+interface ProjectFormatsExpose {
+  rootEl: HTMLElement | null
+  surfaceEls: HTMLElement[]
+}
 interface AboutExpose {
   rootEl: HTMLElement | null
   surfaceEl: HTMLElement | null
@@ -32,6 +39,7 @@ const hero = useTemplateRef<HeroExpose>('hero')
 const kado = useTemplateRef<KadoExpose>('kado')
 const cases = useTemplateRef<CasesExpose>('cases')
 const formats = useTemplateRef<FormatsExpose>('formats')
+const projectFormats = useTemplateRef<ProjectFormatsExpose>('projectFormats')
 const about = useTemplateRef<AboutExpose>('about')
 const contact = useTemplateRef<ContactExpose>('contact')
 const surfaceReady = ref(false)
@@ -54,6 +62,10 @@ const caseSectionEl = computed(() => cases.value?.rootEl ?? null)
 const caseMediaEl = computed(() => cases.value?.mediaEl ?? null)
 const formatsSectionEl = computed(() => formats.value?.rootEl ?? null)
 const formatsSurfaceEl = computed(() => formats.value?.surfaceEl ?? null)
+const projectFormatsSectionEl = computed(() => projectFormats.value?.rootEl ?? null)
+const projectFormatSurfaceEls = computed(() => (
+  projectFormats.value?.surfaceEls ?? []
+).filter((element): element is HTMLElement => !!element))
 const aboutSectionEl = computed(() => about.value?.rootEl ?? null)
 const aboutSurfaceEl = computed(() => about.value?.surfaceEl ?? null)
 const aboutTitleEl = computed(() => about.value?.titleEl ?? null)
@@ -77,13 +89,14 @@ onMounted(() => {
 
 <template>
   <!-- Flow Surface sits under the page content and travels through the case slot. -->
-  <div class="relative isolate bg-sand text-ink">
+  <div class="home-root relative isolate bg-sand text-ink">
     <div
       id="home-cases-bg-host"
       class="pointer-events-none absolute inset-0 z-[1] overflow-x-clip"
       aria-hidden="true"
     />
-    <HomeIntroSurface
+    <LazyHomeIntroSurface
+      v-if="!PLAIN_COLD_HOME"
       :target-el="fromEl"
       :surface-ready="surfaceReady"
     />
@@ -99,6 +112,8 @@ onMounted(() => {
       :case-media-el="caseMediaEl"
       :formats-section-el="formatsSectionEl"
       :formats-surface-el="formatsSurfaceEl"
+      :project-formats-section-el="projectFormatsSectionEl"
+      :project-format-surface-els="projectFormatSurfaceEls"
       :about-section-el="aboutSectionEl"
       :about-surface-el="aboutSurfaceEl"
       :about-title-el="aboutTitleEl"
@@ -114,6 +129,7 @@ onMounted(() => {
       <HomeKado ref="kado" />
       <HomeCases ref="cases" />
       <HomeFormats ref="formats" :surface-ready="surfaceReady" />
+      <HomeProjectFormats ref="projectFormats" :surface-ready="surfaceReady" />
       <HomeAbout ref="about" :surface-ready="surfaceReady" />
       <HomeContact ref="contact" :surface-ready="surfaceReady" />
       <HomeFooter />

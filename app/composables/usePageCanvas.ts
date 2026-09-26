@@ -20,6 +20,8 @@ export type MenuHomeIrisSnap = {
 }
 
 export function usePageCanvas() {
+  /** The lazy overlay has mounted and can consume a menu click immediately. */
+  const ready = useState('page-canvas-ready', () => false)
   const open = useState('page-canvas-open', () => false)
   /** True while a motion run is in flight — block reopen until close/hop ends. */
   const busy = useState('page-canvas-busy', () => false)
@@ -198,6 +200,7 @@ export function usePageCanvas() {
   }
 
   return {
+    ready,
     open,
     busy,
     surfaceOn,

@@ -6,24 +6,25 @@ const props = defineProps<{
   surfaceReady?: boolean
 }>()
 
-const route = useRoute()
 const { locale } = useI18n()
+const assetUrl = useCdnAsset()
+const grainStyle = computed(() => ({
+  backgroundImage: `image-set(url("${assetUrl('/textures/grain-tile-v2-256.avif')}") type("image/avif"), url("${assetUrl('/textures/grain-tile-v2-256.webp')}") type("image/webp"))`,
+}))
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
-const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
-const heroWebglRequired = useState<boolean>('home-hero-webgl-required', () => false)
 const gate = useHomeIntroGate()
+const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const overlayEl = ref<HTMLElement | null>(null)
 const logoEl = ref<HTMLImageElement | null>(null)
 const handedOff = ref(false)
 const logoAsset = computed(() => (
   locale.value === 'en'
-    ? '/brand/kado-logo-en-intro.svg'
-    : '/brand/kado-logo-intro.svg'
+    ? assetUrl('/brand/kado-logo-en-intro.svg')
+    : assetUrl('/brand/kado-logo-intro.svg')
 ))
 
 const active = computed(() => (
   initialHomeDocument.value
-  && !route.hash
   && !gate.unlocked.value
   && !handedOff.value
 ))
@@ -66,6 +67,14 @@ function useDirectMobileHandoff() {
   return isNarrowViewport() || isCoarsePointer()
 }
 
+function waitsForDesktopWebglBoot() {
+  if (useDirectMobileHandoff()) return false
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean }
+  }).connection
+  return !connection?.saveData && !heroWebglBooted.value
+}
+
 async function prepareLogo() {
   const logo = logoEl.value
   if (!logo || typeof logo.decode !== 'function') return
@@ -82,7 +91,7 @@ async function runIntro() {
     || !props.surfaceReady
     || !gate.started.value
     || gate.unlocked.value
-    || (heroWebglRequired.value && !heroWebglLit.value)
+    || waitsForDesktopWebglBoot()
     || animation
   ) return
 
@@ -209,8 +218,7 @@ watch(
     () => props.targetEl,
     () => props.surfaceReady,
     gate.started,
-    heroWebglRequired,
-    heroWebglLit,
+    heroWebglBooted,
   ],
   () => void nextTick(runIntro),
   { immediate: true, flush: 'post' },
@@ -238,7 +246,7 @@ onUnmounted(() => {
     class="home-intro-surface"
     aria-hidden="true"
   >
-    <div class="home-intro-surface__grain" />
+    <div class="home-intro-surface__grain" :style="grainStyle" />
   </div>
   <img
     v-if="active"
@@ -297,5 +305,4 @@ onUnmounted(() => {
   transform: translate3d(-50%, -50%, 0);
   will-change: opacity, transform;
 }
-
 </style>

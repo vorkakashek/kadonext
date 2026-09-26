@@ -4,8 +4,10 @@ import { headerLinks } from '~/utils/siteNav'
 import { setChipBgOrigin } from '~/utils/chipHoverBg'
 import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 import { CHIP_FIT_EASE, CHIP_FIT_S } from '~/utils/chipFit'
+import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
 
 const {
+  ready: canvasReady,
   open: canvasOpen,
   surfaceOn: canvasSurface,
   busy: menuBusy,
@@ -15,12 +17,18 @@ const {
   pageIrisLive,
 } = usePageCanvas()
 const route = useRoute()
-const nuxtApp = useNuxtApp()
 const { locale, t } = useI18n()
 const localePath = useLocalePath()
+const assetUrl = useCdnAsset()
+const {
+  activeSection,
+  navigateToSection,
+  selectSection,
+} = useHomeSectionNavigation()
 const routeBasePath = computed(() => baseRoutePath(route.path))
 const homeCases = useHomeCases()
 const links = headerLinks
+type HeaderLink = typeof links[number]
 /** Optimistic “you are here” so the chip fill doesn’t wait for the iris hop. */
 // URL fragments never reach SSR. Apply them only after the header hydrates.
 const navHerePath = ref(stripLocalePrefix(route.fullPath).replace(/#.*$/, ''))
@@ -39,8 +47,8 @@ const shellEl = ref<HTMLElement | null>(null)
 const barEl = ref<HTMLElement | null>(null)
 const fabEl = ref<HTMLElement | null>(null)
 const logoImgEl = ref<HTMLElement | null>(null)
-const logoLettersEl = ref<SVGGElement | null>(null)
-const logoMarkEl = ref<SVGUseElement | null>(null)
+const logoLettersEl = ref<HTMLElement | null>(null)
+const logoMarkEl = ref<HTMLElement | null>(null)
 const isOverCases = ref(false)
 const mobileMarkOverCases = ref(false)
 const isOverAboutSurface = ref(false)
@@ -58,7 +66,7 @@ const {
 const returningToHomeCases = computed(() => (
   caseDetailTransitionActive.value
   && caseDetailTransitionRequest.value?.direction === 'close'
-  && stripLocalePrefix(caseDetailTransitionRequest.value.to) === '/#cases'
+  && caseDetailTransitionRequest.value.homeSection === 'cases'
 ))
 const detailCase = computed(() => {
   const match = /^\/projects\/([^/]+)$/.exec(routeBasePath.value)
@@ -110,22 +118,63 @@ const caseMobileBackEl = ref<HTMLElement | null>(null)
 /** Shared geometry keeps every thumb-zone control on one baseline. */
 const { bottomExtra: fabBottomExtra, style: fabStyle } = useMobileFabGeometry()
 const thumbNav = ref(false)
-const introPending = ref(true)
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const simpleHomeIntroReady = useState<boolean>('home-simple-intro-ready', () => false)
+const introPending = ref(true)
 const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
 const homeIntroHeaderReady = useState<boolean>('home-intro-header-ready', () => false)
 const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
+const criticalFontReady = useState<boolean>('home-critical-font-ready', () => false)
 
 let lastFabScrollY = 0
 const FAB_LABEL_DIR_PX = 8
 /** After menu close, ignore the scroll restoration jump so the word stays visible. */
 let fabLabelHoldUntil = 0
 let lastMobileLogoScrollY: number | null = null
-/** Startup hash/layout corrections are not a reader's scroll direction. */
-let mobileLogoDirectionArmed = !(import.meta.client && window.location.hash)
 let lastDesktopLogoScrollY: number | null = null
 let desktopLogoCollapsePending = false
 let desktopLogoWantsCompact = false
+let simpleHeaderIntroPlayed = false
+let authoredHeaderIntroStarted = false
+let simpleHeaderAnimations: Animation[] = []
+const DESKTOP_NAV_INTRO_DELAY_S = 0.25
+
+function introDomElement(value: unknown): HTMLElement | null {
+  if (!value) return null
+  if (value instanceof HTMLElement) return value
+  const el = (value as { $el?: unknown }).$el
+  return el instanceof HTMLElement ? el : null
+}
+
+function playSimpleHeaderIntro() {
+  if (simpleHeaderIntroPlayed) return
+  simpleHeaderIntroPlayed = true
+  const logo = logoImgEl.value
+  const nav = navEl.value
+  const menu = introDomElement(menuBtnEl.value)
+  const fab = introDomElement(fabEl.value)
+  const targets = [logo, nav, menu, fab].filter(
+    (el): el is HTMLElement => el instanceof HTMLElement,
+  )
+  simpleHeaderAnimations = targets.map((el, index) => el.animate(
+    [
+      { opacity: 0, transform: 'translate3d(0, -16px, 0)' },
+      { opacity: 1, transform: 'translate3d(0, 0, 0)' },
+    ],
+    {
+      duration: 300,
+      delay: index * 20,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      fill: 'both',
+    },
+  ))
+  introPending.value = false
+  void Promise.allSettled(simpleHeaderAnimations.map(animation => animation.finished))
+    .then(() => {
+      simpleHeaderAnimations.forEach(animation => animation.cancel())
+      simpleHeaderAnimations = []
+    })
+}
 
 function onChipPointer(e: PointerEvent | FocusEvent) {
   const el = e.currentTarget
@@ -160,22 +209,48 @@ function navPathKey(path: string) {
   return path.replace(/\/+$/, '') || '/'
 }
 
-function isNavHere(to: string) {
-  return navPathKey(navHerePath.value) === navPathKey(to)
+function linkSection(link: HeaderLink) {
+  return 'section' in link ? link.section : undefined
 }
 
-function markNavHere(to: string, e?: PointerEvent) {
+function isNavHere(link: HeaderLink) {
+  const section = linkSection(link)
+  if (section) {
+    return navPathKey(navHerePath.value) === '/'
+      && activeSection.value === section
+  }
+  return navPathKey(navHerePath.value) === navPathKey(link.to)
+}
+
+function markNavHere(link: HeaderLink, e?: PointerEvent) {
   if (
     e
     && (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
   ) {
     return
   }
-  navHerePath.value = to
+  navHerePath.value = link.to
+  const section = linkSection(link)
+  if (section) selectSection(section)
 }
 
-function onNavPointerDown(to: string, e: PointerEvent) {
-  markNavHere(to, e)
+function onNavPointerDown(link: HeaderLink, e: PointerEvent) {
+  markNavHere(link, e)
+}
+
+function onNavClick(link: HeaderLink, event: MouseEvent) {
+  const section = linkSection(link)
+  if (
+    !section
+    || event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+  ) return
+
+  event.preventDefault()
+  void navigateToSection(section)
 }
 
 async function onLogoClick(event: MouseEvent) {
@@ -187,16 +262,18 @@ async function onLogoClick(event: MouseEvent) {
     || event.altKey
     || routeBasePath.value !== '/'
   ) {
+    if (
+      event.button === 0
+      && !event.metaKey
+      && !event.ctrlKey
+      && !event.shiftKey
+      && !event.altKey
+    ) selectSection('home')
     return
   }
 
   event.preventDefault()
-  // Drop a stale section hash as well, so reload/back keeps the home hero.
-  if (route.hash) {
-    await navigateTo(localePath('/'), { replace: true })
-  } else {
-    nuxtApp.$scrollToSection(document.documentElement)
-  }
+  await navigateToSection('home')
 }
 
 watch(() => route.fullPath, (path) => {
@@ -477,16 +554,12 @@ async function animateDesktopLogo(compact: boolean, immediate = false) {
   logoMorphTl?.kill()
   logoMorphTl = null
 
-  const compactX = logoMarkExpandedX()
   const compactWidth = frame.offsetHeight
   const expandedWidth = frame.offsetHeight * logoVariant.value.width / logoVariant.value.height
   if (immediate) {
     g.set(frame, { width: compact ? compactWidth : expandedWidth })
     g.set(letters, { autoAlpha: compact ? 0 : 1 })
-    g.set(mark, {
-      attr: { x: compact ? compactX : 0 },
-      clearProps: 'transform',
-    })
+    g.set(mark, { autoAlpha: compact ? 1 : 0 })
     return
   }
 
@@ -500,7 +573,7 @@ async function animateDesktopLogo(compact: boolean, immediate = false) {
     tl.to(letters, { autoAlpha: 0, duration: 0.34, ease: 'power2.out' }, 0)
       .to(
         mark,
-        { attr: { x: compactX }, duration: 0.68, ease: 'power3.inOut' },
+        { autoAlpha: 1, duration: 0.34, ease: 'power2.out' },
         0.16,
       )
       .to(
@@ -516,7 +589,7 @@ async function animateDesktopLogo(compact: boolean, immediate = false) {
       { width: expandedWidth, duration: 0.68, ease: 'power3.inOut' },
       0,
     )
-      .to(mark, { attr: { x: 0 }, duration: 0.68, ease: 'power3.inOut' }, 0)
+      .to(mark, { autoAlpha: 0, duration: 0.34, ease: 'power2.out' }, 0)
       .to(letters, { autoAlpha: 1, duration: 0.34, ease: 'power2.out' }, 0.52)
   }
 }
@@ -821,17 +894,6 @@ function syncDesktopScrollMark() {
   desktopScrollMarkOn.value = true
 }
 
-/** Home keeps the top logo until the viewport reaches the stone photo. */
-function armMobileLogoDirection(event: Event) {
-  if (mobileLogoDirectionArmed || !mobileHeader.value || canvasLocksScroll()) return
-  if (
-    event instanceof KeyboardEvent
-    && !['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)
-  ) return
-  lastMobileLogoScrollY = Math.max(0, window.scrollY || 0)
-  mobileLogoDirectionArmed = true
-}
-
 function syncMobileScrollMark() {
   if (!mobileHeader.value) {
     mobileScrollMarkOn.value = false
@@ -841,10 +903,6 @@ function syncMobileScrollMark() {
   if (canvasLocksScroll()) return
 
   const y = Math.max(0, window.scrollY || 0)
-  if (!mobileLogoDirectionArmed) {
-    lastMobileLogoScrollY = y
-    return
-  }
   if (!canUseLogoScrollDirection(y)) {
     mobileScrollMarkOn.value = false
     lastMobileLogoScrollY = y
@@ -1071,10 +1129,6 @@ onMounted(() => {
     )
   } else runHeaderPostIntroSetup()
   window.addEventListener('scroll', onScroll, { passive: true })
-  window.addEventListener('touchstart', armMobileLogoDirection, { passive: true })
-  window.addEventListener('pointerdown', armMobileLogoDirection, { passive: true })
-  window.addEventListener('wheel', armMobileLogoDirection, { passive: true })
-  window.addEventListener('keydown', armMobileLogoDirection)
   window.addEventListener('pageshow', onPageShow)
   window.addEventListener('resize', onResize, { passive: true })
   window.addEventListener('resize', syncThumbNav, { passive: true })
@@ -1181,10 +1235,22 @@ onMounted(() => {
       homeSurfaceReady,
       homeIntroHeaderReady,
       routeBasePath,
+      simpleHomeIntroReady,
+      criticalFontReady,
     ],
-    async ([on, surfaceReady, headerReady, basePath]) => {
+    async ([on, surfaceReady, headerReady, basePath, simpleReady, fontReady]) => {
       const coldHome = initialHomeDocument.value && basePath === '/'
-      if (!on || (coldHome && (!surfaceReady || !headerReady))) return
+      if (PLAIN_COLD_HOME && coldHome) {
+        if (simpleReady) playSimpleHeaderIntro()
+        return
+      }
+      const introGateWaiting = coldHome
+        && (!surfaceReady || !fontReady || (mobileHeader.value && !headerReady))
+      if (!on || introGateWaiting || authoredHeaderIntroStarted) return
+      // The watched readiness flags settle independently. Claim the entrance
+      // before importing GSAP so a second flag cannot start the same animation
+      // again while this async callback is still preparing the timeline.
+      authoredHeaderIntroStarted = true
       const g = await gsap()
 
       const domOf = (v: unknown): HTMLElement | null => {
@@ -1205,6 +1271,11 @@ onMounted(() => {
         ? Array.from(navEl.value.querySelectorAll('.nav-link'))
         : []
 
+      // The floating desktop control stores both «Меню» and «Закрыть» in an
+      // overflow window whose base width is intentionally zero. Size the
+      // current word before the header becomes paintable, otherwise the first
+      // entrance frame is a dots-only circle until post-intro setup catches up.
+      fitDeskChipWord()
       if (logo) g.set(logo, { autoAlpha: 0 })
       if (caseBack) g.set(caseBack, { autoAlpha: 0, y: -10 })
       if (navEl.value) g.set(navEl.value, { autoAlpha: 0, y: -10 })
@@ -1218,24 +1289,29 @@ onMounted(() => {
       await nextTick()
 
       const tl = g.timeline({ defaults: { ease: 'power3.out' } })
+      const desktopEntrance = !mobileHeader.value
       // The pill itself participates in the reveal. Previously the shell was
       // uncovered before its children were staged, so the nav background and
       // case-back control flashed in raw while the links animated afterward.
       if (logo) {
-        tl.to(logo, { autoAlpha: 1, duration: 0.28, ease: 'power1.out' }, 0.06)
+        tl.to(logo, { autoAlpha: 1, duration: 0.28, ease: 'power1.out' }, desktopEntrance ? 0 : 0.06)
       }
-      if (caseBack) tl.to(caseBack, { autoAlpha: 1, y: 0, duration: 0.58 }, 0.47)
+      if (caseBack) {
+        tl.to(caseBack, { autoAlpha: 1, y: 0, duration: 0.58 }, desktopEntrance ? 0 : 0.47)
+      }
       if (navEl.value) {
-        tl.to(navEl.value, { autoAlpha: 1, y: 0, duration: 0.58 }, 0.52)
+        tl.to(navEl.value, { autoAlpha: 1, y: 0, duration: 0.58 }, desktopEntrance ? DESKTOP_NAV_INTRO_DELAY_S : 0.52)
       }
       if (navLinks.length) {
         tl.to(
           navLinks,
           { autoAlpha: 1, y: 0, duration: 0.48, stagger: 0.07 },
-          0.62,
+          desktopEntrance ? DESKTOP_NAV_INTRO_DELAY_S : 0.62,
         )
       }
-      if (menuBtn) tl.to(menuBtn, { autoAlpha: 1, y: 0, duration: 0.6 }, 0.95)
+      if (menuBtn) {
+        tl.to(menuBtn, { autoAlpha: 1, y: 0, duration: 0.6 }, desktopEntrance ? 0 : 0.95)
+      }
       if (caseMobileBack) {
         tl.to(caseMobileBack, { autoAlpha: 1, y: 0, duration: 0.55 }, 0.48)
       }
@@ -1246,6 +1322,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  simpleHeaderAnimations.forEach(animation => animation.cancel())
+  simpleHeaderAnimations = []
   aboutToneTriggers.forEach(trigger => trigger.kill())
   aboutToneTriggers = []
   if (collapseTimer) window.clearTimeout(collapseTimer)
@@ -1262,10 +1340,6 @@ onUnmounted(() => {
   logoMorphTl?.kill()
   logoMorphTl = null
   window.removeEventListener('scroll', onScroll)
-  window.removeEventListener('touchstart', armMobileLogoDirection)
-  window.removeEventListener('pointerdown', armMobileLogoDirection)
-  window.removeEventListener('wheel', armMobileLogoDirection)
-  window.removeEventListener('keydown', armMobileLogoDirection)
   window.removeEventListener('pageshow', onPageShow)
   window.removeEventListener('resize', onResize)
   window.removeEventListener('resize', syncThumbNav)
@@ -1328,21 +1402,24 @@ onUnmounted(() => {
             :class="{ 'header-logo--inverted': logoInverted }"
             :style="{ '--logo-aspect': logoVariant.width / logoVariant.height }"
           >
-            <svg
-              class="header-logo__svg"
-              :viewBox="logoVariant.viewBox"
-              fill="none"
+            <img
+              ref="logoLettersEl"
+              class="header-logo__full"
+              :src="assetUrl(logoVariant.asset)"
+              alt="KADO"
+              width="3248"
+              height="1088"
               aria-hidden="true"
             >
-              <g ref="logoLettersEl" class="header-logo__letters">
-                <use :href="`${logoVariant.asset}#kado-logo-letters`" />
-              </g>
-              <use
-                ref="logoMarkEl"
-                class="header-logo__mark"
-                :href="`${logoVariant.asset}#kado-logo-mark`"
-              />
-            </svg>
+            <img
+              ref="logoMarkEl"
+              class="header-logo__mark"
+              :src="assetUrl('/brand/kado-logo-ru-o.svg')"
+              alt="KADO"
+              width="81"
+              height="27"
+              aria-hidden="true"
+            >
           </span>
         </NuxtLink>
 
@@ -1373,18 +1450,19 @@ onUnmounted(() => {
         >
           <NuxtLink
             v-for="(link, index) in links"
-            :key="link.to"
+            :key="link.labelKey"
             :to="localePath(link.to)"
             class="nav-link chip-scale-host text-ink"
             :class="{
-              'nav-link--here': isNavHere(link.to),
-              'is-chip-on': link.to === '/projects' && isNavHere(link.to),
+              'nav-link--here': isNavHere(link),
+              'is-chip-on': link.to === '/projects' && isNavHere(link),
             }"
-            :aria-current="isNavHere(link.to) ? 'page' : undefined"
+            :aria-current="isNavHere(link) ? 'page' : undefined"
             @pointerenter="onChipPointer"
             @pointerleave="onChipPointer"
             @focusin="onChipPointer"
-            @pointerdown="onNavPointerDown(link.to, $event)"
+            @pointerdown="onNavPointerDown(link, $event)"
+            @click="onNavClick(link, $event)"
           >
             <span class="chip-scale-bg" aria-hidden="true">
               <span class="chip-scale-bg__fill" />
@@ -1418,11 +1496,13 @@ onUnmounted(() => {
       :class="{
         'header-chip--scrolled': headerCollapsed,
         'header-intro-hide': introPending,
+        'menu-canvas-not-ready': !canvasReady,
         'menu-chip-busy': menuBusy,
         'menu-btn--case': detailCase,
         'menu-btn--case-transitioning': caseDetailTransitionActive,
       }"
       :aria-busy="menuBusy"
+      :disabled="!canvasReady"
       :aria-expanded="canvasOpen"
       :aria-label="canvasOpen ? t('common.closeMenu') : t('common.openMenu')"
       @pointerenter="onMenuHoverEnter"
@@ -1465,7 +1545,7 @@ onUnmounted(() => {
         @click="onLogoClick"
         @pointerenter="preloadHomeSceneAssets"
       >
-        <img src="/brand/kado-logo-ru-o.svg" alt="" width="28" height="28">
+        <img :src="assetUrl('/brand/kado-logo-ru-o.svg')" alt="" width="28" height="28">
       </NuxtLink>
     </Transition>
     <button
@@ -1489,14 +1569,16 @@ onUnmounted(() => {
       class="menu-fab site-nav chip-scale-host pointer-events-auto flex items-center text-ink"
       :class="{
         'header-intro-hide': introPending,
+        'menu-canvas-not-ready': !canvasReady,
         'menu-fab--compact': !fabLabelOn,
         'menu-chip-busy': menuBusy,
         'menu-fab--case': detailCase,
         'menu-fab--case-transitioning': caseDetailTransitionActive,
       }"
-      :tabindex="0"
+      :tabindex="canvasReady ? 0 : -1"
       :style="fabStyle"
       :aria-busy="menuBusy"
+      :disabled="!canvasReady"
       :aria-expanded="canvasOpen"
       :aria-label="canvasOpen ? t('common.closeMenu') : t('common.openMenu')"
       @pointerenter="onMenuHoverEnter"
@@ -1535,9 +1617,24 @@ onUnmounted(() => {
   visibility: hidden;
 }
 
+/* Do not advertise an interactive menu until its lazy overlay is mounted.
+   Once ready, the control uses its normal opacity transition to enter softly. */
+.menu-canvas-not-ready {
+  pointer-events: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
 .site-header {
   isolation: isolate;
+  font-family: "Fixel Critical", var(--font-sans);
+  font-stretch: 87.5%;
   transition: opacity 0.32s var(--motion-ease, ease), visibility 0.32s;
+}
+
+.site-nav {
+  font-family: "Fixel Critical", var(--font-sans);
+  font-stretch: 87.5%;
 }
 
 /* The sticky mobile case switcher occupies the logo row. Let the section sit
@@ -1643,11 +1740,12 @@ html.page-iris-lock:not(.page-canvas-surface) .site-header {
   z-index: 113;
 }
 
-/* Sand iris + nav fill clash — keep only the link group clear while the hop
-   covers. The menu control stays dark so it does not flash transparent. */
+/* Keep the desktop navigation surface intact while the route iris covers the
+   page. Making only its background transparent left three detached labels in
+   the header and produced a visible flash when the lock was released. */
 html.page-iris-lock .header-nav.header-chip,
 html.page-iris-lock .header-nav.header-chip--scrolled {
-  background-color: transparent !important;
+  background-color: var(--palette-sand) !important;
   color: var(--palette-ink, #171915) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -1725,7 +1823,8 @@ html.page-canvas-lock .menu-btn--float {
   will-change: width;
 }
 
-.header-logo__svg {
+.header-logo__full,
+.header-logo__mark {
   position: absolute;
   top: 0;
   left: 0;
@@ -1734,15 +1833,14 @@ html.page-canvas-lock .menu-btn--float {
   height: 100%;
   max-width: none;
   overflow: visible;
+  object-fit: contain;
 }
 
-.header-logo__letters,
 .header-logo__mark {
+  width: var(--header-logo-height);
+  opacity: 0;
+  object-fit: contain;
   will-change: opacity;
-}
-
-.header-logo__mark {
-  transform: none;
 }
 
 .header-logo--inverted {
@@ -2079,6 +2177,10 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
   cursor: pointer;
   appearance: none;
   font: inherit;
+  /* `font: inherit` follows the teleported button's body parent and would
+     otherwise pull the full 148 KB face into the cold mobile paint. */
+  font-family: "Fixel Critical", var(--font-sans);
+  font-stretch: 87.5%;
   color: var(--palette-milk, #f5f1e8);
   border-radius: 9999px;
   padding: 10px 24px;

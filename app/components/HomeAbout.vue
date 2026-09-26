@@ -9,6 +9,7 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 defineProps<{ surfaceReady?: boolean }>()
 
 const { locale, t, tm } = useI18n()
+const assetUrl = useCdnAsset()
 const aboutTitleLines = computed(() => tm('home.about.titleLines') as string[])
 const aboutParagraphs = computed(() => tm('home.about.paragraphs') as string[])
 
@@ -73,6 +74,7 @@ async function setupBiographyMotion() {
   const observeTimeline = (
     trigger: HTMLElement,
     timeline: ReturnType<typeof gsap.timeline>,
+    rootMargin = '0px 0px -8% 0px',
   ) => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -80,7 +82,7 @@ async function setupBiographyMotion() {
         if (entry.isIntersecting || entry.boundingClientRect.top < 0) timeline.play()
         else timeline.reverse()
       },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0 },
+      { rootMargin, threshold: 0 },
     )
     observer.observe(trigger)
     biographyMotionObservers.push(observer)
@@ -125,7 +127,7 @@ async function setupBiographyMotion() {
           ? undefined
           : {
               trigger: portrait,
-              start: 'top 88%',
+              start: 'top 98%',
               toggleActions: 'play none none reverse',
             },
       })
@@ -148,7 +150,7 @@ async function setupBiographyMotion() {
           ease: 'power3.out',
         }, isMobile ? 0.48 : 0.62)
 
-      if (isMobile) observeTimeline(portrait, portraitReveal)
+      if (isMobile) observeTimeline(portrait, portraitReveal, '0px')
     }
 
     if (copy && copyTitle) {
@@ -245,16 +247,16 @@ onUnmounted(() => {
           <picture>
             <source
               type="image/avif"
-              srcset="/home/me-640.avif 640w, /home/me-1024.avif 1024w"
+              :srcset="assetUrl('/home/me-640.avif 640w, /home/me-1024.avif 1024w')"
               sizes="(max-width: 767px) 95vw, 34vw"
             >
             <source
               type="image/webp"
-              srcset="/home/me-640.webp 640w, /home/me-1024.webp 1024w"
+              :srcset="assetUrl('/home/me-640.webp 640w, /home/me-1024.webp 1024w')"
               sizes="(max-width: 767px) 95vw, 34vw"
             >
             <img
-              src="/home/me.png"
+              :src="assetUrl('/home/me.png')"
               :alt="t('home.about.portraitAlt')"
               width="1801"
               height="2048"
@@ -311,7 +313,7 @@ onUnmounted(() => {
 
 <style scoped>
 .home-about {
-  padding: calc(var(--space-section) * 0.5) var(--layout-margin-content)
+  padding: calc(var(--space-section) * 0.4) var(--layout-margin-content)
     calc(var(--space-section) * 0.625);
 }
 
@@ -540,7 +542,7 @@ onUnmounted(() => {
 
 @media (max-width: 767.98px) {
   .home-about {
-    padding-block: calc(var(--space-section) * 0.375) calc(var(--space-section) * 1.5);
+    padding-block: calc(var(--space-section) * 0.3) calc(var(--space-section) * 0.75);
   }
 
   .home-about__layout,

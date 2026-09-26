@@ -41,9 +41,10 @@ export type HomeCase = {
 
 export const homeCaseIds = homeCasesStructure.map(item => item.id)
 
-export function localizeHomeCases(copy: unknown): HomeCase[] {
+export function localizeHomeCases(copy: unknown, assetCdnUrl = ''): HomeCase[] {
   return attachResponsiveMedia(
     mergeLocalizedContent<HomeCase[]>(homeCasesStructure, copy),
+    assetCdnUrl,
   )
 }
 

@@ -50,8 +50,15 @@ export function preloadHomeSceneAssets(modeOrEvent?: 'desktop' | 'mobile' | Even
     : window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches
   // Mobile uses baked matcaps and has no HDR/PMREM startup cost.
   if (mobile) return
-  const environmentUrl = '/env/studio_small_09_256.hdr'
+  const runtimeConfig = (globalThis as typeof globalThis & {
+    __NUXT__?: { config?: { public?: { assetCdnUrl?: string } } }
+  }).__NUXT__?.config?.public
+  const environmentUrl = prefixPublicAssetReferences(
+    '/env/studio_small_09_256.hdr',
+    String(runtimeConfig?.assetCdnUrl || ''),
+  )
   void fetch(environmentUrl, {
     credentials: 'same-origin',
   }).catch(() => undefined)
 }
+import { prefixPublicAssetReferences } from './assetCdn'

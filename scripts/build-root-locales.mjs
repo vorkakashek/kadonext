@@ -23,8 +23,19 @@ for (const locale of ['ru', 'en']) {
   })
   if (!replaced) throw new Error(`Missing Nuxt payload in /${locale}/`)
 
+  // The negotiated root is its own x-default URL. The copied localized page
+  // must not keep /ru/ or /en/ as canonical once served at /.
+  const localizedCanonical = `<link rel="canonical" href="https://kadonext.com/${locale}/"`
+  if (!rootHtml.includes(localizedCanonical)) {
+    throw new Error(`Missing localized canonical in /${locale}/ root source`)
+  }
+  const rootCanonicalHtml = rootHtml.replace(
+    localizedCanonical,
+    '<link rel="canonical" href="https://kadonext.com/"',
+  )
+
   const target = join(outputDirectory, `${locale}.html`)
-  const bytes = Buffer.from(rootHtml)
+  const bytes = Buffer.from(rootCanonicalHtml)
   await Promise.all([
     writeFile(target, bytes),
     writeFile(`${target}.gz`, gzipSync(bytes, { level: 9 })),

@@ -8,6 +8,7 @@
  */
 const BRAND_PATTERN = /^kado\b/i
 const { t } = useI18n()
+const assetUrl = useCdnAsset()
 const bodyText = computed(() => t('home.kado.body'))
 /** Scroll lag for the whole fill timeline. */
 const FILL_SCRUB = 1.1
@@ -566,15 +567,8 @@ onMounted(async () => {
   // enhancement. Start it before Hero/idle-gated text work so a fast visitor
   // never sees the stone begin floating halfway through the Kado section.
   void setupStoneLevitation()
-  // Hash entries need the mobile word waypoint before the Surface's first
-  // frame, rather than after an offscreen Hero entrance and idle delay.
-  const sectionEntry = !!window.location.hash
-  if (sectionEntry) {
-    await setupLineFill(true)
-  } else {
-    await waitForHeroIntro()
-    await waitForEnhancementIdle()
-  }
+  await waitForHeroIntro()
+  await waitForEnhancementIdle()
   if (componentUnmounted) return
   await ensureLineFill()
   if (componentUnmounted) return
@@ -632,17 +626,17 @@ onUnmounted(() => {
           <picture class="contents">
             <source
               type="image/avif"
-              srcset="/home/rock-320.avif 320w, /home/rock-480.avif 480w, /home/rock-512.avif 512w, /home/rock-640.avif 640w, /home/rock-854.avif 854w, /home/rock-1088.avif 1088w"
+              :srcset="assetUrl('/home/rock-320.avif 320w, /home/rock-480.avif 480w, /home/rock-512.avif 512w, /home/rock-640.avif 640w, /home/rock-854.avif 854w, /home/rock-1088.avif 1088w')"
               sizes="(max-width: 767px) 70vw, 36vw"
             >
             <source
               type="image/webp"
-              srcset="/home/rock-320.webp 320w, /home/rock-480.webp 480w, /home/rock-512.webp 512w, /home/rock-640.webp 640w, /home/rock-854.webp 854w, /home/rock-1088.webp 1088w"
+              :srcset="assetUrl('/home/rock-320.webp 320w, /home/rock-480.webp 480w, /home/rock-512.webp 512w, /home/rock-640.webp 640w, /home/rock-854.webp 854w, /home/rock-1088.webp 1088w')"
               sizes="(max-width: 767px) 70vw, 36vw"
             >
             <img
               ref="stoneEl"
-              src="/home/rock.webp"
+              :src="assetUrl('/home/rock.webp')"
               alt=""
               aria-hidden="true"
               class="kado-focus kado-stone relative z-10 mx-auto h-auto max-h-[70vh] w-auto max-w-full object-contain"
@@ -849,7 +843,7 @@ onUnmounted(() => {
   font-weight: 400;
   letter-spacing: -0.01em;
   line-height: 1.3;
-  opacity: 0.72;
+  opacity: 1;
 }
 
 .kado-deck {

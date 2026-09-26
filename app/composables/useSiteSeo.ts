@@ -23,7 +23,9 @@ export function useSiteSeo() {
   const cleanText = (text: string) => text.replace(/\s+/g, ' ').trim()
   const title = computed(() => cleanText(copy.value.title))
   const description = computed(() => cleanText(copy.value.description))
-  const canonical = computed(() => siteUrl(localizedPath(path.value, locale.value)))
+  const canonical = computed(() => siteUrl(
+    route.path === '/' ? '/' : localizedPath(path.value, locale.value),
+  ))
   const localizedUrl = (targetPath: string) => siteUrl(localizedPath(targetPath, locale.value))
   const image = computed(() => siteUrl(`/og/${item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')}.jpg`))
   const imageAlt = computed(() => item.value
@@ -108,7 +110,7 @@ export function useSiteSeo() {
       const formats = tm('home.formats.items') as Array<{ title: string; description: string }>
       nodes.push(...formats.map((format, index) => ({
         '@type': 'Service', '@id': `${SITE_URL}/#service-${index + 1}`, name: cleanText(format.title),
-        description: cleanText(format.description), provider: { '@id': organizationId }, url: localizedUrl('/#services'),
+        description: cleanText(format.description), provider: { '@id': organizationId }, url: localizedUrl('/'),
       })))
     }
     return nodes

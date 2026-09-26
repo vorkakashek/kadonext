@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ surfaceReady?: boolean }>()
+const props = defineProps<{ surfaceReady?: boolean }>()
 
 const { locale, t, tm } = useI18n()
 const projectTypes = computed(() => tm('home.contact.projectTypes') as string[])
@@ -13,6 +13,29 @@ const projectTypeError = useState('home-contact-project-type-error', () => false
 const formHeight = useState('home-contact-form-height', () => 0)
 const submitted = useState('home-contact-submitted', () => false)
 const successCollapsing = useState('home-contact-success-collapsing', () => submitted.value)
+const fallbackFormReady = ref(false)
+let fallbackFormTimer = 0
+
+onMounted(() => {
+  // Surface normally owns the live form. Only load the DOM fallback if that
+  // host genuinely failed to become ready, rather than during its first frames.
+  fallbackFormTimer = window.setTimeout(() => {
+    if (!props.surfaceReady) fallbackFormReady.value = true
+  }, 4000)
+})
+
+watch(
+  () => props.surfaceReady,
+  (ready) => {
+    if (!ready || !fallbackFormTimer) return
+    window.clearTimeout(fallbackFormTimer)
+    fallbackFormTimer = 0
+  },
+)
+
+onUnmounted(() => {
+  if (fallbackFormTimer) window.clearTimeout(fallbackFormTimer)
+})
 
 const taskIsRaised = computed(() => projectType.value.length > 0)
 const hasProjectType = computed(() => projectType.value.trim().length > 0)
@@ -42,7 +65,6 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
         <header class="home-contact__intro">
           <h2>{{ t('home.contact.title') }}</h2>
           <p>{{ t('home.contact.personal') }}</p>
-          <p class="home-contact__price">{{ t('home.contact.price') }}</p>
         </header>
 
         <div class="home-contact__task" :class="{ 'has-value': taskIsRaised, 'has-error': projectTypeError }">
@@ -100,7 +122,11 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
           class="home-contact__fields"
           :style="formHeight > 0 ? { '--contact-form-height': `${formHeight}px` } : undefined"
         >
-          <HomeContactForm v-if="!surfaceReady" class="relative z-[1]" form-id="contact-fallback" />
+          <LazyHomeContactForm
+            v-if="fallbackFormReady && !surfaceReady"
+            class="relative z-[1]"
+            form-id="contact-fallback"
+          />
         </div>
       </div>
     </div>
@@ -162,13 +188,6 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   line-height: 1.3;
 }
 
-.home-contact__intro .home-contact__price {
-  margin-top: 0.75rem;
-  color: color-mix(in srgb, var(--palette-ink) 70%, transparent);
-  font-size: clamp(1rem, 1.1vw, 1.125rem);
-  line-height: 1.4;
-}
-
 .home-contact__task {
   position: relative;
   max-height: 12rem;
@@ -181,7 +200,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   left: 0;
   color: color-mix(in srgb, var(--palette-ink) 48%, transparent);
   cursor: text;
-  font-size: clamp(1.65rem, 3vw, 3.5rem);
+  font-size: clamp(1.35rem, 2.15vw, 2.5rem);
   font-weight: 500;
   letter-spacing: -0.045em;
   line-height: 1;
@@ -257,7 +276,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   border: 0;
   padding: 0;
   background: transparent;
-  color: color-mix(in srgb, var(--palette-ink) 46%, transparent);
+  color: color-mix(in srgb, var(--palette-ink) 76%, transparent);
   cursor: pointer;
   font: inherit;
   font-size: clamp(0.88rem, 1vw, 1.05rem);
@@ -326,7 +345,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
 
 @media (max-width: 767.98px) {
   .home-contact {
-    padding: calc(var(--space-section) * 1.125) var(--layout-margin-content)
+    padding: calc(var(--space-section) * 0.75) var(--layout-margin-content)
       1.5rem;
   }
 
@@ -349,7 +368,10 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
     --field-clear-top: calc(clamp(0.64rem, 0.96vw, 1rem) - 1.8rem + clamp(1.45rem, 7.2vw, 2.3rem) * 0.5 / 2);
   }
 
-  .home-contact__task label,
+  .home-contact__task label {
+    font-size: clamp(1.25rem, 5.8vw, 1.85rem);
+  }
+
   .home-contact__task input {
     font-size: clamp(1.45rem, 7.2vw, 2.3rem);
   }

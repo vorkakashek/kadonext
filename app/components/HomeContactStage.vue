@@ -77,6 +77,9 @@ onUnmounted(() => {
 })
 
 const interactive = computed(() => props.progress > 0.985)
+// The contact controls sit several viewports below the first frame. Start their
+// async chunk during the Surface approach, before the stage becomes interactive.
+const formReady = computed(() => props.progress > 0.25)
 </script>
 
 <template>
@@ -91,7 +94,7 @@ const interactive = computed(() => props.progress > 0.985)
     }"
     :inert="!interactive"
   >
-    <HomeContactForm form-id="contact-live" />
+    <LazyHomeContactForm v-if="formReady" form-id="contact-live" />
   </div>
 </template>
 

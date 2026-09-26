@@ -28,7 +28,10 @@ const decode = text => text.replace(/&(?:amp|quot|apos|lt|gt|#39|#x27|#\d+|#x[\d
 const attributes = tag => Object.fromEntries([...tag.matchAll(/([\w:-]+)\s*=\s*"([^"]*)"/g)].map(match => [match[1], decode(match[2])]))
 const tags = (html, name) => [...html.matchAll(new RegExp(`<${name}\\b[^>]*>`, 'g'))].map(match => attributes(match[0]))
 const htmlFor = path => readFileSync(resolve(root, path === '/' ? 'index.html' : `${path.slice(1)}/index.html`), 'utf8')
-const fileFor = url => resolve(root, decode(url).split(/[?#]/, 1)[0].replace(/^\//, ''))
+const fileFor = url => {
+  const pathname = /^https?:\/\//i.test(url) ? new URL(url).pathname : url
+  return resolve(root, decode(pathname).split(/[?#]/, 1)[0].replace(/^\//, ''))
+}
 const titles = new Set()
 const descriptions = new Set()
 const cards = new Set()

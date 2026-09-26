@@ -37,6 +37,7 @@ const allPages = [
   { id: 'home', path: '/', selector: '.hero-swarm canvas' },
   { id: 'projects', path: '/projects', selector: '.projects-catalog__title' },
   { id: 'services', path: '/#services', selector: '#services' },
+  { id: 'prices', path: '/', selector: '#project-formats', section: true },
   {
     id: 'about',
     path: '/#about',
@@ -146,7 +147,7 @@ async function capturePass(spec, locale) {
     await page.evaluate(() => document.fonts.ready)
     // Let route alignment, Surface boot and entrance motion finish naturally.
     await page.waitForTimeout(4500)
-    if (item.path.includes('#')) {
+    if (item.path.includes('#') || item.section) {
       // Initial hash alignment can run before the home layout has settled.
       // Use the same anchor positioning contract as navigation, including the
       // desktop contact offset and mobile Cases tail collapse.

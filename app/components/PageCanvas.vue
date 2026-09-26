@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { canvasFrames, matchFramePath, type SiteNavFrame } from '~/utils/siteNav'
-import { homeSectionScrollTop } from '~/utils/homeSectionScroll'
-import { isHomeAnchorTarget } from '~/utils/homeAnchorMotion'
 import { isNarrowViewport, isThumbNav } from '~/utils/mobileViewport'
 import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 import {
@@ -21,8 +19,14 @@ import { setChipBgOrigin } from '~/utils/chipHoverBg'
 
 const { locale, t } = useI18n()
 const localePath = useLocalePath()
+const {
+  activeSection,
+  pendingSection,
+  scrollToSection,
+} = useHomeSectionNavigation()
 
 const {
+  ready,
   open,
   busy,
   surfaceOn,
@@ -53,7 +57,9 @@ let lastFocus: HTMLElement | null = null
 let savedScrollY = 0
 let navFromCanvas = false
 
-const shownCurrentId = ref(matchFramePath(route.fullPath))
+const shownCurrentId = ref(
+  isLocalizedHome(route.path) ? activeSection.value : matchFramePath(route.fullPath),
+)
 const isNarrow = ref(false)
 const isThumb = ref(false)
 if (import.meta.client) {
@@ -307,25 +313,11 @@ function hideCanvasSurface() {
 }
 
 function frameIsCurrent(frame: SiteNavFrame) {
-  const routePath = stripLocalePrefix(route.fullPath).replace(/\/+$/, '') || '/'
+  const routePath = stripLocalePrefix(route.path).replace(/\/+$/, '') || '/'
   const framePath = frame.to.replace(/\/+$/, '') || '/'
-  return routePath === framePath
-}
-
-function homeAnchorId(to: string) {
-  const hashAt = to.indexOf('#')
-  return hashAt < 0 ? '' : decodeURIComponent(to.slice(hashAt + 1))
-}
-
-async function scrollToHomeAnchor(to: string) {
-  const id = homeAnchorId(to)
-  if (!id) return
-  await nextTick()
-  await waitFrames(2)
-  const target = document.getElementById(id)
-  if (!target) return
-  const top = homeSectionScrollTop(target)
-  window.scrollTo({ top, left: 0, behavior: 'auto' })
+  if (routePath !== framePath) return false
+  if (framePath !== '/') return true
+  return activeSection.value === (frame.section ?? 'home')
 }
 
 function frameShot(frame: SiteNavFrame) {
@@ -1061,9 +1053,9 @@ async function playClose() {
 async function goToFrame(frame: SiteNavFrame) {
   if (!open.value) return
 
-  // Home anchors should travel through the page after restoring the menu's
-  // saved scroll position, rather than jump to the section under the iris.
-  if (isLocalizedHome(route.path) && frame.id !== 'home' && isHomeAnchorTarget(frame.id)) {
+  // Home destinations travel through the live page after restoring the menu's
+  // saved scroll position. No route or history entry is involved.
+  if (isLocalizedHome(route.path) && frame.to === '/') {
     navFromCanvas = true
     navHopActive.value = true
     try {
@@ -1072,7 +1064,7 @@ async function goToFrame(frame: SiteNavFrame) {
       if (open.value || surfaceOn.value) return
       lastFocus?.focus({ preventScroll: true })
       lastFocus = null
-      await router.push(localePath(frame.to))
+      await scrollToSection(frame.section ?? 'home')
     } finally {
       navFromCanvas = false
       navHopActive.value = false
@@ -1086,13 +1078,18 @@ async function goToFrame(frame: SiteNavFrame) {
   }
 
   const gen = ++motionGen
+  const homeDestination = frame.to === '/' ? (frame.section ?? 'home') : null
   busy.value = true
 
   try {
     navFromCanvas = true
     navHopActive.value = true
 
-    if (frame.to === '/' || frame.to.startsWith('/#')) {
+    if (frame.to === '/') {
+      // Keep the named destination alive across router.push(). The router's
+      // async scroll behavior and the generic case-return transition both use
+      // this transaction marker to yield position ownership to Page Canvas.
+      pendingSection.value = homeDestination
       skipHeroIntro.value = true
       heroGlRevealBusy.value = true
       preloadHomeSceneAssets()
@@ -1114,16 +1111,12 @@ async function goToFrame(frame: SiteNavFrame) {
 
       swapCloseWord('menu')
       spinCloseDots(false)
-      const anchoredHome = !!homeAnchorId(frame.to)
-      if (anchoredHome) {
-        await unlockSession({ restoreScroll: false })
-        await scrollToHomeAnchor(frame.to)
-        if (gen !== motionGen) return
-      }
+      await unlockSession({ restoreScroll: false })
+      await scrollToSection(homeDestination ?? 'home', true)
+      if (gen !== motionGen) return
       await tweenIris({ dir: 'close', pill: start, followMenu: true })
       if (gen !== motionGen) return
       hideCanvasSurface()
-      if (!anchoredHome) await unlockSession({ restoreScroll: false })
       heroGlRevealBusy.value = false
     } else {
       open.value = false
@@ -1152,6 +1145,9 @@ async function goToFrame(frame: SiteNavFrame) {
     hideCanvasSurface()
     await unlockSession({ restoreScroll: false })
   } finally {
+    if (homeDestination && pendingSection.value === homeDestination) {
+      pendingSection.value = null
+    }
     navFromCanvas = false
     navHopActive.value = false
     setPageIrisGuard(false)
@@ -1169,20 +1165,26 @@ function onKeydown(e: KeyboardEvent) {
   toggleCanvas()
 }
 
+async function beginOpenCanvas() {
+  shownCurrentId.value = isLocalizedHome(route.path)
+    ? activeSection.value
+    : matchFramePath(route.fullPath)
+  hoverId.value = null
+  clearPreviewRevealed()
+  markPreviewRevealed(shownCurrentId.value)
+  if (hoverClearTimer) {
+    window.clearTimeout(hoverClearTimer)
+    hoverClearTimer = 0
+  }
+  const ae = document.activeElement
+  lastFocus = ae instanceof HTMLElement ? ae : null
+  await playOpen()
+  if (open.value) menuButtonEl()?.focus({ preventScroll: true })
+}
+
 watch(open, async (isOpen, wasOpen) => {
   if (isOpen) {
-    shownCurrentId.value = matchFramePath(route.fullPath)
-    hoverId.value = null
-    clearPreviewRevealed()
-    markPreviewRevealed(shownCurrentId.value)
-    if (hoverClearTimer) {
-      window.clearTimeout(hoverClearTimer)
-      hoverClearTimer = 0
-    }
-    const ae = document.activeElement
-    lastFocus = ae instanceof HTMLElement ? ae : null
-    await playOpen()
-    if (open.value) menuButtonEl()?.focus({ preventScroll: true })
+    await beginOpenCanvas()
   } else if (wasOpen) {
     if (navFromCanvas || navHopActive.value) return
     hoverId.value = null
@@ -1230,6 +1232,12 @@ onMounted(() => {
   window.addEventListener('keydown', onKeydown, true)
   window.addEventListener('resize', syncFrameAspect, { passive: true })
   void gsap()
+  ready.value = true
+
+  // On mobile this lazy component can finish loading after the first menu
+  // click has already flipped the shared state. Vue watchers do not replay an
+  // existing value, so resume that pending open once the teleported DOM exists.
+  if (open.value && !surfaceOn.value) void beginOpenCanvas()
 
   onUnmounted(() => {
     window.removeEventListener('resize', syncChromeMode)
@@ -1237,6 +1245,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  ready.value = false
   window.removeEventListener('keydown', onKeydown, true)
   window.removeEventListener('resize', syncFrameAspect)
   hideCanvasSurface()

@@ -2,7 +2,18 @@
 @import "./colors.css";
 @import "./fluid.generated.css";
 
-/* One variable asset serves both widths and every weight used by the site. */
+/* Variable critical cut for the first screen. It preserves the same axes and
+   metrics as the full Fixel file, so the later full-face load cannot reflow
+   the Hero or header. */
+@font-face {
+  font-family: "Fixel Critical";
+  src: url("/fonts/fixel/FixelCritical.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 87.5% 100%;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Fixel Text";
   src: url("/fonts/fixel/FixelVariable.woff2") format("woff2");
@@ -51,6 +62,13 @@
   --max-width-content: var(--layout-content-max);
   --width-column: var(--layout-column);
   --width-content: var(--layout-content);
+}
+
+:root.home-document:not(.fonts-enhanced) {
+  /* The cold Home document starts with the metrically compatible critical cut.
+     Its complete family is enabled after the idle load in app.vue. */
+  --font-sans: "Fixel Critical", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fixel Critical", ui-sans-serif, system-ui, sans-serif;
 }
 
 /*

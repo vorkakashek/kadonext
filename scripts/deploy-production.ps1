@@ -129,8 +129,8 @@ rm -f "$archive" "$candidate" "$backup" /tmp/kadonext-root-ru-__ID__.html /tmp/k
   }
 
   $projectsHtml = (& curl.exe -fsS 'https://kadonext.com/ru/projects/') -join "`n"
-  if ($LASTEXITCODE -ne 0 -or $projectsHtml -notmatch '/fonts/fixel/FixelVariable\.woff2') {
-    throw 'Production health check failed: /ru/projects does not contain the root-relative font URL.'
+  if ($LASTEXITCODE -ne 0 -or $projectsHtml -notmatch '(?:https://[^/]+)?/fonts/fixel/FixelVariable\.woff2|https://nfb4tt2jyb\.cdn\.twcstorage\.ru/_nuxt/') {
+    throw 'Production health check failed: /ru/projects does not contain a static asset URL.'
   }
 
   $fontStatus = (& curl.exe -sS -o NUL -w '%{http_code}' 'https://kadonext.com/fonts/fixel/FixelVariable.woff2').Trim()

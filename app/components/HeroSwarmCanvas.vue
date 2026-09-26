@@ -49,15 +49,16 @@ import { useInitialReveal } from '~/composables/useInitialReveal'
 import { flowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 
 const { t } = useI18n()
+const assetUrl = useCdnAsset()
 
 /** Desktop keeps the richer PBR studio environment. */
-const DESKTOP_HDRI = '/env/studio_small_09_256.hdr'
+const DESKTOP_HDRI = assetUrl('/env/studio_small_09_256.hdr')
 const MOBILE_MATCAP_URLS = {
-  whiteMatte: '/textures/hero-matcap-white-matte.webp',
-  whiteSoft: '/textures/hero-matcap-white-soft.webp',
-  whiteFrosted: '/textures/hero-matcap-white-frosted.webp',
-  blackGloss: '/textures/hero-matcap-black-gloss.webp',
-  blackMatte: '/textures/hero-matcap-black-matte.webp',
+  whiteMatte: assetUrl('/textures/hero-matcap-white-matte.webp'),
+  whiteSoft: assetUrl('/textures/hero-matcap-white-soft.webp'),
+  whiteFrosted: assetUrl('/textures/hero-matcap-white-frosted.webp'),
+  blackGloss: assetUrl('/textures/hero-matcap-black-gloss.webp'),
+  blackMatte: assetUrl('/textures/hero-matcap-black-matte.webp'),
 } as const
 type MobileMatcapKind = keyof typeof MOBILE_MATCAP_URLS
 /** Desktop breakpoint — full ball count, richer materials, cursor interaction. */
@@ -490,6 +491,7 @@ let resetSeats: (() => void) | null = null
 let lockOrbitLayout: (() => void) | null = null
 let unlockOrbitLayout: (() => void) | null = null
 let bootGen = 0
+let initialBootTimer = 0
 let resizeTimer = 0
 let resizePaintTimer = 0
 let contextRecoveryTimer = 0
@@ -602,7 +604,13 @@ onMounted(() => {
   motionEnabled.value = isMobileMotionClient.value
   observeMotionIntroHero()
   lastLayoutKey = layoutKey()
-  void bootScene()
+  // Lazy-module evaluation, Vue mount and WebGL context creation must not land
+  // in one monolithic task on a throttled mobile CPU. One task boundary keeps
+  // the already-painted CSS cover responsive without adding a visible delay.
+  initialBootTimer = window.setTimeout(() => {
+    initialBootTimer = 0
+    void bootScene()
+  }, 0)
   const onWinResize = () => {
     if (isMobileChromeHeightOnlyResize()) return
     isDesktopMotionClient.value = window.matchMedia(
@@ -629,6 +637,8 @@ onUnmounted(() => {
   window.visualViewport?.removeEventListener('resize', syncMotionIntroViewport)
   window.visualViewport?.removeEventListener('scroll', syncMotionIntroViewport)
   document.removeEventListener('visibilitychange', syncMotionIntroPageVisibility)
+  window.clearTimeout(initialBootTimer)
+  initialBootTimer = 0
   bootGen += 1
   desktopIconMorphGen += 1
   desktopIconMorph?.kill()
@@ -681,8 +691,9 @@ async function bootScene() {
     : lite
       ? BALL_COUNT_MOBILE
       : BALL_COUNT_TABLET
-  // Mobile renders only 9 balls, so smoother geometry is cheaper than
-  // raising DPR and removes faceting from both silhouettes and glossy light.
+  // Mobile keeps enough geometry for a round silhouette while matcaps avoid
+  // the heavier lighting path. Nine 36-segment spheres remain a small vertex
+  // budget compared with raising the full-screen canvas DPR.
   const sphereSegments = wide && !isCoarse ? 40 : lite ? 36 : 32
   const pixelRatioCap = wide && !isCoarse ? 1.35 : lite ? 1 : 1.25
   const cameraZ = layout.cameraZ
@@ -694,9 +705,16 @@ async function bootScene() {
   camera.position.set(0, 0.12, cameraZ)
 
   const gl = new WebGLRenderer({
+    // Keep MSAA at DPR 1 on mobile: it cleans the high-contrast silhouettes
+    // without multiplying every full-screen fragment as a higher DPR would.
     antialias: true,
     alpha: true,
-    powerPreference: 'high-performance',
+    depth: true,
+    stencil: false,
+    precision: lite ? 'mediump' : 'highp',
+    // Mobile devices normally expose a single GPU. Requesting the high-power
+    // path can still pay an avoidable GPU-process wake-up during first load.
+    powerPreference: lite ? 'default' : 'high-performance',
     // Page Canvas no longer snapshots this buffer. Keeping it discardable avoids
     // the copy-back cost; the existing stone cover masks frames during GL wake-up.
     preserveDrawingBuffer: false,
@@ -779,6 +797,13 @@ async function bootScene() {
   // WebGL context creation is the only measured >50 ms startup task. Tell the
   // shell as soon as it is behind us; lighting may continue under the cover.
   emit('booted')
+
+  if (lite) {
+    // Keep renderer/context setup and geometry/material construction in
+    // separate tasks. The cover remains opaque, so this yield is invisible.
+    await new Promise<void>(resolve => window.setTimeout(resolve, 0))
+    if (gen !== bootGen || renderer !== gl) return
+  }
 
   // Mobile lighting and reflections are baked into matcaps. Real lights remain
   // for the desktop PBR scene only.
@@ -2337,8 +2362,10 @@ async function bootScene() {
             <span class="motion-intro__content">
               <img
                 class="motion-intro__icon"
-                src="/svg/phone-tilt-css.svg"
+                :src="assetUrl('/svg/phone-tilt-css.svg')"
                 alt=""
+                width="30"
+                height="40"
               >
               <span class="motion-intro__text">{{ motionIntroText }}</span>
             </span>

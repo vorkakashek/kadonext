@@ -1,3 +1,5 @@
+import type { HomeSectionId } from '~/utils/homeSections'
+
 export type CaseDetailTransitionRequest = {
   direction: 'open' | 'close'
   /** A browser-history return keeps its original entry instead of pushing one. */
@@ -19,6 +21,8 @@ export type CaseDetailTransitionRequest = {
   /** Computed source filter so a catalog hover cannot flash on proxy handoff. */
   imageFilter?: string
   targetSelector?: string
+  /** In-page landing owned by the scroll driver, never serialized into the URL. */
+  homeSection?: HomeSectionId
 }
 
 export type CaseDetailOrigin = 'home' | 'projects'
@@ -35,6 +39,7 @@ export function useCaseDetailTransition() {
   const origin = useState<CaseDetailOrigin>('case-detail-origin', () => 'projects')
   const home = useHomeExperience()
   const detail = useCaseDetailExperience()
+  const { selectSection } = useHomeSectionNavigation()
 
   function openCaseDetail(next: Omit<CaseDetailTransitionRequest, 'direction'> & { origin: CaseDetailOrigin }) {
     if (active.value || request.value) return
@@ -51,11 +56,15 @@ export function useCaseDetailTransition() {
     if (active.value || request.value) return
     const returningHome = origin.value === 'home'
     detail.beginExit()
-    if (returningHome) home.beginDetailReturn()
+    if (returningHome) {
+      selectSection('cases')
+      home.beginDetailReturn()
+    }
     request.value = {
       ...next,
       direction: 'close',
-      to: localePath(returningHome ? '/#cases' : '/projects'),
+      to: localePath(returningHome ? '/' : '/projects'),
+      homeSection: returningHome ? 'cases' : undefined,
       targetSelector: returningHome
         ? `[data-case-media="${next.src}"]`
         : `[data-case-cover="${next.src}"]`,

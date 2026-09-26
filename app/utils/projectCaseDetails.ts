@@ -119,11 +119,12 @@ export type ProjectCaseDetail = {
   closingVariant?: 'story' | 'audience'
 }
 
-export function localizeProjectCaseDetails(copy: unknown): Record<string, ProjectCaseDetail> {
+export function localizeProjectCaseDetails(copy: unknown, assetCdnUrl = ''): Record<string, ProjectCaseDetail> {
   return attachResponsiveMedia(
     mergeLocalizedContent<Record<string, ProjectCaseDetail>>(
       projectCaseDetailsStructure,
       copy,
     ),
+    assetCdnUrl,
   )
 }

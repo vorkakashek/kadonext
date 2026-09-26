@@ -89,7 +89,6 @@ let caseArrowTimer = 0
  * Warm and decode the first case while the browser is idle so the Kado → Cases
  * handoff has a ready raster without competing with the initial Hero.
  */
-const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
 const {
   openCaseDetail,
 } = useCaseDetailTransition()
@@ -375,13 +374,6 @@ let firstCaseNear = false
 let firstCaseObserver: IntersectionObserver | null = null
 const warmedCaseMedia = new Map<string, HTMLImageElement>()
 
-function isColdCasesHashEntry() {
-  return typeof window !== 'undefined'
-    && window.location.hash === '#cases'
-    && initialHomeDocument.value
-    && !caseDetailHomeReturnActive.value
-}
-
 function warmInitialCaseMedia(priority = false) {
   if (caseMediaReady.value || initialCaseWarmImage) return
   const initial = activeCase.value ?? homeCases.value[0]
@@ -415,18 +407,11 @@ function warmCaseMedia(item: HomeCase, priority = false) {
 }
 
 function scheduleFirstCaseWarm() {
-  const directCasesEntry = isColdCasesHashEntry()
   if (
     initialCaseWarmScheduled
-    || (!directCasesEntry && !firstCaseNear)
+    || !firstCaseNear
   ) return
   initialCaseWarmScheduled = true
-  // At /#cases this image is in the initial viewport, not a later enhancement.
-  // Start it now instead of waiting for the Hero-oriented idle budget.
-  if (directCasesEntry) {
-    warmInitialCaseMedia(true)
-    return
-  }
   const warm = () => {
     const firstCase = homeCases.value[0]
     if (firstCase) warmCaseDetail(firstCase)
@@ -1421,7 +1406,7 @@ onBeforeUnmount(() => {
         class="cases-gesture-hint"
         role="button"
         tabindex="0"
-        :aria-label="t('home.cases.gestureLabel')"
+        aria-labelledby="home-cases-gesture-hint-copy"
         @pointerdown="onCaseGesturePointerDown"
         @pointerup="onCaseGesturePointerUp"
         @pointercancel="onCaseGesturePointerCancel"
@@ -1436,7 +1421,7 @@ onBeforeUnmount(() => {
             :size="32"
             :stroke="2"
           />
-          <p class="cases-gesture-hint__copy">
+          <p id="home-cases-gesture-hint-copy" class="cases-gesture-hint__copy">
             <span>{{ t('home.cases.gestureSwipe') }}</span>
             <span>{{ t('home.cases.gestureDismiss') }}</span>
           </p>

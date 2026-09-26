@@ -79,6 +79,10 @@
         "label": "services",
         "blurb": "Ways to work together"
       },
+      "prices": {
+        "label": "pricing",
+        "blurb": "Project formats and starting prices"
+      },
       "about": {
         "label": "author",
         "blurb": "How I work"
@@ -128,8 +132,6 @@
     "formats": {
       "title": "Ways to work together.",
       "intro": "Bring an idea, a finished design or an existing website.",
-      "price": "New end-to-end websites start at ₽600,000.",
-      "priceNote": "I define the scope, timeline and final price after discussing your project. Design, development from supplied designs and work on an existing site are priced separately.",
       "items": [
         {
           "title": "End-to-end website",
@@ -161,6 +163,48 @@
         }
       ]
     },
+    "projectFormats": {
+      "title": "Project formats.",
+      "intro": "Three scales, from a focused launch to a complex digital product.",
+      "priceLabel": "investment",
+      "durationLabel": "timeline",
+      "scopeLabel": "included",
+      "items": [
+        {
+          "title": "Compact website",
+          "price": "from $5,000",
+          "duration": "from 4 weeks",
+          "description": "For a small business, a single service, an event or a focused launch. Best suited to a defined message with few complex service flows.",
+          "scope": [
+            "focused structure",
+            "distinct visual direction",
+            "responsive development and launch"
+          ]
+        },
+        {
+          "title": "Signature website",
+          "price": "from $15,000",
+          "duration": "from 2 months",
+          "description": "For brands and companies that need more than a digital presence: a complete communication tool shaped around the business.",
+          "scope": [
+            "discovery and information structure",
+            "art direction and bespoke design",
+            "expressive interactions, development and launch"
+          ]
+        },
+        {
+          "title": "Digital product",
+          "price": "from $50,000",
+          "duration": "from 6 months",
+          "description": "For services, web applications and large platforms with complex internal logic. The work begins with a dedicated discovery and product-design phase.",
+          "scope": [
+            "user accounts and administration interfaces",
+            "payments, integrations and back-end development",
+            "custom flows, testing and a staged launch"
+          ]
+        }
+      ]
+    },
     "about": {
       "titleLines": ["A personal perspective.", "One coherent result."],
       "portraitAlt": "Anton, founder of KADO",
@@ -177,7 +221,6 @@
       "label": "Discuss a project",
       "title": "let's start a project.",
       "personal": "Tell me what you are working on. I'll read your message myself and suggest where to start.",
-      "price": "New end-to-end websites start at ₽600,000.",
       "taskLabel": "What do you need?",
       "clearTask": "Clear project type",
       "suggestionsLabel": "Suggestions",

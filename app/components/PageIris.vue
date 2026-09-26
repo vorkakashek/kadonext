@@ -21,6 +21,7 @@ import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 import { isThumbNav } from '~/utils/mobileViewport'
 
 const homeCases = useHomeCases()
+const { pendingSection } = useHomeSectionNavigation()
 
 const {
   surfaceOn,
@@ -44,6 +45,7 @@ const {
 let originEl: Element | null = null
 let originGeom: IrisGeom | null = null
 let pendingReveal = false
+let waitForHomeSwarm = false
 let tween: { kill: () => void } | null = null
 let tweenResolve: (() => void) | null = null
 let gen = 0
@@ -61,7 +63,7 @@ function captureOrigin(e: Event) {
   irisColor.value = hit.dataset.pageIrisColor || DEFAULT_IRIS_COLOR
   try {
     const url = new URL(hit.href, location.href)
-    if (url.origin === location.origin && (url.pathname === '/' || url.pathname === '')) {
+    if (url.origin === location.origin && baseRoutePath(url.pathname) === '/') {
       preloadHomeSceneAssets()
     }
   } catch {
@@ -337,6 +339,8 @@ onMounted(() => {
   window.addEventListener('popstate', onPopState, true)
 
   stopBefore = router.beforeEach(async (to, from) => {
+    waitForHomeSwarm = false
+    const revealsHome = baseRoutePath(to.path) === '/'
     const detailId = /^\/projects\/([^/]+)$/.exec(baseRoutePath(from.path))?.[1]
     const homeTopRequested =
       !popNav
@@ -349,9 +353,9 @@ onMounted(() => {
       // in sequence for the same navigation.
       && !surfaceOn.value
       && baseRoutePath(to.path) === '/'
-      // Section links keep their destination instead of returning to the
-      // case's recorded origin (home Cases or the project catalog).
-      && (!to.hash || to.hash === '#cases')
+      // Explicit section commands keep their destination instead of returning
+      // to the case's recorded origin (home Cases or the project catalog).
+      && (!pendingSection.value || pendingSection.value === 'cases')
       && !!detailId
       && !homeTopRequested
 
@@ -375,14 +379,21 @@ onMounted(() => {
     }
 
     if (shouldSkip(to, from)) return
-    if (to.path === '/') preloadHomeSceneAssets()
+    if (revealsHome) preloadHomeSceneAssets()
+    // The Hero owns an opaque safety lid until its first fully lit WebGL frame.
+    // An explicit logo/section command can therefore reveal the complete CSS
+    // frame immediately and let the swarm upgrade underneath. Keep the longer
+    // readiness wait only for generic history/direct route returns.
+    waitForHomeSwarm = revealsHome
+      && !homeTopRequested
+      && (!pendingSection.value || pendingSection.value === 'home')
     const token = ++gen
     originGeom = resolveOrigin(to.path)
     const deferCorners = originEl?.matches('.case-detail__next') ?? false
     popNav = false
     pendingReveal = true
     try {
-      await cover(originGeom, token, deferCorners, to.path === '/')
+      await cover(originGeom, token, deferCorners, revealsHome)
     } catch {
       hideLive()
     }
@@ -397,17 +408,19 @@ onMounted(() => {
       await new Promise<void>((r) => {
         requestAnimationFrame(() => requestAnimationFrame(() => r()))
       })
-      if (to.path === '/') await waitForHeroSwarm()
+      if (waitForHomeSwarm) await waitForHeroSwarm()
       if (token !== gen) return
       await reveal(token)
     } catch {
       hideLive()
     } finally {
+      waitForHomeSwarm = false
       originEl = null
     }
   })
 
   stopError = router.onError(() => {
+    waitForHomeSwarm = false
     hideLive()
   })
 })

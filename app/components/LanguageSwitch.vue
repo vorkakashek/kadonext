@@ -171,7 +171,7 @@ onUnmounted(() => {
     class="language-switch"
     :class="{ 'language-switch--switching': switching }"
     :lang="nextLocale"
-    :aria-label="switchLabel"
+    :aria-label="`${nextLocale} — ${switchLabel}`"
     :disabled="switching"
     @click="switchLanguage"
   >

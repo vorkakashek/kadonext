@@ -1,6 +1,9 @@
 import tailwindcss from '@tailwindcss/vite'
 import { homeCaseIds } from './app/utils/homeCases'
 
+const assetCdnUrl = process.env.NUXT_PUBLIC_ASSET_CDN_URL
+  ?? (process.env.NODE_ENV === 'production' ? 'https://nfb4tt2jyb.cdn.twcstorage.ru' : '')
+
 const contentRoutes = ['/', '/projects', '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`)]
 const localizedContentRoutes = ['ru', 'en'].flatMap(locale => (
   contentRoutes.map(path => `/${locale}${path}`)
@@ -23,6 +26,9 @@ export default defineNuxtConfig({
       // Static hosting proxies this path to the separate SMTP gateway.
       // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
       contactEndpoint: '/api/contact',
+      // Public assets may use the Timeweb CDN. The site HTML and contact API
+      // remain on the canonical origin.
+      assetCdnUrl,
       // Opt-in only. Production must never silently acknowledge a real enquiry without delivery.
       contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK === 'true' && process.env.NODE_ENV === 'production',
       contactMockDelayMs: Math.min(Math.max(Number(process.env.NUXT_PUBLIC_CONTACT_MOCK_DELAY_MS) || 500, 0), 10000),
@@ -32,6 +38,34 @@ export default defineNuxtConfig({
   },
 
   hooks: {
+    'vite:extendConfig'(config, { isClient }) {
+      if (!isClient || config.build?.ssr) return
+      const output = config.build?.rolldownOptions?.output ?? {}
+      const rolldownOptions = config.build?.rolldownOptions ?? {}
+      Object.assign(config, {
+        build: {
+          ...config.build,
+          rolldownOptions: {
+            ...rolldownOptions,
+            output: {
+              ...output,
+              codeSplitting: {
+                groups: [{
+                  name: 'initial-runtime',
+                  // Keep static data with the runtime modules that consume it.
+                  // Splitting JSON into a separate group creates a circular
+                  // BdtJzCIA ↔ BXc0hjfS dependency in Rolldown.
+                  test: (id: string) => /\.(?:[cm]?[jt]sx?|json)$/.test(id),
+                  tags: ['$initial'],
+                  minSize: 4 * 1024,
+                  priority: 100,
+                }],
+              },
+            },
+          },
+        },
+      })
+    },
     'pages:extend'(pages) {
       const addLocaleAliases = (page: typeof pages[number]) => {
         if (page.path.startsWith('/')) {
@@ -89,6 +123,7 @@ export default defineNuxtConfig({
   },
 
   app: {
+    cdnURL: assetCdnUrl,
     head: {
       htmlAttrs: { lang: 'ru' },
       charset: 'utf-8',
@@ -99,6 +134,16 @@ export default defineNuxtConfig({
         { name: 'robots', content: 'noindex, follow' },
       ],
       link: [
+        ...(assetCdnUrl
+          ? [{ rel: 'preconnect' as const, href: assetCdnUrl, crossorigin: 'anonymous' as const }]
+          : []),
+        {
+          rel: 'preload',
+          href: `${assetCdnUrl}/fonts/fixel/FixelCritical.woff2`,
+          as: 'font',
+          type: 'font/woff2',
+          crossorigin: 'anonymous',
+        },
         { key: 'favicon-ico', rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 96x96', media: '(prefers-color-scheme: light)' },
         { key: 'favicon-png', rel: 'icon', href: '/favicon-96.png', type: 'image/png', sizes: '96x96', media: '(prefers-color-scheme: light)' },
         { key: 'favicon-dark-ico', rel: 'icon', href: '/favicon-dark.ico', sizes: '16x16 32x32 48x48 96x96', media: '(prefers-color-scheme: dark)' },

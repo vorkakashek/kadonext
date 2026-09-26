@@ -4,7 +4,12 @@ import { extname, join, resolve } from 'node:path'
 
 const outputRoot = resolve(process.cwd(), '.output/public')
 const modulePreloadPattern = /<link\s+rel="modulepreload"[^>]*>\s*/g
-const criticalStylesheetPattern = /<link\s+rel="stylesheet"\s+href="(\/_nuxt\/(?:entry\.[^"]+|navWaveHover\.[^"]+)\.css)"[^>]*>\s*/g
+const asyncPrefetchPattern = /<link\s+rel="prefetch"\s+as="(?:script|style)"[^>]*>\s*/g
+// The initial page already contains Nuxt's inline payload. Keeping its
+// fetch-preload makes Chromium report an unused preload; route navigation can
+// still request the payload on demand.
+const payloadPreloadPattern = /<link\s+rel="preload"\s+as="fetch"[^>]*href="[^"]*\/_payload\.json[^\"]*"[^>]*>\s*/g
+const criticalStylesheetPattern = /<link\s+rel="stylesheet"\s+href="([^"]*\/_nuxt\/(?:entry|navWaveHover|SiteIcon|LanguageSwitch|useFooterPhotoRubberBand)\.[^"/]+\.css)"[^>]*>\s*/g
 const grainPreloadPattern = /<link\s+rel="preload"\s+as="image"\s+href="\/textures\/grain-tile-v2-256\.avif"[^>]*>\s*/g
 const grainUrlPattern = /url\((['"]?)(?:\/|\.\.\/)textures\/grain-tile-v2-256\.avif\1\)/g
 const cssUrlPattern = /url\(\s*(['"]?)([^'")]+)\1\s*\)/g
@@ -12,6 +17,8 @@ const grainBytes = await readFile(join(outputRoot, 'textures/grain-tile-v2-256.a
 const grainDataUrl = `data:image/avif;base64,${grainBytes.toString('base64')}`
 let optimized = 0
 let removed = 0
+let removedPrefetches = 0
+let removedPayloadPreloads = 0
 let inlined = 0
 let embeddedGrainStyles = 0
 
@@ -32,9 +39,12 @@ function rootRelativeCssUrls(css, stylesheetHref) {
   const stylesheetUrl = new URL(stylesheetHref, 'https://kadonext.invalid')
   return css.replace(cssUrlPattern, (match, quote, value) => {
     const url = value.trim()
-    if (/^(?:[a-z]+:|\/\/|\/|#)/i.test(url)) return match
+    if (/^(?:[a-z]+:|\/\/|#)/i.test(url)) return match
     const resolved = new URL(url, stylesheetUrl)
-    return `url(${quote}${resolved.pathname}${resolved.search}${resolved.hash}${quote})`
+    const resolvedUrl = stylesheetUrl.hostname === 'kadonext.invalid'
+      ? `${resolved.pathname}${resolved.search}${resolved.hash}`
+      : resolved.href
+    return `url(${quote}${resolvedUrl}${quote})`
   })
 }
 
@@ -47,7 +57,12 @@ async function visit(directory) {
 
     const source = await readFile(path, 'utf8')
     const matches = source.match(modulePreloadPattern)
-    let result = source.replace(modulePreloadPattern, '')
+    const prefetchMatches = source.match(asyncPrefetchPattern)
+    const payloadPreloadMatches = source.match(payloadPreloadPattern)
+    let result = source
+      .replace(modulePreloadPattern, '')
+      .replace(asyncPrefetchPattern, '')
+      .replace(payloadPreloadPattern, '')
     // Nuxt's static fallbacks are not content pages and must never enter search.
     if (directory === outputRoot && ['200.html', '404.html'].includes(entry.name)) {
       result = result.replace(/<meta\b(?=[^>]*\bname="robots")[^>]*>\s*/g, '')
@@ -55,8 +70,10 @@ async function visit(directory) {
     }
     const stylesheetMatches = [...result.matchAll(criticalStylesheetPattern)]
     for (const match of stylesheetMatches) {
+      const stylesheetPath = new URL(match[1], 'https://kadonext.invalid').pathname
       const css = rootRelativeCssUrls(
-        await readFile(join(outputRoot, match[1].slice(1)), 'utf8'),
+        (await readFile(join(outputRoot, stylesheetPath.slice(1)), 'utf8'))
+          .replace(grainUrlPattern, `url(${grainDataUrl})`),
         match[1],
       )
       result = result.replace(match[0], `<style data-critical-css>${css}</style>`)
@@ -70,6 +87,8 @@ async function visit(directory) {
     await writeCompressed(path, bytes)
     optimized += 1
     removed += matches?.length ?? 0
+    removedPrefetches += prefetchMatches?.length ?? 0
+    removedPayloadPreloads += payloadPreloadMatches?.length ?? 0
   }))
 }
 
@@ -85,4 +104,4 @@ await Promise.all(assetEntries.map(async (entry) => {
 }))
 
 await visit(outputRoot)
-console.log(`Optimized ${optimized} prerendered HTML files; removed ${removed} modulepreloads; inlined ${inlined} critical stylesheets; embedded grain in ${embeddedGrainStyles} CSS assets.`)
+console.log(`Optimized ${optimized} prerendered HTML files; removed ${removed} modulepreloads, ${removedPrefetches} async prefetches and ${removedPayloadPreloads} payload preloads; inlined ${inlined} critical stylesheets; embedded grain in ${embeddedGrainStyles} CSS assets.`)

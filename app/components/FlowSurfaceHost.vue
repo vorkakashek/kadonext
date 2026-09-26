@@ -59,12 +59,12 @@ import {
   readMobileHeroCopyLayout,
 } from '~/utils/mobileHeroCopyMotion'
 import {
-  registerHomeAnchorMotion,
-  HOME_ANCHOR_DESTINATIONS,
-  HOME_ANCHOR_TIMING,
-  isHomeAnchorTarget,
-  type HomeAnchorTarget,
-} from '~/utils/homeAnchorMotion'
+  registerHomeSectionMotion,
+  HOME_SECTION_DESTINATIONS,
+  HOME_SECTION_TIMING,
+  isHomeMotionSection,
+  type HomeMotionSection,
+} from '~/utils/homeSectionMotion'
 import {
   CASE_MEDIA_FLIGHT_START_EVENT,
   mixSurfaceVisualSnapshot,
@@ -73,6 +73,7 @@ import {
   type SurfaceVisualSnapshot,
 } from '~/utils/flowSurfaceContract'
 import { preloadGsapBundle } from '~/utils/preloadHomeMotion'
+import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
 
 type MobileHop = 'term' | 'word'
 type MobileStage = 'scrub' | MobileHop
@@ -97,7 +98,15 @@ const CASE_SCRUB_LAG = 0.13
 /** Cases → work formats: release the project image into the next surface slot. */
 const FORMATS_SCRUB_START = 'top 82%'
 const FORMATS_SCRUB_END = 'top 35%'
-/** Work formats → author block: the stone surface settles into its dark panel. */
+/**
+ * Switch tariff ownership around the divider entering the viewport. Once the
+ * flight settles, the Surface follows that tariff's price card until the next
+ * tariff boundary crosses the same 60% → 18% transition band used by the
+ * established Kado → Cases flight.
+ */
+const PROJECT_FORMAT_SCRUB_START = 'top 60%'
+const PROJECT_FORMAT_SCRUB_END = 'top 18%'
+/** Final project tariff → author block: settle the Surface into its dark panel. */
 const ABOUT_SCRUB_START = 'top 92%'
 const ABOUT_SCRUB_END = 'top 25%'
 /** Begin as Biography leaves; settle before the contact anchor stops scrolling. */
@@ -159,6 +168,10 @@ const MOBILE_CASE_SURFACE_HOLD_VH = 0.24
 const MOBILE_CASE_TO_FORMATS_HOLD_PX = 200
 /** Tail morphs must never collapse to a one-pixel range after layout shifts. */
 const MOBILE_FORMATS_SCROLL_SPAN_VH = 0.62
+/** Match the desktop 42vh tariff runway while native touch remains 1:1. */
+const MOBILE_PROJECT_FORMAT_SCRUB_START_VIEWPORT_P = 0.6
+const MOBILE_PROJECT_FORMAT_SCRUB_END_VIEWPORT_P = 0.18
+const MOBILE_PROJECT_FORMAT_SCROLL_SPAN_VH = 0.42
 const MOBILE_ABOUT_SCROLL_SPAN_VH = 0.3
 const MOBILE_CONTACT_ENTRY_LEAD_PX = 32
 /** Stretch Formats ↔ Biography equally at both ends of the reversible range. */
@@ -188,6 +201,10 @@ const props = withDefaults(
     formatsSectionEl?: HTMLElement | null
     /** Plain surface slot at the left of the work-formats list. */
     formatsSurfaceEl?: HTMLElement | null
+    /** Project-formats section containing the tariff price cards. */
+    projectFormatsSectionEl?: HTMLElement | null
+    /** Ordered Surface slots behind price + duration, one per tariff. */
+    projectFormatSurfaceEls?: HTMLElement[]
     /** Author section — final continuous surface segment. */
     aboutSectionEl?: HTMLElement | null
     /** Dark surface destination behind the author heading and portrait. */
@@ -216,6 +233,8 @@ const props = withDefaults(
     caseMediaEl: null,
     formatsSectionEl: null,
     formatsSurfaceEl: null,
+    projectFormatsSectionEl: null,
+    projectFormatSurfaceEls: () => [],
     aboutSectionEl: null,
     aboutSurfaceEl: null,
     aboutTitleEl: null,
@@ -229,6 +248,7 @@ const props = withDefaults(
 )
 
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const simpleHomeIntroReady = useState<boolean>('home-simple-intro-ready', () => false)
 const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
 const homeMotionReady = useState<boolean>('home-flow-motion-ready', () => false)
 const {
@@ -268,7 +288,34 @@ function setCaseSurfaceDocked(on: boolean) {
 
 const frame = ref<HTMLElement | null>(null)
 const shellEl = ref<HTMLElement | null>(null)
+const visualShellEl = ref<HTMLElement | null>(null)
 const clipPathEl = ref<SVGPathElement | null>(null)
+const simpleSurfaceIntroPending = ref(PLAIN_COLD_HOME && initialHomeDocument.value)
+let simpleSurfaceIntroAnimation: Animation | null = null
+let stopSimpleSurfaceIntroWatch: (() => void) | null = null
+
+function playSimpleSurfaceIntro() {
+  if (!simpleSurfaceIntroPending.value || simpleSurfaceIntroAnimation) return
+  const el = visualShellEl.value
+  if (!el) return
+  simpleSurfaceIntroAnimation = el.animate(
+    [
+      { opacity: 0, transform: 'translate3d(0, 28px, 0)' },
+      { opacity: 1, transform: 'translate3d(0, 0, 0)' },
+    ],
+    {
+      duration: 340,
+      delay: 40,
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      fill: 'both',
+    },
+  )
+  simpleSurfaceIntroPending.value = false
+  void simpleSurfaceIntroAnimation.finished.then(() => {
+    simpleSurfaceIntroAnimation?.cancel()
+    simpleSurfaceIntroAnimation = null
+  }, () => undefined)
+}
 /** Keep the cold Hero scene free of the Surface crop until its rise completes. */
 const heroSceneEntryActive = ref(false)
 /** Teleport target for a pinned hop — null keeps the frame in the fixed shell. */
@@ -286,6 +333,8 @@ const heroSectionEl = computed(() => {
 let trigger: { kill: () => void; progress: number } | null = null
 let caseTrigger: { kill: () => void; progress: number } | null = null
 let formatsTrigger: { kill: () => void; progress: number } | null = null
+let projectFormatTriggers: { kill: () => void; progress: number }[] = []
+let projectFormatsFollowTrigger: { kill: () => void } | null = null
 let aboutTrigger: { kill: () => void; progress: number } | null = null
 let contactTrigger: { kill: () => void; refresh: () => void; progress: number } | null = null
 let mobileTriggers: { kill: () => void }[] = []
@@ -296,6 +345,7 @@ let fromDoc: SurfaceBox | null = null
 let toDoc: SurfaceBox | null = null
 let lastCaseDoc: SurfaceBox | null = null
 let lastFormatsDoc: SurfaceBox | null = null
+let lastProjectFormatDocs: SurfaceBox[] = []
 let fromPose: SurfaceBox | null = null
 let toPose: SurfaceBox | null = null
 let heroRestPose: SurfaceBox | null = null
@@ -310,13 +360,13 @@ let caseMediaActive = false
 let surfaceReadyEmitted = false
 /** Keep the default desktop-sized frame out of paint until its real pose is applied. */
 const frameBootReady = ref(false)
-/** A mobile hash entry must never expose the incomplete Hero/Kado fallback. */
-const mobileSectionBootPending = ref(false)
+/** A restored mobile scroll must not expose the incomplete Hero/Kado fallback. */
+const mobileCorridorBootPending = ref(false)
 
 /** Keep the SSR primer for one committed live frame, then hand paint ownership over. */
 function announceSurfaceReady() {
   if (surfaceReadyEmitted || !frame.value) return
-  if (mobileSectionBootPending.value && !mobileScrollBounds) return
+  if (mobileCorridorBootPending.value && !mobileScrollBounds) return
   surfaceReadyEmitted = true
   // FlowSurfaceHost mounts client-side after SSR. Its inline fallback is the
   // desktop Hero rectangle; on mobile the measured in-flow slot is much shorter
@@ -325,7 +375,7 @@ function announceSurfaceReady() {
   frameBootReady.value = true
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      mobileSectionBootPending.value = false
+      mobileCorridorBootPending.value = false
       emit('ready')
     })
   })
@@ -343,8 +393,6 @@ let releaseClipPathEl: (() => void) | null = null
 let releaseLiveBoxNudge: (() => void) | null = null
 let hostUnmounted = false
 let keepAliveActive = true
-const initialCasesHashEntry = ref(false)
-
 function hasConnectedSurfaceHost() {
   return !!shellEl.value?.isConnected
     && !!frame.value?.isConnected
@@ -488,6 +536,8 @@ type MobileScrollBounds = {
   formatsMediaStart: number
   formatsStart: number
   formatsEnd: number
+  projectFormatStarts: number[]
+  projectFormatEnds: number[]
   aboutStart: number
   aboutEnd: number
   contactStart: number
@@ -498,6 +548,7 @@ type MobileScrollBounds = {
   caseDoc: SurfaceBox
   formatsDoc: SurfaceBox
   formatsListDoc: SurfaceBox
+  projectFormatDocs: SurfaceBox[]
   aboutDoc: SurfaceBox
   contactDoc: SurfaceBox
 }
@@ -539,7 +590,7 @@ let anchorMotion: {
   route: SurfaceRouteDecision
   elapsed: number
   updatedAt: number
-  targetId: HomeAnchorTarget | null
+  targetId: HomeMotionSection | null
   scrollComplete: boolean
   startScrollY: number
   forward: boolean
@@ -548,7 +599,7 @@ let anchorMotion: {
 } | null = null
 let anchorSample: SurfaceVisualSnapshot | null = null
 let removeAnchorMotionOwner: (() => void) | null = null
-const ANCHOR_SURFACE_DURATION_MS = HOME_ANCHOR_TIMING.morphDurationMs
+const ANCHOR_SURFACE_DURATION_MS = HOME_SECTION_TIMING.morphDurationMs
 /** Stable compositor basis for the expensive mobile Kado → Cases flight. */
 let mobileCaseTransformBasis: SurfaceBox | null = null
 /** Snapshot used as hop tween start (destination tracks live each frame). */
@@ -730,6 +781,10 @@ function captureMobilePoses() {
   if (wordDoc) lastWordDoc = wordDoc
   const formatsDoc = readDocBox(props.formatsSurfaceEl)
   if (formatsDoc) lastFormatsDoc = formatsDoc
+  props.projectFormatSurfaceEls.forEach((element, index) => {
+    const doc = readDocBox(element)
+    if (doc) lastProjectFormatDocs[index] = doc
+  })
   mobileCaseHandoffY = null
 
   mobileActive = true
@@ -738,7 +793,7 @@ function captureMobilePoses() {
   toPose = stonePose
   syncStageRest(heroPose)
   const corridorReady = captureMobileScrollBounds()
-  if (mobileSectionBootPending.value && !corridorReady) return false
+  if (mobileCorridorBootPending.value && !corridorReady) return false
   return true
 }
 
@@ -752,6 +807,12 @@ function captureMobileScrollBounds() {
   const formatsSectionDocRaw = readDocBox(props.formatsSectionEl)
   const formatsDocRaw = readDocBox(props.formatsSurfaceEl) ?? lastFormatsDoc
   const formatsListDocRaw = readDocBox(formatsListElement())
+  const projectFormatDocsRaw = props.projectFormatSurfaceEls.map(
+    (element, index) => readDocBox(element) ?? lastProjectFormatDocs[index] ?? null,
+  )
+  const projectFormatItemDocsRaw = props.projectFormatSurfaceEls.map(element => (
+    readDocBox(element.closest<HTMLElement>('.project-formats__item'))
+  ))
   const aboutSectionDocRaw = readDocBox(props.aboutSectionEl)
   const aboutDocRaw = readDocBox(props.aboutSurfaceEl)
   const aboutEndDocRaw = readDocBox(props.aboutEndEl)
@@ -766,6 +827,8 @@ function captureMobileScrollBounds() {
     || !formatsSectionDocRaw
     || !formatsDocRaw
     || !formatsListDocRaw
+    || projectFormatDocsRaw.some(doc => !doc)
+    || projectFormatItemDocsRaw.some(doc => !doc)
     || !aboutSectionDocRaw
     || !aboutDocRaw
     || !aboutEndDocRaw
@@ -789,6 +852,8 @@ function captureMobileScrollBounds() {
   const formatsSectionDoc = afterCaseCollapse(formatsSectionDocRaw)
   const formatsDoc = afterCaseCollapse(formatsDocRaw)
   const formatsListDoc = afterCaseCollapse(formatsListDocRaw)
+  const projectFormatDocs = projectFormatDocsRaw.map(doc => afterCaseCollapse(doc!))
+  const projectFormatItemDocs = projectFormatItemDocsRaw.map(doc => afterCaseCollapse(doc!))
   const aboutSectionDoc = afterCaseCollapse(aboutSectionDocRaw)
   const aboutDoc = afterCaseCollapse(aboutDocRaw)
   const aboutEndDoc = afterCaseCollapse(aboutEndDocRaw)
@@ -839,12 +904,31 @@ function captureMobileScrollBounds() {
     formatsStart + viewportHeight * MOBILE_FORMATS_SCROLL_SPAN_VH,
     formatsListDoc.top + MOBILE_FORMATS_REVERSE_OFFSET_PX - viewportHeight,
   )
+  const projectFormatStarts: number[] = []
+  const projectFormatEnds: number[] = []
+  let projectFormatCursor = formatsEnd
+  projectFormatItemDocs.forEach((itemDoc) => {
+    const start = Math.max(
+      projectFormatCursor,
+      itemDoc.top - viewportHeight * MOBILE_PROJECT_FORMAT_SCRUB_START_VIEWPORT_P,
+    )
+    const end = Math.max(
+      start + viewportHeight * MOBILE_PROJECT_FORMAT_SCROLL_SPAN_VH,
+      itemDoc.top - viewportHeight * MOBILE_PROJECT_FORMAT_SCRUB_END_VIEWPORT_P,
+    )
+    projectFormatStarts.push(start)
+    projectFormatEnds.push(end)
+    projectFormatCursor = end
+  })
   // Hand Biography to its DOM slot while the section is still entering. From
   // then on the dark plate scrolls with the title/photo instead of lingering as
   // the full-viewport Formats panel and snapping to the slot much later.
   const aboutStart = Math.max(
-    formatsEnd,
-    aboutSectionDoc.top - viewportHeight - MOBILE_ABOUT_ENTRY_LEAD_PX,
+    projectFormatCursor,
+    projectFormatDocs.length
+      ? aboutSectionDoc.top
+        - viewportHeight * MOBILE_PROJECT_FORMAT_SCRUB_START_VIEWPORT_P
+      : aboutSectionDoc.top - viewportHeight - MOBILE_ABOUT_ENTRY_LEAD_PX,
   )
   const aboutSpan = Math.max(
     1,
@@ -876,6 +960,8 @@ function captureMobileScrollBounds() {
     formatsMediaStart,
     formatsStart,
     formatsEnd,
+    projectFormatStarts,
+    projectFormatEnds,
     aboutStart,
     aboutEnd,
     contactStart,
@@ -886,12 +972,14 @@ function captureMobileScrollBounds() {
     caseDoc,
     formatsDoc,
     formatsListDoc,
+    projectFormatDocs,
     aboutDoc,
     contactDoc,
   }
   lastWordDoc = wordDoc
   lastCaseDoc = caseDoc
   lastFormatsDoc = formatsDoc
+  lastProjectFormatDocs = projectFormatDocs
   return true
 }
 
@@ -1372,16 +1460,21 @@ function mobileFormatsBox(track: SurfaceBox, list: SurfaceBox): SurfaceBox {
   }
 }
 
-/** Final mobile Formats state: a stable, nearly full-viewport panel. */
-function mobileFormatsSettledBox(track: SurfaceBox): SurfaceBox {
+/** Final mobile Formats state: a viewport panel whose foot stops with the list. */
+function mobileFormatsSettledBox(track: SurfaceBox, list?: SurfaceBox | null): SurfaceBox {
   const edge = Math.max(8, track.left)
   const viewportHeight = stableMobileTriggerViewportHeight()
+  const panelHeight = Math.max(1, viewportHeight - edge * 2)
+  const formatsBottom = list
+    ? list.top + list.height
+    : track.top + track.height
+  const bottom = Math.min(viewportHeight - edge, formatsBottom)
 
   return {
-    top: edge,
+    top: bottom - panelHeight,
     left: edge,
     width: Math.max(1, window.innerWidth - edge * 2),
-    height: Math.max(1, viewportHeight - edge * 2),
+    height: panelHeight,
   }
 }
 
@@ -1399,6 +1492,14 @@ function formatsSurfacePose(listPose?: SurfaceBox | null): SurfaceBox | null {
 function formatsListElement(): HTMLElement | null {
   return props.formatsSectionEl?.querySelector<HTMLElement>('.work-formats__list')
     ?? null
+}
+
+function projectFormatSurfacePose(index: number): SurfaceBox | null {
+  const element = props.projectFormatSurfaceEls[index]
+  const livePose = readBox(element)
+  if (livePose) return livePose
+  const cached = lastProjectFormatDocs[index]
+  return cached ? docToViewport(cached) : null
 }
 
 function aboutSurfacePose(): SurfaceBox | null {
@@ -1519,11 +1620,18 @@ function kadoLivePose(): SurfaceBox | null {
 }
 
 function computeDesktopTarget(): number {
+  const projectCount = projectFormatTriggers.length
   if (contactTrigger && contactTrigger.progress > 0) {
-    return 4 + Math.min(1, Math.max(0, contactTrigger.progress))
+    return 4 + projectCount + Math.min(1, Math.max(0, contactTrigger.progress))
   }
   if (aboutTrigger && aboutTrigger.progress > 0) {
-    return 3 + Math.min(1, Math.max(0, aboutTrigger.progress))
+    return 3 + projectCount + Math.min(1, Math.max(0, aboutTrigger.progress))
+  }
+  for (let index = projectCount - 1; index >= 0; index -= 1) {
+    const projectTrigger = projectFormatTriggers[index]
+    if (projectTrigger && projectTrigger.progress > 0) {
+      return 3 + index + Math.min(1, Math.max(0, projectTrigger.progress))
+    }
   }
   if (formatsTrigger && formatsTrigger.progress > 0) {
     return 2 + Math.min(1, Math.max(0, formatsTrigger.progress))
@@ -1668,9 +1776,35 @@ function paintCasesToFormatsSegment(t: number) {
   }
 }
 
+function paintFormatsToProjectSegment(index: number, t: number) {
+  setContactStageProgress(0)
+  clearAboutTitleContrast()
+  paintAboutSurfaceTone(0)
+  const from = index === 0
+    ? formatsSurfacePose()
+    : projectFormatSurfacePose(index - 1)
+  const to = projectFormatSurfacePose(index)
+  if (!from && !to) return
+
+  caseMediaActive = false
+  if (caseSurfaceDocked.value) setSurfaceDocked(false)
+  if (caseSurfaceReady.value) setSurfaceReady(false)
+  setCaseMediaVisible(false)
+  clearCaseMediaFlight()
+
+  const box = from && to
+    ? lerpBox(from, to, t)
+    : (to ?? from)!
+  paintBox(box, 1)
+}
+
+/** The old direct Formats → Biography path is only a no-project fallback. */
 function paintFormatsToAboutSegment(t: number) {
   setContactStageProgress(0)
-  const from = formatsSurfacePose()
+  const lastProjectIndex = props.projectFormatSurfaceEls.length - 1
+  const from = lastProjectIndex >= 0
+    ? projectFormatSurfacePose(lastProjectIndex)
+    : formatsSurfacePose()
   const to = aboutSurfacePose()
   if (!from && !to) {
     clearAboutTitleContrast()
@@ -1744,7 +1878,7 @@ function dockMobileCaseFrameUnderDetailReturn(dest: SurfaceBox) {
 /**
  * Desktop return uses the fixed transition proxy for the visible flight. Keep
  * every ordinary desktop repaint docked underneath that proxy until the route
- * handoff completes. Without this lock, the restored #cases scroll position
+ * handoff completes. Without this lock, the restored Cases scroll position
  * paints an earlier Kado → Cases frame; it then remains visible at the old case
  * aspect ratio until the next scroll update.
  */
@@ -2092,12 +2226,18 @@ function paintDesktop(s = desktopLiveS) {
   // inherit a stale Hero-rest basis from an interrupted anchor handoff.
   if (fromPose) syncStageRest(fromPose)
 
-  const { segmentIndex, localT } = resolveCorridorSegment(s, 5)
+  const projectCount = props.projectFormatSurfaceEls.length
+  const aboutSegmentIndex = 3 + projectCount
+  const contactSegmentIndex = aboutSegmentIndex + 1
+  const segmentCount = contactSegmentIndex + 1
+  const { segmentIndex, localT } = resolveCorridorSegment(s, segmentCount)
   if (segmentIndex > 0) publishHeroHorizontalMorph(1)
-  if (segmentIndex === 4) {
+  if (segmentIndex === contactSegmentIndex) {
     paintAboutToContactSegment(localT)
-  } else if (segmentIndex === 3) {
+  } else if (segmentIndex === aboutSegmentIndex) {
     paintFormatsToAboutSegment(localT)
+  } else if (segmentIndex >= 3) {
+    paintFormatsToProjectSegment(segmentIndex - 3, localT)
   } else if (segmentIndex === 2) {
     paintCasesToFormatsSegment(localT)
   } else if (segmentIndex === 1) {
@@ -2179,16 +2319,17 @@ function progressBetween(scrollY: number, start: number, end: number) {
   return clampUnit((scrollY - start) / Math.max(1, end - start))
 }
 
-const MOBILE_CORRIDOR_IDS = [
-  'hero-stone',
-  'stone-term',
-  'term-word',
-  'word-cases',
-  'cases-formats',
-  'formats-about',
-  'about-contact',
-] as const
-type MobileCorridorId = typeof MOBILE_CORRIDOR_IDS[number]
+type MobileCorridorId =
+  | 'hero-stone'
+  | 'stone-term'
+  | 'term-word'
+  | 'word-cases'
+  | 'cases-formats'
+  | `formats-project:${number}`
+  | `project-project:${number}:${number}`
+  | 'formats-about'
+  | 'project-about'
+  | 'about-contact'
 
 function mobileCaseExitBounds(
   bounds: MobileScrollBounds,
@@ -2213,15 +2354,29 @@ function mobileCorridorRanges(
   bounds: MobileScrollBounds,
 ): ScrollCorridorRange<MobileCorridorId>[] {
   const exits = mobileCaseExitBounds(bounds)
-  return [
+  const ranges: ScrollCorridorRange<MobileCorridorId>[] = [
     { id: 'hero-stone', start: scrubStartY, end: bounds.termStart },
     { id: 'stone-term', start: bounds.termStart, end: bounds.termEnd },
     { id: 'term-word', start: bounds.wordStart, end: bounds.wordEnd },
     { id: 'word-cases', start: bounds.caseStart, end: exits.caseEnd },
     { id: 'cases-formats', start: exits.formatsStart, end: bounds.formatsEnd },
-    { id: 'formats-about', start: bounds.aboutStart, end: bounds.aboutEnd },
-    { id: 'about-contact', start: bounds.contactStart, end: bounds.contactEnd },
   ]
+  bounds.projectFormatStarts.forEach((start, index) => {
+    ranges.push({
+      id: index === 0
+        ? `formats-project:${index}`
+        : `project-project:${index - 1}:${index}`,
+      start,
+      end: bounds.projectFormatEnds[index]!,
+    })
+  })
+  ranges.push({
+    id: bounds.projectFormatStarts.length ? 'project-about' : 'formats-about',
+    start: bounds.aboutStart,
+    end: bounds.aboutEnd,
+  })
+  ranges.push({ id: 'about-contact', start: bounds.contactStart, end: bounds.contactEnd })
+  return ranges
 }
 
 /** Map native scroll to one ordered Hero → Contact animation clock. */
@@ -2359,9 +2514,17 @@ function paintMobileScrollCorridor(
   const caseNow = caseMediaPose() ?? docToViewport(bounds.caseDoc)
   const formatsNow = mobileFormatsSettledBox(
     docToViewport(bounds.formatsDoc),
+    docToViewport(bounds.formatsListDoc),
+  )
+  const projectFormatsNow = bounds.projectFormatDocs.map(
+    (doc, index) => projectFormatSurfacePose(index) ?? docToViewport(doc),
   )
   const aboutNow = aboutSurfacePose() ?? docToViewport(bounds.aboutDoc)
   const contactNow = contactSurfacePose() ?? docToViewport(bounds.contactDoc)
+  const aboutSegmentIndex = ranges.findIndex(
+    range => range.id === 'project-about' || range.id === 'formats-about',
+  )
+  const aboutSettledClock = aboutSegmentIndex + 1
 
   // Holds stay in the fixed shell and follow the current document box. Moving
   // the frame into a proxy/Teleport here creates a second coordinate system.
@@ -2437,9 +2600,36 @@ function paintMobileScrollCorridor(
       setCaseMediaVisible(mediaVisible)
       return
     }
+    for (let index = 0; index < projectFormatsNow.length; index += 1) {
+      const segmentIndexForProject = 5 + index
+      const holdEnd = bounds.projectFormatStarts[index + 1] ?? bounds.aboutStart
+      if (
+        mobileCorridorSettledAt(segmentIndexForProject + 1)
+        && scrollY >= bounds.projectFormatEnds[index]!
+        && scrollY < holdEnd
+      ) {
+        mobileStage = 'word'
+        mobileCaseProgress = 1
+        mobileCaseArrived = false
+        mobileFormatsProgress = 1
+        mobileFormatsArrived = false
+        mobileAboutProgress = 0
+        mobileAboutArrived = false
+        caseMediaActive = false
+        setSurfaceDocked(false)
+        setSurfaceReady(false)
+        setCaseMediaVisible(false)
+        clearCaseMediaFlight()
+        clearAboutTitleContrast()
+        paintAboutSurfaceTone(0)
+        prepareMobileScrollFlight()
+        paintBox(projectFormatsNow[index]!, 1)
+        return
+      }
+    }
     const contactPinned = contactFramePinned()
     if (
-      mobileCorridorSettledAt(7)
+      mobileCorridorSettledAt(ranges.length)
       && (
         scrollY >= bounds.contactEnd
         || (
@@ -2470,7 +2660,7 @@ function paintMobileScrollCorridor(
     const aboutProxyParked = proxyKind === 'about'
       && proxyHost === props.aboutSurfaceEl
     if (
-      mobileCorridorSettledAt(6)
+      mobileCorridorSettledAt(aboutSettledClock)
       && (
         (
           scrollY >= bounds.aboutEnd
@@ -2606,13 +2796,59 @@ function paintMobileScrollCorridor(
     return
   }
 
-  if (segmentId === 'formats-about') {
+  if (segmentId.startsWith('formats-project:')) {
+    const projectIndex = Number.parseInt(segmentId.split(':')[1] ?? '0', 10)
+    const projectNow = projectFormatsNow[projectIndex]
+    if (!projectNow) return
+    mobileStage = 'word'
+    mobileCaseProgress = 1
+    mobileCaseArrived = false
+    mobileFormatsProgress = 1
+    mobileFormatsArrived = false
+    mobileAboutProgress = 0
+    mobileAboutArrived = false
+    caseMediaActive = false
+    setCaseMediaVisible(false)
+    clearCaseMediaFlight()
+    clearAboutTitleContrast()
+    paintAboutSurfaceTone(0)
+    paintBox(lerpBox(formatsNow, projectNow, t), 1)
+    return
+  }
+
+  if (segmentId.startsWith('project-project:')) {
+    const [, fromIndexText, toIndexText] = segmentId.split(':')
+    const fromProject = projectFormatsNow[Number.parseInt(fromIndexText ?? '0', 10)]
+    const toProject = projectFormatsNow[Number.parseInt(toIndexText ?? '0', 10)]
+    if (!fromProject || !toProject) return
+    mobileStage = 'word'
+    mobileCaseProgress = 1
+    mobileCaseArrived = false
+    mobileFormatsProgress = 1
+    mobileFormatsArrived = false
+    mobileAboutProgress = 0
+    mobileAboutArrived = false
+    caseMediaActive = false
+    setCaseMediaVisible(false)
+    clearCaseMediaFlight()
+    clearAboutTitleContrast()
+    paintAboutSurfaceTone(0)
+    paintBox(lerpBox(fromProject, toProject, t), 1)
+    return
+  }
+
+  if (segmentId === 'formats-about' || segmentId === 'project-about') {
     // The gap between formatsEnd and aboutStart is an intentional hold: the
     // corridor resolves this segment at t=0 until Biography actually begins.
     // Projects' collapsing tail can still shift Biography after the corridor
     // was captured. Rebase the endpoint from the live slot so the last flight
     // frame is identical to the pose used by the following DOM-owned hold.
-    const box = lerpBox(formatsNow, aboutNow, t)
+    const lastProject = projectFormatsNow.at(-1)
+    const box = lerpBox(
+      segmentId === 'project-about' && lastProject ? lastProject : formatsNow,
+      aboutNow,
+      t,
+    )
     const toneProgress = smoothUnit(t / MOBILE_ABOUT_TONE_END_P)
     const titleLightProgress = smoothUnit((toneProgress - 0.35) / 0.45)
     mobileStage = 'word'
@@ -3338,7 +3574,7 @@ function reconcileFromScroll() {
 }
 
 /** Named navigation requests a landing snapshot through the shared route contract. */
-function paintAnchorDestination(targetId: HomeAnchorTarget) {
+function paintAnchorDestination(targetId: HomeMotionSection) {
   caseMediaActive = false
   setSurfaceDocked(false)
   setSurfaceReady(false)
@@ -3360,7 +3596,15 @@ function paintAnchorDestination(targetId: HomeAnchorTarget) {
   paintAboutSurfaceTone(0)
   if (targetId === 'services') {
     const track = mobileActive ? readBox(props.formatsSurfaceEl) : null
-    const box = mobileActive && track ? mobileFormatsSettledBox(track) : formatsSurfacePose()
+    const list = mobileActive ? readBox(formatsListElement()) : null
+    const box = mobileActive && track
+      ? mobileFormatsSettledBox(track, list)
+      : formatsSurfacePose()
+    if (box) paintBox(box, 1)
+    return
+  }
+  if (targetId === 'project-formats') {
+    const box = projectFormatSurfacePose(0) ?? formatsSurfacePose()
     if (box) paintBox(box, 1)
     return
   }
@@ -3384,13 +3628,13 @@ function captureCurrentSurfaceSnapshot(box: SurfaceBox): SurfaceVisualSnapshot {
 }
 
 function beginAnchorSurfaceTrip(targetId: string, scrollTop: number) {
-  if (!isHomeAnchorTarget(targetId)) return null
+  if (!isHomeMotionSection(targetId)) return null
   if (!keepAliveActive || morphBooting || !frame.value || !liveBox) return null
   const source = proxyPose() ?? (pinTo.value ? readBox(frame.value) : liveBox)
   if (!source) return null
   returnDockScrollY = null
   releaseHomeReturnSnapshot()
-  const destinationS = HOME_ANCHOR_DESTINATIONS[targetId].desktopProgress
+  const destinationS = HOME_SECTION_DESTINATIONS[targetId].desktopProgress
   const route = planSurfaceRoute(desktopLiveS, destinationS)
   const motion: NonNullable<typeof anchorMotion> = {
     phase: 'scroll',
@@ -3502,7 +3746,7 @@ function paintAnchorSurfaceHandoff(now: number) {
   const progress = clampUnit(motion.elapsed / ANCHOR_SURFACE_DURATION_MS)
   const eased = smoothUnit(progress)
   const documentSpace = mobileActive && (!motion.targetId
-    || HOME_ANCHOR_DESTINATIONS[motion.targetId].mobileSpace === 'document')
+    || HOME_SECTION_DESTINATIONS[motion.targetId].mobileSpace === 'document')
   const from = documentSpace && motion.from.box
     ? {
         ...motion.from,
@@ -3534,7 +3778,7 @@ function paintAnchorSurfaceHandoff(now: number) {
   // scrollY=0 is not waypoint 0 (the Hero -> Kado morph start), so commit the
   // real scroll clock before returning ownership to ordinary scrolling.
   desktopLiveS = motion.targetId && motion.targetId !== 'home'
-    ? HOME_ANCHOR_DESTINATIONS[motion.targetId].desktopProgress
+    ? HOME_SECTION_DESTINATIONS[motion.targetId].desktopProgress
     : computeDesktopTarget()
   if (motion.targetId) {
     paintAnchorDestination(motion.targetId)
@@ -3643,6 +3887,10 @@ function killMorph() {
   caseTrigger = null
   formatsTrigger?.kill()
   formatsTrigger = null
+  projectFormatTriggers.forEach(projectTrigger => projectTrigger.kill())
+  projectFormatTriggers = []
+  projectFormatsFollowTrigger?.kill()
+  projectFormatsFollowTrigger = null
   aboutTrigger?.kill()
   aboutTrigger = null
   contactTrigger?.kill()
@@ -3679,6 +3927,7 @@ function killMorph() {
   mobileAboutArrived = false
   setContactStageProgress(0)
   mobileScrollBounds = null
+  lastProjectFormatDocs = []
   mobileCorridorS = 0
   mobileCorridorLastY = null
   mobileCorridorDirection = 'forward'
@@ -3702,6 +3951,8 @@ let lastCaseSectionEl: HTMLElement | null = null
 let lastCaseMediaEl: HTMLElement | null = null
 let lastFormatsSectionEl: HTMLElement | null = null
 let lastFormatsSurfaceEl: HTMLElement | null = null
+let lastProjectFormatsSectionEl: HTMLElement | null = null
+let lastProjectFormatSurfaceEls: HTMLElement[] = []
 let lastAboutSectionEl: HTMLElement | null = null
 let lastAboutSurfaceEl: HTMLElement | null = null
 let lastAboutTitleEl: HTMLElement | null = null
@@ -3774,6 +4025,7 @@ function buildMobileMorph(ScrollTrigger: typeof import('gsap/ScrollTrigger').Scr
   mobileCorridorLastY = window.scrollY
   const corridorEnd = props.contactSectionEl
     ?? props.aboutSectionEl
+    ?? props.projectFormatsSectionEl
     ?? props.formatsSectionEl
     ?? props.caseSectionEl
     ?? body
@@ -3865,21 +4117,6 @@ function buildMorph() {
 
     if (mobileActive) {
       buildMobileMorph(ScrollTrigger)
-      // A cold /#cases load has no preceding Hero → Kado journey. Place the
-      // surface at its actual initial viewport target before the first paint.
-      if (initialCasesHashEntry.value) {
-        const dest = caseMediaPose()
-        if (dest) {
-          mobileCaseProgress = 1
-          mobileCaseArrived = true
-          caseMediaActive = true
-          setCaseSurfaceDocked(true)
-          paintBox(dest, 1)
-          requestAnimationFrame(() => {
-            pinCaseFrame()
-          })
-        }
-      }
       // A detail → home return already has its own fullscreen image flight.
       // Dock the real surface immediately after the mobile corridor has painted
       // its initial rest pose, while that overlay is still fully covering it.
@@ -3896,6 +4133,8 @@ function buildMorph() {
       lastCaseMediaEl = props.caseMediaEl ?? null
       lastFormatsSectionEl = props.formatsSectionEl ?? null
       lastFormatsSurfaceEl = props.formatsSurfaceEl ?? null
+      lastProjectFormatsSectionEl = props.projectFormatsSectionEl ?? null
+      lastProjectFormatSurfaceEls = [...props.projectFormatSurfaceEls]
       lastAboutSectionEl = props.aboutSectionEl ?? null
       lastAboutSurfaceEl = props.aboutSurfaceEl ?? null
       lastAboutTitleEl = props.aboutTitleEl ?? null
@@ -3964,10 +4203,49 @@ function buildMorph() {
       formatsTrigger = null
     }
 
+    projectFormatTriggers = props.projectFormatSurfaceEls.map((surface) => {
+      const item = surface.closest('.project-formats__item') ?? surface
+      return ScrollTrigger.create({
+        trigger: item,
+        start: PROJECT_FORMAT_SCRUB_START,
+        end: PROJECT_FORMAT_SCRUB_END,
+        invalidateOnRefresh: true,
+        onUpdate: () => {
+          ensureTick()
+        },
+        onRefresh: () => {
+          if (morphBooting) return
+          ensureTick()
+        },
+      })
+    })
+
+    if (props.projectFormatsSectionEl && props.projectFormatSurfaceEls.length) {
+      projectFormatsFollowTrigger = ScrollTrigger.create({
+        trigger: props.projectFormatsSectionEl,
+        start: 'top bottom',
+        end: 'bottom top',
+        invalidateOnRefresh: true,
+        onUpdate: () => {
+          // Completed morph triggers no longer update, but the settled Surface
+          // still has to follow the live price-card box on every scroll frame.
+          ensureTick()
+        },
+        onRefresh: () => {
+          if (morphBooting) return
+          ensureTick()
+        },
+      })
+    } else {
+      projectFormatsFollowTrigger = null
+    }
+
     if (props.aboutSectionEl && props.aboutSurfaceEl) {
       aboutTrigger = ScrollTrigger.create({
         trigger: props.aboutSectionEl,
-        start: ABOUT_SCRUB_START,
+        start: props.projectFormatSurfaceEls.length
+          ? PROJECT_FORMAT_SCRUB_START
+          : ABOUT_SCRUB_START,
         end: ABOUT_SCRUB_END,
         invalidateOnRefresh: true,
         onUpdate: () => {
@@ -4029,6 +4307,8 @@ function buildMorph() {
     lastCaseMediaEl = props.caseMediaEl ?? null
     lastFormatsSectionEl = props.formatsSectionEl ?? null
     lastFormatsSurfaceEl = props.formatsSurfaceEl ?? null
+    lastProjectFormatsSectionEl = props.projectFormatsSectionEl ?? null
+    lastProjectFormatSurfaceEls = [...props.projectFormatSurfaceEls]
     lastAboutSectionEl = props.aboutSectionEl ?? null
     lastAboutSurfaceEl = props.aboutSurfaceEl ?? null
     lastAboutTitleEl = props.aboutTitleEl ?? null
@@ -4129,22 +4409,29 @@ function onAnchorVisibilityChange() {
 onMounted(async () => {
   resetFlowSurfaceMaskSession()
   hostUnmounted = false
-  mobileSectionBootPending.value = useMobileCorridor()
-    && !!window.location.hash
-    && !returningHomeFromCaseDetail()
-  initialCasesHashEntry.value = window.location.hash === '#cases'
-    && initialHomeDocument.value
+  mobileCorridorBootPending.value = useMobileCorridor()
+    && window.scrollY > 1
     && !returningHomeFromCaseDetail()
   const coldDirectEntry = initialHomeDocument.value
     && !returningHomeFromCaseDetail()
-    && !window.location.hash
+  if (PLAIN_COLD_HOME && coldDirectEntry) {
+    stopSimpleSurfaceIntroWatch = watch(
+      [frameBootReady, simpleHomeIntroReady],
+      ([frameReady, introReady]) => {
+        if (frameReady && introReady) void nextTick(playSimpleSurfaceIntro)
+      },
+      { immediate: true, flush: 'post' },
+    )
+  } else {
+    simpleSurfaceIntroPending.value = false
+  }
   await nextTick()
   // Let the route/page DOM settle before ST — avoids refresh↔pin softlock on SPA entry.
   await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
   if (hostUnmounted) return
   claimSurfaceDomOwnership()
   connectAppliedScrollFrames()
-  removeAnchorMotionOwner = registerHomeAnchorMotion(beginAnchorSurfaceTrip)
+  removeAnchorMotionOwner = registerHomeSectionMotion(beginAnchorSurfaceTrip)
   document.addEventListener('visibilitychange', onAnchorVisibilityChange)
   // Paint the real Hero surface and copy before loading the scroll engine.
   // This hands off the SSR primer without putting GSAP on the LCP path.
@@ -4173,6 +4460,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopSimpleSurfaceIntroWatch?.()
+  stopSimpleSurfaceIntroWatch = null
+  simpleSurfaceIntroAnimation?.cancel()
+  simpleSurfaceIntroAnimation = null
   hostUnmounted = true
   removeAnchorMotionOwner?.()
   removeAnchorMotionOwner = null
@@ -4204,6 +4495,8 @@ onUnmounted(() => {
   lastCaseMediaEl = null
   lastFormatsSectionEl = null
   lastFormatsSurfaceEl = null
+  lastProjectFormatsSectionEl = null
+  lastProjectFormatSurfaceEls = []
   lastAboutSectionEl = null
   lastAboutSurfaceEl = null
   lastAboutTitleEl = null
@@ -4254,8 +4547,14 @@ watch(clipPathEl, (el) => {
 })
 
 watch(
-  [() => props.fromEl, () => props.toEl, () => props.stoneEl, () => props.contactSurfaceEl],
-  ([from, to, stone, contact]) => {
+  [
+    () => props.fromEl,
+    () => props.toEl,
+    () => props.stoneEl,
+    () => props.contactSurfaceEl,
+    () => props.projectFormatSurfaceEls,
+  ],
+  ([from, to, stone, contact, projectSurfaces]) => {
     poseResizeObserver?.disconnect()
     if (contactResizeTimer) window.clearTimeout(contactResizeTimer)
     contactResizeTimer = 0
@@ -4276,12 +4575,13 @@ watch(
     if (from) poseResizeObserver.observe(from)
     if (to) poseResizeObserver.observe(to)
     if (contact) poseResizeObserver.observe(contact)
+    projectSurfaces.forEach(surface => poseResizeObserver?.observe(surface))
     if (stone instanceof HTMLImageElement) {
       stone.addEventListener('load', schedulePoseResync)
       removeStoneLoadResync = () => stone.removeEventListener('load', schedulePoseResync)
-      // This image sizes the Kado waypoint even when a hash starts below it.
+      // This image sizes the Kado waypoint during restored-scroll entries too.
       // Do not let native lazy loading postpone the whole Surface corridor.
-      if (window.location.hash) stone.loading = 'eager'
+      if (window.scrollY > 1) stone.loading = 'eager'
     }
   },
   { immediate: true, flush: 'post' },
@@ -4299,6 +4599,8 @@ watch(
       props.caseMediaEl,
       props.formatsSectionEl,
       props.formatsSurfaceEl,
+      props.projectFormatsSectionEl,
+      props.projectFormatSurfaceEls,
       props.aboutSectionEl,
       props.aboutSurfaceEl,
       props.aboutTitleEl,
@@ -4324,6 +4626,11 @@ watch(
         && props.caseMediaEl === lastCaseMediaEl
         && props.formatsSectionEl === lastFormatsSectionEl
         && props.formatsSurfaceEl === lastFormatsSurfaceEl
+        && props.projectFormatsSectionEl === lastProjectFormatsSectionEl
+        && props.projectFormatSurfaceEls.length === lastProjectFormatSurfaceEls.length
+        && props.projectFormatSurfaceEls.every(
+          (element, index) => element === lastProjectFormatSurfaceEls[index],
+        )
         && props.aboutSectionEl === lastAboutSectionEl
         && props.aboutSurfaceEl === lastAboutSurfaceEl
         && props.aboutTitleEl === lastAboutTitleEl
@@ -4460,35 +4767,41 @@ watch(
           'flow-surface-frame--boot-hidden': !frameBootReady,
           'flow-surface-frame--case-hidden': caseSurfaceReady,
           'flow-surface-frame--proxy-hidden': proxyParked,
-          'flow-surface-frame--boot-pending': mobileSectionBootPending,
+          'flow-surface-frame--boot-pending': mobileCorridorBootPending,
         }"
         style="top: var(--layout-surface-top); left: var(--layout-margin); width: calc(100% - var(--layout-margin) * 2); height: calc(100% - var(--layout-surface-top) - var(--layout-margin));"
       >
-        <FlowSurface
-          mode="window"
-          class="inset-0 size-full"
-          :class="{ 'flow-surface--hero-entry-open': heroSceneEntryActive }"
-          :tone-class="toneClass"
-          tone-color="var(--flow-surface-tone, var(--palette-stone))"
-          :tone-opacity="heroSceneEntryActive ? 0 : 1"
-          :active="!caseSurfaceReady"
+        <div
+          ref="visualShellEl"
+          class="flow-surface-visual-shell absolute inset-0"
+          :class="{ 'flow-surface-visual-shell--intro-hidden': simpleSurfaceIntroPending }"
         >
-          <HomeHeroStage
-            v-if="stageRest.w > 2"
-            :rest-top="stageRest.top"
-            :rest-left="stageRest.left"
-            :stage-width="stageRest.w"
-            :stage-height="stageRest.h"
-            :section-el="heroSectionEl"
-            :to-el="toEl"
-            :route-end-el="stoneEl"
-            @scene-entry-change="heroSceneEntryActive = $event"
-          />
-          <HomeContactStage
-            :progress="contactStageProgress"
-            :target-el="contactFieldsEl"
-          />
-        </FlowSurface>
+          <FlowSurface
+            mode="window"
+            class="inset-0 size-full"
+            :class="{ 'flow-surface--hero-entry-open': heroSceneEntryActive }"
+            :tone-class="toneClass"
+            tone-color="var(--flow-surface-tone, var(--palette-stone))"
+            :tone-opacity="heroSceneEntryActive ? 0 : 1"
+            :active="!caseSurfaceReady"
+          >
+            <HomeHeroStage
+              v-if="stageRest.w > 2"
+              :rest-top="stageRest.top"
+              :rest-left="stageRest.left"
+              :stage-width="stageRest.w"
+              :stage-height="stageRest.h"
+              :section-el="heroSectionEl"
+              :to-el="toEl"
+              :route-end-el="stoneEl"
+              @scene-entry-change="heroSceneEntryActive = $event"
+            />
+            <HomeContactStage
+              :progress="contactStageProgress"
+              :target-el="contactFieldsEl"
+            />
+          </FlowSurface>
+        </div>
       </div>
     </Teleport>
   </div>
@@ -4500,6 +4813,11 @@ watch(
 .flow-surface-frame--proxy-hidden,
 .flow-surface-frame--boot-pending {
   opacity: 0;
+}
+
+.flow-surface-visual-shell--intro-hidden {
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* The cold scene rises as one translucent layer. Restore the Surface mask only

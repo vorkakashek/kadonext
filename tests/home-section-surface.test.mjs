@@ -8,7 +8,7 @@ import {
   mixSurfaceVisualSnapshot,
   planSurfaceRoute,
 } from '../app/utils/flowSurfaceContract.ts'
-import { HOME_ANCHOR_DESTINATIONS, isHomeAnchorTarget } from '../app/utils/homeAnchorMotion.ts'
+import { HOME_SECTION_DESTINATIONS, isHomeMotionSection } from '../app/utils/homeSectionMotion.ts'
 
 function harness() {
   // Run the host's actual ownership/handoff functions with a controllable corridor.
@@ -49,7 +49,7 @@ function harness() {
     flowSurfaceMask: { morph: 0, heroHorizontalMorph: 0, heroReturning: false }, proxyParked: { value: false },
     contactStageProgress: { value: 0 }, lastAboutTitleOpacity: '', lastCaseToneCss: '',
     stMod: null, ANCHOR_SURFACE_DURATION_MS: 720,
-    HOME_ANCHOR_DESTINATIONS, isHomeAnchorTarget,
+    HOME_SECTION_DESTINATIONS, isHomeMotionSection,
     props: { formatsSurfaceEl: {} },
     window: { scrollY: 4000 }, document: { hidden: false }, performance: { now: () => now },
     proxyPose: () => null,
@@ -74,6 +74,7 @@ function harness() {
   context.computeDesktopTarget = () => context.destinationS
   context.readBox = () => context.serviceDestination
   context.formatsSurfacePose = () => context.serviceDestination
+  context.projectFormatSurfacePose = () => context.destination
   context.mobileFormatsSettledBox = () => context.serviceDestination
   context.heroLivePose = () => context.homeDestination
   context.aboutSurfacePose = () => context.destination
@@ -111,7 +112,7 @@ test('scroll holds the source; settlement interpolates directly to the final pos
   assert.equal(h.paints.at(-1).morph, 0.5)
   for (let i = 0; i < 24; i++) h.advance(15)
   assert.equal(h.context.anchorMotion, null)
-  assert.equal(h.context.desktopLiveS, 5)
+  assert.equal(h.context.desktopLiveS, 8)
   assert.equal(h.paints.at(-1).width, 500)
 })
 
@@ -275,6 +276,17 @@ test('About shares the named-pose handoff rather than sampling a previous segmen
   const motion = h.context.beginAnchorSurfaceTrip('about', 4000)
   motion.settle(4000)
   for (let i = 0; i < 48; i++) h.advance(15)
+  assert.equal(h.context.desktopLiveS, 7)
+  assert.equal(h.context.anchorMotion, null)
+})
+
+test('Pricing lands on the first project-format surface', () => {
+  const h = harness()
+  h.context.destination.width = 640
+  const motion = h.context.beginAnchorSurfaceTrip('project-formats', 4000)
+  motion.settle(4000)
+  for (let i = 0; i < 48; i++) h.advance(15)
   assert.equal(h.context.desktopLiveS, 4)
+  assert.equal(h.paints.at(-1).width, 640)
   assert.equal(h.context.anchorMotion, null)
 })

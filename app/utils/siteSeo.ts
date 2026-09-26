@@ -18,6 +18,7 @@ export function canonicalPath(path: string): string {
 }
 
 export function siteUrl(path: string): string {
+  if (/^[a-z][a-z\d+.-]*:/i.test(path)) return path
   return `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`
 }
 

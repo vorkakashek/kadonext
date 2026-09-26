@@ -6,7 +6,8 @@
  */
 import { flowSurfaceMask, useFlowSurfaceMask } from '~/composables/useFlowSurfaceMask'
 import { useInitialReveal } from '~/composables/useInitialReveal'
-import { preloadHomeMotionBundles, preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
+import { preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
+import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
 import { isCoarsePointer, isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
   subscribeAppliedScrollFrame,
@@ -77,8 +78,10 @@ const initialHomeDocument = useState<boolean>('initial-home-document', () => fal
 const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
 const homeIntroStarted = useState<boolean>('home-intro-gate-started', () => false)
 const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
+const homeIntroSettled = useState<boolean>('home-intro-settled', () => false)
 const homeIntroContentReady = useState<boolean>('home-intro-content-ready', () => false)
 const heroIntroSettled = useState('home-hero-intro-settled', () => false)
+const criticalFontReady = useState<boolean>('home-critical-font-ready', () => false)
 const focusEl = ref<HTMLElement | null>(null)
 const sceneEntryEl = ref<HTMLElement | null>(null)
 const mediaEl = ref<HTMLElement | null>(null)
@@ -427,8 +430,8 @@ function updateSloganMotion(scrollY?: number) {
       : routeStart + (props.sectionEl?.offsetHeight ?? vh)
   }
   const routeProgress = Math.min(1, scrolled / Math.max(1, routeEnd - routeStart))
-  // A cold hash entry can arrive below Hero before the Surface engine has
-  // painted its first morph. Keep scene visibility tied to the real route too.
+  // A restored scroll position can arrive below Hero before the Surface engine
+  // has painted its first morph. Keep scene visibility tied to the real route too.
   const pastHeroRoute = currentScrollY >= routeEnd + (mobileLite.value ? vh : 0)
   const reversePrewarm = !mobileLite.value
     && mask.heroReturning
@@ -635,12 +638,12 @@ watch(
 
 let introTl: { kill: () => void; pause: () => void; resume: () => void } | null = null
 let introGen = 0
+let authoredIntroStarted = false
 
 const swarmMount = ref(false)
 const swarmLit = ref(false)
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
-const heroWebglRequired = useState<boolean>('home-hero-webgl-required', () => false)
 let swarmIdleId: number | null = null
 let swarmFallbackTimer = 0
 let removeSwarmIntent: (() => void) | null = null
@@ -650,7 +653,11 @@ let mobileSwarmDeferred = false
 let requestSwarmMount: (() => void) | null = null
 let stopSurfaceMountWatch: (() => void) | null = null
 
-function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
+function scheduleSwarmMount(
+  fromNavigation: boolean,
+  coldHomeIntro = false,
+  plainColdHome = false,
+) {
   const mount = () => {
     if (swarmIdleId !== null && 'cancelIdleCallback' in window) {
       window.cancelIdleCallback(swarmIdleId)
@@ -681,35 +688,50 @@ function scheduleSwarmMount(fromNavigation: boolean, coldHomeIntro = false) {
   // Save-Data may defer the scene; slow estimates still skip speculative asset
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
-  const coldMobileIntro = coldHomeIntro && mobileLite.value
-  heroWebglRequired.value = coldHomeIntro && !mobileLite.value && !constrained
-  if (heroWebglRequired.value) {
-    // Cold WebGL startup (Three parsing, context creation, HDR/PMREM and shader
-    // compilation) is allowed only while the full-screen intro is static.
-    // HomeIntroSurface waits for `heroWebglLit` before starting clip-path.
-    // The scene mounts on the next frame and loads its HDR itself. Fetching the
-    // same asset here races that request and can transfer it twice on a cold load.
-    void preloadHomeMotionBundles()
+  if (plainColdHome && mobileLite.value) {
+    // The finished HTML/CSS frame is already visible. Start the live upgrade in
+    // the first quiet slot after hydration, but keep the delay tightly bounded:
+    // the scene is core Hero content and must not wait on a multi-second timer.
+    const onIntent = () => mount()
+    window.addEventListener('pointerdown', onIntent, { once: true, passive: true })
+    window.addEventListener('keydown', onIntent, { once: true })
+    removeSwarmIntent = () => {
+      window.removeEventListener('pointerdown', onIntent)
+      window.removeEventListener('keydown', onIntent)
+    }
+    requestAnimationFrame(() => {
+      if (stageUnmounted || swarmMount.value) return
+      if (typeof window.requestIdleCallback === 'function') {
+        swarmIdleId = window.requestIdleCallback(mount, { timeout: constrained ? 1600 : 500 })
+      } else {
+        swarmFallbackTimer = window.setTimeout(mount, constrained ? 600 : 120)
+      }
+    })
+    return
+  }
+  if (coldHomeIntro && !constrained && !mobileLite.value) {
+    // Desktop WebGL context creation is the only measured >50 ms startup task.
+    // Pay that cost while the full-screen intro is still static; the intro waits
+    // only for `booted`, never for HDR/PMREM or the first fully lit scene.
+    void preloadThreeBundle()
     requestAnimationFrame(mount)
     return
   }
-  if (coldMobileIntro && !constrained) {
-    // Let the surface and title become usable before Three and shader
-    // compilation take the main thread. The stone lid remains until
-    // the first lit WebGL frame, then the scene replaces it in place.
-    const stop = watch(heroIntroSettled, (settled) => {
-      if (!settled) return
-      stop()
-      requestAnimationFrame(() => {
-        if (stageUnmounted || swarmMount.value) return
-        if (typeof window.requestIdleCallback === 'function') {
-          swarmIdleId = window.requestIdleCallback(mount, { timeout: 800 })
-        } else {
-          swarmFallbackTimer = window.setTimeout(mount, 120)
-        }
-      })
+  if (coldHomeIntro && !constrained) {
+    // Mobile keeps its existing post-handoff boot: creating a context beneath a
+    // hidden canvas is fragile on Android, and touch startup uses the lite scene.
+    const startAfterSurface = () => requestAnimationFrame(() => {
+      if (!stageUnmounted) mount()
     })
-    removeSwarmIntent = stop
+    if (homeIntroSettled.value || homeIntroUnlocked.value) startAfterSurface()
+    else {
+      const stop = watch([homeIntroSettled, homeIntroUnlocked], ([settled, unlocked]) => {
+        if (!settled && !unlocked) return
+        stop()
+        startAfterSurface()
+      })
+      removeSwarmIntent = stop
+    }
     return
   }
   mobileSwarmDeferred = mobileLite.value && constrained
@@ -1004,12 +1026,15 @@ onMounted(() => {
   removeAppliedScrollFrame = subscribeAppliedScrollFrame(onAppliedParallaxFrame)
   window.addEventListener('resize', onCopyParallaxResize, { passive: true })
 
-  const fromNav = skipHeroIntro.value
-  if (fromNav) skipHeroIntro.value = false
-  const coldHomeIntro = initialHomeDocument.value && !route.hash
+  const plainColdHome = PLAIN_COLD_HOME && initialHomeDocument.value
+  const fromNavigation = skipHeroIntro.value
+  const fromNav = fromNavigation
+  if (skipHeroIntro.value) skipHeroIntro.value = false
+  const coldHomeIntro = initialHomeDocument.value && !plainColdHome
   coldSceneFadeArmed.value = coldHomeIntro
   coldSceneFadeRunning.value = false
   const animateSceneEntry = !fromNav
+    && !plainColdHome
     && !coldHomeIntro
     && sceneOpacity.value > SCENE_LIVE_OPACITY
   sceneEntryArmed.value = animateSceneEntry
@@ -1019,16 +1044,21 @@ onMounted(() => {
   heroIntroSettled.value = fromNav
   introPending.value = !fromNav
   swarmLoopReady.value = fromNav
-  scheduleSwarmMount(fromNav, coldHomeIntro)
+  scheduleSwarmMount(fromNavigation, coldHomeIntro, plainColdHome)
 
-  // Start the scene as soon as the measured live Surface exists. The scene is
-  // still independently covered and is never used as the scroll-unlock gate.
-  // This removes the old fixed 1100 ms desktop wait without making intro text
-  // race the Surface's first committed pose.
+  // On later entries, start as soon as the measured Surface exists. The cold
+  // document waits for its crop handoff in scheduleSwarmMount instead.
   stopSurfaceMountWatch = watch(
     homeSurfaceReady,
     (ready) => {
-      if (!ready || fromNav || mobileSwarmDeferred || (coldHomeIntro && mobileLite.value) || swarmMount.value) return
+      if (
+        !ready
+        || fromNav
+        || plainColdHome
+        || mobileSwarmDeferred
+        || coldHomeIntro
+        || swarmMount.value
+      ) return
       requestAnimationFrame(() => requestSwarmMount?.())
     },
     { immediate: true },
@@ -1045,10 +1075,15 @@ onMounted(() => {
       homeSurfaceReady,
       homeIntroStarted,
       homeIntroContentReady,
+      criticalFontReady,
     ],
-    async ([on, surfaceReady, introStarted, introContentReady]) => {
-      const introGateWaiting = introStarted && !introContentReady
-      if (!on || !surfaceReady || introGateWaiting) {
+    async ([on, surfaceReady, introStarted, introContentReady, fontReady]) => {
+      // Desktop copy should enter with the Surface morph, not wait for its
+      // 640 ms crop plus opacity handoff to finish. Mobile keeps the stricter
+      // gate because its direct handoff owns the whole first-screen reveal.
+      const introGateWaiting = mobileLite.value && introStarted && !introContentReady
+      const criticalFontWaiting = (coldHomeIntro || plainColdHome) && !fontReady
+      if (!on || !surfaceReady || introGateWaiting || criticalFontWaiting) {
         if (fromNav) return
         swarmLoopReady.value = false
         introPending.value = true
@@ -1064,12 +1099,16 @@ onMounted(() => {
         }
         return
       }
+      if (authoredIntroStarted) return
+      // Readiness signals arrive independently. Claim this mount's entrance
+      // before any async import so the later Surface handoff cannot replay it.
+      authoredIntroStarted = true
 
       const gen = ++introGen
       introTl?.kill()
       introTl = null
       const mobile = mobileLite.value
-      const directColdScene = coldHomeIntro
+      const directColdScene = coldHomeIntro || plainColdHome
 
       // The cold mobile scene is already protected by its opaque safety lid and
       // the outer intro Surface. Keep the media layer paintable so the later
@@ -1124,7 +1163,7 @@ onMounted(() => {
             0,
           )
         }
-        if (!mobileSwarmDeferred && !coldHomeIntro) {
+        if (!mobileSwarmDeferred && !coldHomeIntro && !plainColdHome) {
           // Mount only after the media layer is visible, then let texture load and
           // shader compilation run under the opaque stone lid while the copy
           // finishes its entrance.
@@ -1224,7 +1263,6 @@ onUnmounted(() => {
   coldSceneFadeArmed.value = false
   emit('sceneEntryChange', false)
   heroSwarmReady.value = false
-  heroWebglRequired.value = false
   cancelGlCoverHold()
   glCoverHopSession.value = false
   finishHeroRevealQuiet()

@@ -45,6 +45,8 @@ const flowSurfaceMask = useFlowSurfaceMask()
 const section = ref<HTMLElement | null>(null)
 const surfaceSlot = ref<HTMLElement | null>(null)
 const titleBlock = ref<HTMLElement | null>(null)
+const titleText = ref<HTMLElement | null>(null)
+const descLines = ref<HTMLElement | null>(null)
 // Native sticky owns the full scroll compensation on iOS. JS only paints the
 // small authored drift, so asynchronous scrolling cannot race a 1:1 transform.
 const nativeCopyAnchor = ref(false)
@@ -212,6 +214,7 @@ defineExpose({ section, surfaceSlot })
         class="home-hero__title-block relative z-0 col-span-12 flex flex-col"
       >
         <h1
+          ref="titleText"
           class="home-hero__title"
           :aria-label="heroTitleLines.join(' ')"
         >
@@ -256,6 +259,7 @@ defineExpose({ section, surfaceSlot })
           </span>
         </h1>
         <div
+          ref="descLines"
           class="home-hero__desc-lines"
         >
           <div
@@ -279,39 +283,12 @@ defineExpose({ section, surfaceSlot })
         ref="surfaceSlot"
         class="home-hero__surface-slot pointer-events-none relative col-span-12"
       >
-        <!--
-          SSR first frame for the surface. The live FlowSurface is intentionally
-          lazy; keeping its tone + grain here prevents a blank panel and makes the
-          decorative raster discoverable before client JavaScript. The primer is
-          removed only after the live surface has painted underneath it.
-        -->
-        <div
-          v-if="!surfaceReady"
-          class="home-hero__surface-primer bg-stone"
-          aria-hidden="true"
-        >
-          <div class="home-hero__surface-primer-grain" />
-        </div>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-:global(:root) {
-  --home-surface-grain: image-set(
-    url('/textures/grain-tile-v2-256.avif') type('image/avif'),
-    url('/textures/grain-tile-v2-256.webp') type('image/webp')
-  );
-}
-
-.home-hero__surface-primer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: var(--flow-surface-radius, 24px);
-}
-
 .hero {
   min-height: var(--app-screen);
   padding-bottom: var(--layout-margin);
@@ -342,7 +319,9 @@ defineExpose({ section, surfaceSlot })
   width: 100%;
   margin-inline: auto;
   font-size: var(--home-hero-title-size);
+  font-family: "Fixel Critical", var(--font-display);
   font-weight: 600;
+  font-stretch: 100%;
   font-synthesis: none;
   letter-spacing: -0.03em;
   line-height: 0.9;
@@ -392,7 +371,9 @@ defineExpose({ section, surfaceSlot })
   margin: 0;
   color: var(--palette-ink);
   font-size: calc(var(--type-slogan) * 0.9);
+  font-family: "Fixel Critical", var(--font-sans);
   font-weight: 400;
+  font-stretch: 87.5%;
   letter-spacing: -0.02em;
   line-height: 1.2;
   will-change: transform;
@@ -407,17 +388,6 @@ defineExpose({ section, surfaceSlot })
 
 .home-hero__surface-slot {
   aspect-ratio: 4 / 5;
-}
-
-.home-hero__surface-primer-grain {
-  position: absolute;
-  inset: 0;
-  background-image: var(--home-surface-grain);
-  background-position: 0 0;
-  background-repeat: repeat;
-  background-size: 224px 224px;
-  opacity: 0.2;
-  mix-blend-mode: soft-light;
 }
 
 @media (max-width: 767.98px) {
@@ -452,9 +422,6 @@ defineExpose({ section, surfaceSlot })
     z-index: 2;
   }
 
-  .home-hero__surface-primer-grain {
-    background-size: 176px 176px;
-  }
 }
 
 @media not all {

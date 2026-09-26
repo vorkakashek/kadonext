@@ -162,9 +162,10 @@ const presets: Record<string, ResponsiveMediaPreset> = {
  * Decorate localized content with generated delivery candidates. The content
  * stays readable and source-led; asset metadata has one shared authority.
  */
-export function attachResponsiveMedia<T>(value: T): T {
+export function attachResponsiveMedia<T>(value: T, assetCdnUrl = ''): T {
   if (Array.isArray(value)) {
-    return value.map(item => attachResponsiveMedia(item)) as T
+    const attached = value.map(item => attachResponsiveMedia(item))
+    return (assetCdnUrl ? prefixAssetTree(attached, assetCdnUrl) : attached) as T
   }
   if (!value || typeof value !== 'object') return value
 
@@ -174,5 +175,16 @@ export function attachResponsiveMedia<T>(value: T): T {
   }
   const src = typeof next.src === 'string' ? next.src : ''
   const preset = presets[src]
-  return (preset ? { ...next, ...preset } : next) as T
+  const merged = preset ? { ...next, ...preset } : next
+  return (assetCdnUrl ? prefixAssetTree(merged, assetCdnUrl) : merged) as T
 }
+
+function prefixAssetTree<T>(value: T, assetCdnUrl: string): T {
+  if (typeof value === 'string') return prefixPublicAssetReferences(value, assetCdnUrl) as T
+  if (Array.isArray(value)) return value.map(item => prefixAssetTree(item, assetCdnUrl)) as T
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [key, prefixAssetTree(child, assetCdnUrl)]),
+  ) as T
+}
+import { prefixPublicAssetReferences } from './assetCdn'

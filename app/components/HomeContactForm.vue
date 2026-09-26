@@ -839,7 +839,7 @@ function focusConfirmation() {
   left: 0;
   color: color-mix(in srgb, var(--palette-ink) 48%, transparent);
   cursor: text;
-  font-size: clamp(1.65rem, 3vw, 3.5rem);
+  font-size: clamp(1.35rem, 2.15vw, 2.5rem);
   font-weight: 500;
   letter-spacing: -0.045em;
   line-height: 1;
@@ -1070,7 +1070,10 @@ function focusConfirmation() {
     --field-clear-top: calc(clamp(0.64rem, 0.96vw, 1rem) - 1.8rem + clamp(1.45rem, 7.2vw, 2.3rem) * 0.5 / 2);
   }
 
-  .contact-form__label,
+  .contact-form__label {
+    font-size: clamp(1.25rem, 5.8vw, 1.85rem);
+  }
+
   .contact-form textarea,
   .contact-form__field > input {
     font-size: clamp(1.45rem, 7.2vw, 2.3rem);
