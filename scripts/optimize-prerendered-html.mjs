@@ -10,17 +10,12 @@ const asyncPrefetchPattern = /<link\s+rel="prefetch"\s+as="(?:script|style)"[^>]
 // still request the payload on demand.
 const payloadPreloadPattern = /<link\s+rel="preload"\s+as="fetch"[^>]*href="[^"]*\/_payload\.json[^\"]*"[^>]*>\s*/g
 const criticalStylesheetPattern = /<link\s+rel="stylesheet"\s+href="([^"]*\/_nuxt\/(?:entry|navWaveHover|SiteIcon|LanguageSwitch|useFooterPhotoRubberBand)\.[^"/]+\.css)"[^>]*>\s*/g
-const grainPreloadPattern = /<link\s+rel="preload"\s+as="image"\s+href="\/textures\/grain-tile-v2-256\.avif"[^>]*>\s*/g
-const grainUrlPattern = /url\((['"]?)(?:\/|\.\.\/)textures\/grain-tile-v2-256\.avif\1\)/g
 const cssUrlPattern = /url\(\s*(['"]?)([^'")]+)\1\s*\)/g
-const grainBytes = await readFile(join(outputRoot, 'textures/grain-tile-v2-256.avif'))
-const grainDataUrl = `data:image/avif;base64,${grainBytes.toString('base64')}`
 let optimized = 0
 let removed = 0
 let removedPrefetches = 0
 let removedPayloadPreloads = 0
 let inlined = 0
-let embeddedGrainStyles = 0
 
 async function writeCompressed(path, bytes) {
   await Promise.all([
@@ -72,16 +67,12 @@ async function visit(directory) {
     for (const match of stylesheetMatches) {
       const stylesheetPath = new URL(match[1], 'https://kadonext.invalid').pathname
       const css = rootRelativeCssUrls(
-        (await readFile(join(outputRoot, stylesheetPath.slice(1)), 'utf8'))
-          .replace(grainUrlPattern, `url(${grainDataUrl})`),
+        await readFile(join(outputRoot, stylesheetPath.slice(1)), 'utf8'),
         match[1],
       )
       result = result.replace(match[0], `<style data-critical-css>${css}</style>`)
       inlined += 1
     }
-    result = result
-      .replace(grainPreloadPattern, '')
-      .replace(grainUrlPattern, `url(${grainDataUrl})`)
     if (result === source) return
     const bytes = Buffer.from(result)
     await writeCompressed(path, bytes)
@@ -92,16 +83,5 @@ async function visit(directory) {
   }))
 }
 
-const assetEntries = await readdir(join(outputRoot, '_nuxt'), { withFileTypes: true })
-await Promise.all(assetEntries.map(async (entry) => {
-  if (!entry.isFile() || extname(entry.name) !== '.css') return
-  const path = join(outputRoot, '_nuxt', entry.name)
-  const source = await readFile(path, 'utf8')
-  const result = source.replace(grainUrlPattern, `url(${grainDataUrl})`)
-  if (result === source) return
-  await writeCompressed(path, Buffer.from(result))
-  embeddedGrainStyles += 1
-}))
-
 await visit(outputRoot)
-console.log(`Optimized ${optimized} prerendered HTML files; removed ${removed} modulepreloads, ${removedPrefetches} async prefetches and ${removedPayloadPreloads} payload preloads; inlined ${inlined} critical stylesheets; embedded grain in ${embeddedGrainStyles} CSS assets.`)
+console.log(`Optimized ${optimized} prerendered HTML files; removed ${removed} modulepreloads, ${removedPrefetches} async prefetches and ${removedPayloadPreloads} payload preloads; inlined ${inlined} critical stylesheets.`)

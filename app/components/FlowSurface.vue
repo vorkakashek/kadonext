@@ -7,7 +7,7 @@ import {
 import { isAppleTouchDevice, isCoarsePointer, isNarrowViewport } from '~/utils/mobileViewport'
 
 /**
- * Mobile: surface fill + grain stay on; organic clip-path stays off.
+ * Mobile: surface fill stays on; organic clip-path stays off.
  * Soft silhouette was the phone FPS killer — rect crop via overflow:hidden instead.
  */
 const MOBILE_NO_ORGANIC_CLIP = true
@@ -48,14 +48,6 @@ const root = ref<HTMLElement | null>(null)
 const clipEl = ref<HTMLElement | null>(null)
 const pathD = ref('')
 const size = reactive({ w: 1, h: 1 })
-/** Large seamless grain tile (no SVG feTurbulence; that tanks WebKit FPS). */
-const GRAIN_TILE = 'var(--home-surface-grain)'
-/** Smaller tile = finer flecks. */
-const grainTilePx = ref(224)
-const grainEl = ref<HTMLElement | null>(null)
-const GRAIN_OPACITY = 0.2
-/** Discrete tile offset rate — hard jumps, not eased drift. */
-const GRAIN_STEP_MS = 120
 
 function applyClipToDom(clip: string) {
   const el = clipEl.value
@@ -96,7 +88,6 @@ function skipOrganicClip() {
 
 let ro: ResizeObserver | null = null
 let raf = 0
-let grainTimer = 0
 let pointer: { x: number; y: number } | null = null
 let pendingPointer: { clientX: number; clientY: number } | null = null
 let keepAliveActive = true
@@ -914,41 +905,6 @@ function onDocumentMouseOut(e: MouseEvent) {
   if (!to || !document.documentElement.contains(to)) clearPointerHover()
 }
 
-function syncGrainScale() {
-  grainTilePx.value = isNarrowViewport() ? 176 : 224
-  const el = grainEl.value
-  if (el) el.style.backgroundSize = `${grainTilePx.value}px ${grainTilePx.value}px`
-}
-
-function stepGrainOffset() {
-  const el = grainEl.value
-  if (!el) return
-  const t = grainTilePx.value
-  // Direct DOM write — no Vue/SVG invalidation (that was the hitch).
-  el.style.backgroundPosition = `${Math.floor(Math.random() * t)}px ${Math.floor(Math.random() * t)}px`
-}
-
-function syncGrainMotion() {
-  if (grainTimer) {
-    window.clearInterval(grainTimer)
-    grainTimer = 0
-  }
-  const el = grainEl.value
-  if (!el) return
-  if (!props.active || !keepAliveActive) return
-  if (isTouchUi()) {
-    el.style.backgroundPosition = '0 0'
-    return
-  }
-  // Mid-morph: freeze grain — don't fight scroll/morph compositing.
-  if (flowSurfaceMask.morph > 0.02 && flowSurfaceMask.morph < 0.98) {
-    return
-  }
-  stepGrainOffset()
-  grainTimer = window.setInterval(stepGrainOffset, GRAIN_STEP_MS)
-  ensureLoop()
-}
-
 watch(
   () => flowSurfaceMask.pathRequestRevision,
   () => {
@@ -979,27 +935,12 @@ onMounted(async () => {
         flowSurfaceMask.freezeSilhouette,
       ] as const,
     () => {
-      syncGrainMotion()
       ensureLoop()
     },
   )
 
   ro = new ResizeObserver(() => measure())
   if (root.value) ro.observe(root.value)
-
-  syncGrainScale()
-  window.addEventListener('resize', syncGrainScale, { passive: true })
-
-  await nextTick()
-  syncGrainMotion()
-
-  // Pause / resume grain flicker with morph corridor.
-  watch(
-    () => flowSurfaceMask.morph > 0.02 && flowSurfaceMask.morph < 0.98,
-    () => {
-      syncGrainMotion()
-    },
-  )
 
   // Cursor / touch dent — desktop mouse only. On Android this was still wired and
   // fought the scroll transition; touch UI keeps a static edge silhouette.
@@ -1013,13 +954,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', syncGrainScale)
   cancelAnimationFrame(raf)
   raf = 0
-  if (grainTimer) {
-    window.clearInterval(grainTimer)
-    grainTimer = 0
-  }
   ro?.disconnect()
   window.removeEventListener('pointermove', onPointer)
   window.removeEventListener('pointerleave', onPointerLeave)
@@ -1033,13 +969,11 @@ onDeactivated(() => {
   clearPointerHover()
   if (raf) cancelAnimationFrame(raf)
   raf = 0
-  syncGrainMotion()
 })
 
 onActivated(() => {
   keepAliveActive = true
   measure()
-  syncGrainMotion()
   ensureLoop()
 })
 const overscanPx = computed(() => (skipOrganicClip() ? 0 : EDGE_OVERSCAN))
@@ -1095,20 +1029,6 @@ const slotInsetStyle = computed(() => {
           backgroundColor: props.toneColor || undefined,
         }"
       />
-      <div
-        ref="grainEl"
-        class="pointer-events-none absolute inset-0 z-[1]"
-        aria-hidden="true"
-        :style="{
-          backgroundImage: GRAIN_TILE,
-          backgroundRepeat: 'repeat',
-          backgroundSize: `${grainTilePx}px ${grainTilePx}px`,
-          backgroundPosition: '0 0',
-          opacity: GRAIN_OPACITY * props.toneOpacity,
-          mixBlendMode: 'soft-light',
-          willChange: 'background-position',
-        }"
-      />
       <!-- Hero stage — layout box inset; clip shell is overscanned for outward crests. -->
       <div
         class="pointer-events-none absolute z-10 min-h-0 overflow-visible"
@@ -1130,20 +1050,6 @@ const slotInsetStyle = computed(() => {
         :style="{
           opacity: props.toneOpacity,
           backgroundColor: props.toneColor || undefined,
-        }"
-      />
-      <div
-        ref="grainEl"
-        class="pointer-events-none absolute inset-0 z-[1]"
-        aria-hidden="true"
-        :style="{
-          backgroundImage: GRAIN_TILE,
-          backgroundRepeat: 'repeat',
-          backgroundSize: `${grainTilePx}px ${grainTilePx}px`,
-          backgroundPosition: '0 0',
-          opacity: GRAIN_OPACITY * props.toneOpacity,
-          mixBlendMode: 'soft-light',
-          willChange: 'background-position',
         }"
       />
     </div>

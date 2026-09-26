@@ -793,18 +793,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-:deep(.kado-surface-pin)::after {
-  position: absolute;
-  inset: 0;
-  background-image: var(--home-surface-grain);
-  background-position: 0 0;
-  background-repeat: repeat;
-  background-size: 224px 224px;
-  content: '';
-  mix-blend-mode: soft-light;
-  opacity: 0.2;
-}
-
 :deep(.kado-surface-pin[data-flow-surface-proxy-active]) {
   opacity: 1;
 }

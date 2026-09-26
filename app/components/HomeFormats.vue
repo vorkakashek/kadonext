@@ -698,28 +698,6 @@ onUnmounted(() => {
   background: var(--palette-stone);
 }
 
-.work-formats__surface::after {
-  position: absolute;
-  inset: 0;
-  background-image: var(--home-surface-grain);
-  background-position: 0 0;
-  background-repeat: repeat;
-  background-size: 224px 224px;
-  content: '';
-  mix-blend-mode: soft-light;
-  opacity: 0;
-}
-
-.work-formats__surface[data-flow-surface-proxy-active]::after {
-  opacity: 0.2;
-}
-
-@media (max-width: 767.98px) {
-  .work-formats__surface::after {
-    background-size: 176px 176px;
-  }
-}
-
 .work-formats__list {
   position: relative;
   display: flex;

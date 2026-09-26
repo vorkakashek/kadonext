@@ -198,7 +198,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   position: absolute;
   top: clamp(0.64rem, 0.96vw, 1rem);
   left: 0;
-  color: color-mix(in srgb, var(--palette-ink) 48%, transparent);
+  color: color-mix(in srgb, var(--palette-ink) 64%, transparent);
   cursor: text;
   font-size: clamp(1.35rem, 2.15vw, 2.5rem);
   font-weight: 500;

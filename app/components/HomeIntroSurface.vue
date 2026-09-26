@@ -8,9 +8,6 @@ const props = defineProps<{
 
 const { locale } = useI18n()
 const assetUrl = useCdnAsset()
-const grainStyle = computed(() => ({
-  backgroundImage: `image-set(url("${assetUrl('/textures/grain-tile-v2-256.avif')}") type("image/avif"), url("${assetUrl('/textures/grain-tile-v2-256.webp')}") type("image/webp"))`,
-}))
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
 const gate = useHomeIntroGate()
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
@@ -245,9 +242,7 @@ onUnmounted(() => {
     ref="overlayEl"
     class="home-intro-surface"
     aria-hidden="true"
-  >
-    <div class="home-intro-surface__grain" :style="grainStyle" />
-  </div>
+  />
   <img
     v-if="active"
     ref="logoEl"
@@ -272,25 +267,6 @@ onUnmounted(() => {
   background: var(--hero-scene-forest);
   clip-path: inset(0 round 0);
   will-change: clip-path;
-}
-
-.home-intro-surface__grain {
-  position: absolute;
-  inset: 0;
-  background-image: image-set(
-    url('/textures/grain-tile-v2-256.avif') type('image/avif'),
-    url('/textures/grain-tile-v2-256.webp') type('image/webp')
-  );
-  background-repeat: repeat;
-  background-size: 224px 224px;
-  opacity: 0.2;
-  mix-blend-mode: soft-light;
-}
-
-@media (max-width: 767.98px) {
-  .home-intro-surface__grain {
-    background-size: 176px 176px;
-  }
 }
 
 .home-intro-logo {

@@ -2413,8 +2413,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.cases-media::before,
-.cases-media::after {
+.cases-media::before {
   position: absolute;
   z-index: 0;
   /* Keep the parked Surface safely beneath the raster's rounded edge. */
@@ -2432,22 +2431,9 @@ onBeforeUnmount(() => {
   background: var(--palette-stone);
 }
 
-.cases-media::after {
-  background-image: var(--home-surface-grain);
-  background-position: 0 0;
-  background-repeat: repeat;
-  background-size: 224px 224px;
-  mix-blend-mode: soft-light;
-}
-
 .cases-media[data-flow-surface-proxy-active]::before,
 .cases-media[data-case-surface-ready]::before {
   opacity: 1;
-}
-
-.cases-media[data-flow-surface-proxy-active]::after,
-.cases-media[data-case-surface-ready]::after {
-  opacity: 0.2;
 }
 
 @media (max-width: 767.98px) {

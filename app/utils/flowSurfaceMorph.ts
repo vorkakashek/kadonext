@@ -218,7 +218,7 @@ export function applyBox(el: HTMLElement, box: SurfaceBox) {
 /**
  * Compositor-friendly mobile flight: keep the observed root at one fixed size,
  * translate it as a layer, and resize only its cheap visual crop. Scaling the
- * entire root distorted the rounded silhouette and grain beneath case media.
+ * entire root distorted the rounded silhouette beneath case media.
  */
 export function applyBoxVisualTransform(
   el: HTMLElement,
