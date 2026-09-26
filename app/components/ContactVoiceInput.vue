@@ -85,7 +85,7 @@ watch(() => props.disabled, () => { if (props.disabled) playingId.value = null }
 .voice-input__budget-line { flex: 1; height: 1px; background: var(--voice-line); }
 .voice-input__budget-line > span { display: block; height: 2px; background: var(--palette-forest); transform-origin: left; }
 .voice-input__recording { padding: clamp(1.1rem, 3cqi, 2.5rem); background: color-mix(in srgb, var(--palette-forest) 5%, transparent); border-inline: 1px solid var(--voice-line); }
-.voice-input__live { display: flex; align-items: center; gap: clamp(0.75rem, 2cqi, 2rem); font-family: var(--font-display); font-size: clamp(3.4rem, 10cqi, 5.5rem); }
+.voice-input__live { display: flex; align-items: center; gap: clamp(0.75rem, 2cqi, 2rem); font-family: var(--font-display); font-size: clamp(3.4rem, 10cqi, 5.5rem); font-stretch: 100%; }
 .voice-input__time { display: flex; align-items: baseline; gap: clamp(0.65rem, 1.5cqi, 1.4rem); white-space: nowrap; }
 .voice-input__clock { font-weight: 400; line-height: 1; letter-spacing: -0.06em; font-variant-numeric: tabular-nums; }
 .voice-input__meter { display: flex; flex: 1; justify-content: flex-end; align-items: center; min-width: 0; color: var(--palette-forest); }

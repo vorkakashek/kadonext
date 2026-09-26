@@ -1409,6 +1409,7 @@ onUnmounted(() => {
               alt="KADO"
               width="3248"
               height="1088"
+              fetchpriority="high"
               aria-hidden="true"
             >
             <img

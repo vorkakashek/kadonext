@@ -156,6 +156,12 @@ export default defineNuxtConfig({
       }],
       script: [
         {
+          key: 'cookie-notice-state',
+          innerHTML:
+            "try{if(/(?:^|; )kado_cookie_notice=1(?:;|$)/.test(document.cookie))document.documentElement.classList.add('cookie-notice-seen')}catch(e){}",
+          tagPosition: 'head',
+        },
+        {
           key: 'locale-redirect',
           innerHTML:
             "try{var p=location.pathname;var r=document.cookie.match(/(?:^|; )kadonext-root-locale=(ru|en)(?:;|$)/);if(!/^\\/(?:ru|en)(?:\\/|$)/.test(p)&&!(p==='/'&&r&&document.documentElement.lang===r[1])){var m=document.cookie.match(/(?:^|; )kadonext-locale=(ru|en)(?:;|$)/);var s=localStorage.getItem('kadonext-locale');var n=(navigator.languages&&navigator.languages[0])||navigator.language||'';var l=m?m[1]:(s==='ru'||s==='en'?s:(/^ru(?:-|$)/i.test(n)?'ru':'en'));document.cookie='kadonext-locale='+l+'; Path=/; Max-Age=31536000; SameSite=Lax';localStorage.setItem('kadonext-locale',l);location.replace('/'+l+(p==='/'?'/':p)+location.search+location.hash)}}catch(e){}",

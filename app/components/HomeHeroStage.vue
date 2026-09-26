@@ -644,7 +644,6 @@ let authoredIntroStarted = false
 const swarmMount = ref(false)
 const swarmLit = ref(false)
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
-const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
 let swarmIdleId: number | null = null
 let swarmFallbackTimer = 0
 let removeSwarmIntent: (() => void) | null = null
@@ -689,15 +688,6 @@ function scheduleSwarmMount(
   // Save-Data may defer the scene; slow estimates still skip speculative asset
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
-  if (plainColdHome) {
-    // The production entry has no full-screen cover. Paint its static Surface
-    // first, then prepare WebGL while the authored copy is still hidden. The
-    // copy readiness gate below waits for `lit`, so context/shader work cannot
-    // hitch either end of h1 + description and the scene is already present
-    // when that entrance begins instead of arriving a few seconds afterwards.
-    requestAnimationFrame(mount)
-    return
-  }
   if (coldHomeIntro && !constrained && !mobileLite.value) {
     // Desktop WebGL context creation is the only measured >50 ms startup task.
     // Pay that cost while the full-screen intro is still static; the intro waits
@@ -724,7 +714,7 @@ function scheduleSwarmMount(
     return
   }
   mobileSwarmDeferred = mobileLite.value && constrained
-  if (mobileLite.value && !mobileSwarmDeferred) {
+  if (mobileLite.value && !mobileSwarmDeferred && !plainColdHome) {
     // Fetch/parse the motion graph in an idle slot.
     // Do not mount WebGL here:
     // Android can discard a canvas below visibility:hidden. The intro timeline
@@ -748,7 +738,8 @@ function scheduleSwarmMount(
     // Warm the large Three module in a quiet slot, then mount automatically
     // shortly after the primary title/description entrance. Interaction stays
     // gated separately until the scene has faded in.
-    if (!constrained) {
+    const warmBundle = () => {
+      if (constrained) return
       const warmThree = () => {
         if (!stageUnmounted) void preloadThreeBundle()
       }
@@ -758,8 +749,25 @@ function scheduleSwarmMount(
         window.setTimeout(warmThree, 120)
       }
     }
-    const delay = constrained ? 5000 : 1100
+    const delay = constrained ? 5000 : plainColdHome ? (mobileLite.value ? 500 : 250) : 1100
     let stopIntroGate: (() => void) | null = null
+    let automaticUpgradeQueued = false
+    const queueAutomaticUpgrade = () => {
+      if (automaticUpgradeQueued || stageUnmounted || swarmMount.value) return
+      automaticUpgradeQueued = true
+      warmBundle()
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (stageUnmounted || swarmMount.value) return
+          swarmFallbackTimer = window.setTimeout(() => {
+            swarmFallbackTimer = 0
+            if (typeof window.requestIdleCallback === 'function') {
+              swarmIdleId = window.requestIdleCallback(mount, { timeout: 350 })
+            } else mount()
+          }, delay)
+        })
+      })
+    }
     const onIntent = () => {
       if (!heroIntroSettled.value) {
         swarmIntentPending = true
@@ -782,30 +790,28 @@ function scheduleSwarmMount(
     stopIntroGate = watch(
       heroIntroSettled,
       (settled) => {
-        if (!settled || !swarmIntentPending) return
-        swarmIntentPending = false
-        requestAnimationFrame(() => {
-          if (stageUnmounted || swarmMount.value) return
-          if (typeof window.requestIdleCallback === 'function') {
-            swarmIdleId = window.requestIdleCallback(mount, { timeout: 500 })
-          } else {
-            window.setTimeout(mount, 80)
-          }
-        })
+        if (!settled) return
+        if (swarmIntentPending) {
+          swarmIntentPending = false
+          warmBundle()
+          requestAnimationFrame(() => {
+            if (stageUnmounted || swarmMount.value) return
+            if (typeof window.requestIdleCallback === 'function') {
+              swarmIdleId = window.requestIdleCallback(mount, { timeout: 500 })
+            } else {
+              window.setTimeout(mount, 80)
+            }
+          })
+          return
+        }
+        if (plainColdHome) queueAutomaticUpgrade()
       },
     )
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (stageUnmounted || swarmMount.value) return
-        swarmFallbackTimer = window.setTimeout(() => {
-          swarmFallbackTimer = 0
-          if (typeof window.requestIdleCallback === 'function') {
-            swarmIdleId = window.requestIdleCallback(mount, { timeout: 350 })
-          } else mount()
-        }, delay)
-      })
-    })
+    // The plain production entry sells the offer before upgrading its static
+    // Surface to WebGL. This keeps context/shader work out of the h1 entrance
+    // and prevents the decorative scene from arriving before the copy.
+    if (!plainColdHome || heroIntroSettled.value) queueAutomaticUpgrade()
   }
 
   if (initialReveal.revealed.value) scheduleUpgrade()
@@ -828,7 +834,6 @@ const swarmCoverUp = computed(
 
 function onSwarmLit() {
   swarmLit.value = true
-  heroWebglLit.value = true
 }
 
 function onSwarmBooted() {
@@ -1065,21 +1070,18 @@ onMounted(() => {
       homeIntroStarted,
       homeIntroContentReady,
       criticalFontReady,
-      heroWebglLit,
     ],
-    async ([on, surfaceReady, introStarted, introContentReady, fontReady, sceneLit]) => {
+    async ([on, surfaceReady, introStarted, introContentReady, fontReady]) => {
       // Desktop copy should enter with the Surface morph, not wait for its
       // 640 ms crop plus opacity handoff to finish. Mobile keeps the stricter
       // gate because its direct handoff owns the whole first-screen reveal.
       const introGateWaiting = mobileLite.value && introStarted && !introContentReady
       const criticalFontWaiting = (coldHomeIntro || plainColdHome) && !fontReady
-      const plainSceneWaiting = plainColdHome && !sceneLit
       if (
         !on
         || !surfaceReady
         || introGateWaiting
         || criticalFontWaiting
-        || plainSceneWaiting
       ) {
         if (fromNav) return
         swarmLoopReady.value = false
@@ -1192,21 +1194,21 @@ onMounted(() => {
             tl.to(
               chars,
               { yPercent: 0, duration: 1.1, stagger: 0.055, ease: 'power4.out' },
-              coldHomeIntro ? 0 : 0.12,
+              directColdScene ? 0 : 0.12,
             )
           })
         } else if (titleEl.value) {
           tl.to(
             titleEl.value,
             { yPercent: 0, duration: 1.1, ease: 'power4.out' },
-            coldHomeIntro ? 0 : 0.12,
+            directColdScene ? 0 : 0.12,
           )
         }
         if (descEls.value.length) {
           tl.to(
             descEls.value,
             { yPercent: 0, duration: 1.1, stagger: 0.18, ease: 'power4.out' },
-            coldHomeIntro ? 0.06 : 0.34,
+            directColdScene ? 0.06 : 0.34,
           )
         }
       } else {
@@ -1215,21 +1217,21 @@ onMounted(() => {
             tl.to(
               chars,
               { yPercent: 0, duration: 1.1, stagger: 0.055, ease: 'power4.out' },
-              coldHomeIntro ? 0 : 0.5,
+              directColdScene ? 0 : 0.5,
             )
           })
         } else if (titleEl.value) {
           tl.to(
             titleEl.value,
             { yPercent: 0, duration: 1.1, ease: 'power4.out' },
-            coldHomeIntro ? 0 : 0.5,
+            directColdScene ? 0 : 0.5,
           )
         }
         if (descEls.value.length) {
           tl.to(
             descEls.value,
             { yPercent: 0, duration: 1.1, stagger: 0.18, ease: 'power4.out' },
-            coldHomeIntro ? 0.06 : 0.95,
+            directColdScene ? 0.06 : 0.95,
           )
         }
       }

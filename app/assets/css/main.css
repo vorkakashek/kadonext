@@ -15,26 +15,17 @@
 }
 
 @font-face {
-  font-family: "Fixel Text";
+  font-family: "Fixel";
   src: url("/fonts/fixel/FixelVariable.woff2") format("woff2");
   font-style: normal;
   font-weight: 100 900;
-  font-stretch: 87.5%;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fixel Display";
-  src: url("/fonts/fixel/FixelVariable.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 100 900;
-  font-stretch: 100%;
+  font-stretch: 87.5% 100%;
   font-display: swap;
 }
 
 @theme {
-  --font-sans: "Fixel Text", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fixel Display", "Fixel Text", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Fixel", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fixel", ui-sans-serif, system-ui, sans-serif;
 
   --color-milk: var(--palette-milk);
   --color-porcelain: var(--palette-porcelain);
@@ -139,6 +130,7 @@
     font-family: var(--font-sans);
     font-size: var(--type-body);
     font-weight: 400;
+    font-stretch: 87.5%;
     line-height: 1.4;
     -webkit-font-smoothing: antialiased;
     scrollbar-width: none;
@@ -160,6 +152,7 @@
     font-family: var(--font-display);
     font-size: inherit;
     font-weight: inherit;
+    font-stretch: 100%;
     text-wrap: balance;
   }
 

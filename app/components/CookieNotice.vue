@@ -2,6 +2,7 @@
 import {
   COOKIE_NOTICE_COOKIE,
   COOKIE_NOTICE_MAX_AGE,
+  wasCookieNoticeSeen,
 } from '~/utils/cookieNotice'
 
 const noticeCookie = useCookie<string | null>(COOKIE_NOTICE_COOKIE, {
@@ -11,7 +12,10 @@ const noticeCookie = useCookie<string | null>(COOKIE_NOTICE_COOKIE, {
   sameSite: 'lax',
   secure: useRequestURL().protocol === 'https:',
 })
-const visible = ref(noticeCookie.value !== '1')
+// Static generation cannot know the visitor's cookie, so keep server and
+// client initial trees identical. Returning visitors are hidden before paint
+// by the small head probe, then this node is removed after hydration.
+const visible = ref(true)
 const { t, tm } = useI18n()
 const localePath = useLocalePath()
 const titleLines = computed(() => tm('cookieNotice.titleLines') as string[])
@@ -38,10 +42,14 @@ function dismiss() {
   visible.value = false
 }
 
+onMounted(() => {
+  if (wasCookieNoticeSeen()) visible.value = false
+})
+
 </script>
 
 <template>
-  <Transition name="cookie-notice" appear>
+  <Transition name="cookie-notice">
     <aside
       v-if="visible"
       class="cookie-notice pointer-events-auto"

@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
-import { wasCookieNoticeSeen } from '~/utils/cookieNotice'
 
 const enhancementsReady = ref(false)
-const cookieNoticeMountReady = ref(false)
 const route = useRoute()
 const basePath = computed(() => baseRoutePath(route.path))
 // Capture the initial document route. Later SPA navigation keeps using the
@@ -32,8 +30,6 @@ let pageCanvasIdleId: number | null = null
 let stopPageCanvasMountWatch: (() => void) | null = null
 let fullFontIdleId: number | null = null
 let fullFontFallbackTimer = 0
-let cookieNoticeDelayTimer = 0
-let cookieNoticeIdleId: number | null = null
 let appUnmounted = false
 
 useSiteSeo()
@@ -97,24 +93,6 @@ onMounted(async () => {
     }
   }
 
-  // Consent UI is neither content nor part of the first interaction. Keep its
-  // component code and scoped CSS out of the critical path, and skip the chunk
-  // entirely for returning visitors who have already dismissed it.
-  if (!wasCookieNoticeSeen()) {
-    cookieNoticeDelayTimer = window.setTimeout(() => {
-      cookieNoticeDelayTimer = 0
-      const mountCookieNotice = () => {
-        cookieNoticeIdleId = null
-        if (!appUnmounted && !wasCookieNoticeSeen()) cookieNoticeMountReady.value = true
-      }
-      if (typeof window.requestIdleCallback === 'function') {
-        cookieNoticeIdleId = window.requestIdleCallback(mountCookieNotice, { timeout: 900 })
-      } else {
-        mountCookieNotice()
-      }
-    }, 1500)
-  }
-
   const enableFullFonts = async () => {
     fullFontIdleId = null
     if (fullFontFallbackTimer) {
@@ -122,11 +100,9 @@ onMounted(async () => {
       fullFontFallbackTimer = 0
     }
     if ('fonts' in document) {
-      // Text and Display point at the same variable WOFF2. Loading the two
-      // aliases concurrently makes Chromium issue duplicate cold requests;
-      // prime one face first and let the second alias reuse the font cache.
+      // Text and display widths share one variable face and one network URL.
       await Promise.allSettled([
-        document.fonts.load('400 1rem "Fixel Text"'),
+        document.fonts.load('400 1rem "Fixel"'),
       ])
     }
     if (!appUnmounted) document.documentElement.classList.add('fonts-enhanced')
@@ -212,10 +188,6 @@ onUnmounted(() => {
   }
   stopPageCanvasMountWatch?.()
   stopPageCanvasMountWatch = null
-  if (cookieNoticeDelayTimer) window.clearTimeout(cookieNoticeDelayTimer)
-  if (cookieNoticeIdleId !== null && 'cancelIdleCallback' in window) {
-    window.cancelIdleCallback(cookieNoticeIdleId)
-  }
 })
 
 watch(
@@ -247,8 +219,11 @@ watch(
       </div>
     </div>
     <SiteHeader />
+    <!-- Keep first-visit consent in the static document. A head script adds
+         `cookie-notice-seen` before paint for returning visitors, while the
+         component removes its SSR node after hydration. -->
+    <CookieNotice />
     <ClientOnly>
-      <LazyCookieNotice v-if="cookieNoticeMountReady" />
       <LazyCaseDetailTransition v-if="enhancementsReady" />
       <LazyPageCanvas v-if="pageCanvasMountReady" />
       <LazyPageIris v-if="enhancementsReady" />
@@ -280,6 +255,13 @@ html.home-intro-lock {
 html.home-intro-lock body {
   overflow: hidden;
   overscroll-behavior: none;
+}
+
+/* The class is written by the synchronous head probe before the first paint.
+   It prevents a returning visitor from seeing the statically rendered notice
+   while Vue hydrates and removes its node. */
+html.cookie-notice-seen .cookie-notice {
+  display: none !important;
 }
 
 /* Lid over the swarm snaps off while the page iris still covers. */
