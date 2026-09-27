@@ -4,12 +4,14 @@ import { resolve } from 'node:path'
 
 const root = process.cwd()
 const outputRoot = resolve(root, '.output/public')
-const htmlPath = resolve(outputRoot, 'index.html')
+// The root becomes a tiny locale selector at the end of a full-site CDN build.
+// Always measure the real home page, both during build and on a later perf:check.
+const htmlPath = resolve(outputRoot, 'ru/index.html')
 const budgetsPath = resolve(root, 'performance-budgets.json')
 const checking = process.argv.includes('--check')
 
 if (!existsSync(htmlPath)) {
-  console.error('Production output is missing. Run npm run build first.')
+  console.error('Prerendered /ru/ is missing. Run npm run build first.')
   process.exit(1)
 }
 
@@ -81,6 +83,10 @@ const entryUrls = [...new Set([
   ),
 ])]
 const urls = collectStaticModuleGraph(entryUrls)
+if (!urls.length) {
+  console.error('No initial JavaScript found in /ru/. Refusing to report an empty app as fast.')
+  process.exit(1)
+}
 
 const rows = []
 for (const url of urls) {
@@ -149,6 +155,7 @@ const criticalTransferBytes =
   + criticalAssets.reduce((total, asset) => total + asset.gzipBytes, 0)
   + fontBytes
 
+console.log('Measured page: /ru/')
 console.table(
   rows.map((row) => ({
     file: row.file,
