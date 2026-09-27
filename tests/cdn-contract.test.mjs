@@ -35,8 +35,7 @@ test('production deploy validates localized pages separately from the root selec
   const source = read('scripts/deploy-production.ps1')
 
   assert.match(source, /data-kado-locale-selector/)
-  assert.match(source, /while \[ "\$attempt" -le 10 \]/)
-  assert.match(source, /Origin health check is waiting for the reloaded nginx worker/)
+  assert.match(source, /curl -fsS --retry 10 --retry-delay 1 --retry-all-errors/)
   assert.match(source, /https:\/\/kadonext\.com\/ru\//)
   assert.match(source, /https:\/\/kadonext\.com\/en\//)
   assert.doesNotMatch(source, /\.locale-root\\ru\.html/)

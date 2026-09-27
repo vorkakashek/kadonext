@@ -107,28 +107,10 @@ mv -Tf "$current.next" "$current"
 activated=1
 systemctl reload nginx
 
-check_origin() {
-  url="$1"
-  output="$2"
-  attempt=1
-  while [ "$attempt" -le 10 ]; do
-    if curl -fsS --noproxy '*' --resolve kadonext.com:443:127.0.0.1 "$url" -o "$output"; then
-      return 0
-    fi
-    if [ "$attempt" -eq 1 ]; then
-      echo "Origin health check is waiting for the reloaded nginx worker: $url" >&2
-    fi
-    attempt=$((attempt + 1))
-    sleep 1
-  done
-  echo "Origin health check failed after 10 attempts: $url" >&2
-  return 1
-}
-
-check_origin https://kadonext.com/ /tmp/kadonext-root-__ID__.html
+curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/ -o /tmp/kadonext-root-__ID__.html
 grep -q 'data-kado-locale-selector' /tmp/kadonext-root-__ID__.html
-check_origin https://kadonext.com/ru/ /tmp/kadonext-ru-__ID__.html
-check_origin https://kadonext.com/en/ /tmp/kadonext-en-__ID__.html
+curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/ru/ -o /tmp/kadonext-ru-__ID__.html
+curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/en/ -o /tmp/kadonext-en-__ID__.html
 grep -q 'lang="ru"' /tmp/kadonext-ru-__ID__.html
 grep -q 'lang="en"' /tmp/kadonext-en-__ID__.html
 
