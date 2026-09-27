@@ -20,6 +20,11 @@ export function preloadGsapBundle() {
 export function preloadThreeBundle() {
   if (!import.meta.client) return Promise.resolve()
   if (!threeWarm) {
+    // Evaluate Three separately from the async Vue scene. On a cold mobile
+    // load, importing the complete component here can make module evaluation,
+    // Vue mount and WebGL context creation collapse into one long task. The
+    // renderer dependency is the expensive part; warming it first leaves the
+    // much smaller component wrapper for the following task.
     threeWarm = import('three').then(() => undefined)
   }
   return threeWarm

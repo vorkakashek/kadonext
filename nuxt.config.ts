@@ -1,8 +1,16 @@
 import tailwindcss from '@tailwindcss/vite'
 import { homeCaseIds } from './app/utils/homeCases'
 
-const assetCdnUrl = process.env.NUXT_PUBLIC_ASSET_CDN_URL
+/** Large public media stays on the edge CDN. */
+const publicAssetCdnUrl = process.env.NUXT_PUBLIC_ASSET_CDN_URL
   ?? (process.env.NODE_ENV === 'production' ? 'https://nfb4tt2jyb.cdn.twcstorage.ru' : '')
+/**
+ * Critical Nuxt chunks and fonts default to the canonical origin. Reusing the
+ * document's HTTP/2 connection is more predictable for a cold first screen
+ * than opening a second DNS/TLS path to the media CDN. Keep this independently
+ * overridable for an origin/CDN comparison without moving the media library.
+ */
+const appAssetCdnUrl = process.env.KADO_APP_ASSET_CDN_URL ?? ''
 
 const contentRoutes = ['/', '/projects', '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`)]
 const localizedContentRoutes = ['ru', 'en'].flatMap(locale => (
@@ -37,7 +45,7 @@ export default defineNuxtConfig({
       contactEndpoint: '/api/contact',
       // Public assets may use the Timeweb CDN. The site HTML and contact API
       // remain on the canonical origin.
-      assetCdnUrl,
+      assetCdnUrl: publicAssetCdnUrl,
       // Opt-in only. Production must never silently acknowledge a real enquiry without delivery.
       contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK === 'true' && process.env.NODE_ENV === 'production',
       contactMockDelayMs: Math.min(Math.max(Number(process.env.NUXT_PUBLIC_CONTACT_MOCK_DELAY_MS) || 500, 0), 10000),
@@ -132,7 +140,7 @@ export default defineNuxtConfig({
   },
 
   app: {
-    cdnURL: assetCdnUrl,
+    cdnURL: appAssetCdnUrl,
     head: {
       htmlAttrs: { lang: 'ru' },
       charset: 'utf-8',
@@ -143,12 +151,12 @@ export default defineNuxtConfig({
         { name: 'robots', content: 'noindex, follow' },
       ],
       link: [
-        ...(assetCdnUrl
-          ? [{ rel: 'preconnect' as const, href: assetCdnUrl, crossorigin: 'anonymous' as const }]
+        ...(publicAssetCdnUrl
+          ? [{ rel: 'preconnect' as const, href: publicAssetCdnUrl, crossorigin: 'anonymous' as const }]
           : []),
         {
           rel: 'preload',
-          href: `${assetCdnUrl}/fonts/fixel/FixelCritical.woff2`,
+          href: `${appAssetCdnUrl}/fonts/fixel/FixelCritical.woff2`,
           as: 'font',
           type: 'font/woff2',
           crossorigin: 'anonymous',

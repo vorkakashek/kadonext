@@ -12,13 +12,13 @@ import {
   HemisphereLight,
   MathUtils,
   Mesh,
-  MeshMatcapMaterial,
   MeshPhysicalMaterial,
   PerspectiveCamera,
   Plane,
   Quaternion,
   Raycaster,
   Scene,
+  ShaderMaterial,
   SphereGeometry,
   SRGBColorSpace,
   TextureLoader,
@@ -61,6 +61,43 @@ const MOBILE_MATCAP_URLS = {
   blackMatte: assetUrl('/textures/hero-matcap-black-matte.webp'),
 } as const
 type MobileMatcapKind = keyof typeof MOBILE_MATCAP_URLS
+
+/**
+ * The stock MeshMatcapMaterial carries the complete generic Three material
+ * pipeline (morphs, skinning, maps, fog, clipping, log depth, and more). On a
+ * throttled mobile CPU its first program compilation can monopolise the main
+ * thread for several hundred milliseconds even though this scene needs only a
+ * rigid sphere normal and one matcap lookup. Keep the same matcap projection,
+ * but compile only the shader path the lite scene actually uses.
+ */
+const MOBILE_MATCAP_VERTEX_SHADER = /* glsl */ `
+  varying vec3 vViewPosition;
+  varying vec3 vViewNormal;
+
+  void main() {
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vViewPosition = -mvPosition.xyz;
+    vViewNormal = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`
+
+const MOBILE_MATCAP_FRAGMENT_SHADER = /* glsl */ `
+  uniform sampler2D matcap;
+  varying vec3 vViewPosition;
+  varying vec3 vViewNormal;
+
+  void main() {
+    vec3 viewDir = normalize(vViewPosition);
+    vec3 x = normalize(vec3(viewDir.z, 0.0, -viewDir.x));
+    vec3 y = cross(viewDir, x);
+    vec3 normal = normalize(vViewNormal);
+    vec2 uv = vec2(dot(x, normal), dot(y, normal)) * 0.495 + 0.5;
+    gl_FragColor = texture2D(matcap, uv);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`
 /** Desktop breakpoint — full ball count, richer materials, cursor interaction. */
 const DESKTOP_MIN_WIDTH = 1200
 const BALL_COUNT_DESKTOP = 32
@@ -500,7 +537,7 @@ let contextRecoveryTimer = 0
 let contextRecoveryAttempts = 0
 let lastLayoutKey = ''
 let removeWindowResize: (() => void) | null = null
-let firstSceneReady = false
+let sceneRenderReady = false
 let keepAliveActive = true
 
 function layoutKey() {
@@ -509,6 +546,7 @@ function layoutKey() {
 
 function disposeScene() {
   stopLoop()
+  sceneRenderReady = false
   runFrame = null
   forceResize = null
   resetSeats = null
@@ -554,11 +592,17 @@ function stopLoop() {
 }
 
 function startLoop() {
-  if (!runFrame || loopRunning || !renderer) return
+  if (!sceneRenderReady || !runFrame || loopRunning || !renderer) return
   loopRunning = true
   lastFrame = performance.now()
-  // Paint immediately — don't wait a rAF (blank composite = one-frame flash).
-  runFrame(lastFrame)
+  // The covered warm frame already populated the buffer. Starting the live
+  // loop in the next paint keeps its first physics/render pass out of the
+  // shader-settle task instead of forming a back-to-back long task cluster.
+  animationId = requestAnimationFrame((now) => {
+    animationId = 0
+    if (!loopRunning) return
+    runFrame?.(now)
+  })
 }
 
 watch(
@@ -568,7 +612,7 @@ watch(
       forceResize?.()
       startLoop()
     } else {
-      if (runFrame && renderer) runFrame(performance.now())
+      if (sceneRenderReady && runFrame && renderer) runFrame(performance.now())
       stopLoop()
     }
   },
@@ -822,7 +866,12 @@ async function bootScene() {
   }
 
   const mobileMaterial = (kind: MobileMatcapKind) => {
-    const material = new MeshMatcapMaterial({ color: 0xffffff, toneMapped: false })
+    const material = new ShaderMaterial({
+      uniforms: { matcap: { value: null } },
+      vertexShader: MOBILE_MATCAP_VERTEX_SHADER,
+      fragmentShader: MOBILE_MATCAP_FRAGMENT_SHADER,
+      toneMapped: false,
+    })
     material.userData.mobileMatcap = kind
     return material
   }
@@ -961,8 +1010,10 @@ async function bootScene() {
   const emitLit = () => {
     if (litEmitted || gen !== bootGen) return
     litEmitted = true
+    sceneRenderReady = true
     contextRecoveryAttempts = 0
     emit('lit')
+    if (props.active && keepAliveActive) startLoop()
     // Let the cover finish fading before hover physics can touch the first
     // visible frames. A cursor already over the swarm must not compete with it.
     window.setTimeout(() => {
@@ -975,7 +1026,7 @@ async function bootScene() {
     requestAnimationFrame(() => resolve())
   })
 
-  /** Compile shaders and paint twice under the cover before making GL visible. */
+  /** Compile shaders and warm the final scene under the cover before revealing it. */
   const settleAndEmitLit = () => {
     if (settlePromise) return settlePromise
     settlePromise = (async () => {
@@ -1007,13 +1058,18 @@ async function bootScene() {
       }
       gl.render(scene, camera)
       await nextPaint()
-      if (gen !== bootGen || renderer !== gl) return
-      if (gl.getContext().isContextLost()) {
-        scheduleContextRecovery()
-        return
+      if (!lite) {
+        if (gen !== bootGen || renderer !== gl) return
+        if (gl.getContext().isContextLost()) {
+          scheduleContextRecovery()
+          return
+        }
+        // Desktop PBR/transmission gets a second covered frame so its larger
+        // render graph is fully resident before the reveal. The lite shader is
+        // a single draw path and does not benefit from repeating this work.
+        gl.render(scene, camera)
+        await nextPaint()
       }
-      gl.render(scene, camera)
-      await nextPaint()
       emitLit()
     })().finally(() => {
       settlePromise = null
@@ -1036,9 +1092,10 @@ async function bootScene() {
       }
       mobileMatcaps = Object.values(maps)
       for (const ball of balls) {
-        const material = ball.mesh.material as MeshMatcapMaterial
-        material.matcap = maps[material.userData.mobileMatcap as MobileMatcapKind]
-        material.needsUpdate = true
+        const material = ball.mesh.material as ShaderMaterial
+        material.uniforms.matcap!.value = maps[
+          material.userData.mobileMatcap as MobileMatcapKind
+        ]
       }
       await settleAndEmitLit()
       return
@@ -1122,7 +1179,6 @@ async function bootScene() {
   const GYRO_CALIBRATION_SAMPLES = 24
   /** Orient fallback: degrees of tip → full force (flat-relative). */
   const GYRO_TIP_ANGLE = 22
-  const lookTarget = new Vector3()
   const LITE_WALL_X = 2.15
   const LITE_WALL_Y = 2.35
   const LITE_WALL_BOUNCE = 0.62
@@ -1483,7 +1539,7 @@ async function bootScene() {
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       // Fill the freshly cleared buffer before the next composite.
-      if (props.active) renderer.render(scene, camera)
+      if (sceneRenderReady && props.active) renderer.render(scene, camera)
     }
 
     // Canvas may stretch with the morphing frame; orbit stays on the first rest layout
@@ -1507,7 +1563,6 @@ async function bootScene() {
     }
 
     camera.lookAt(anchor)
-    lookTarget.copy(anchor)
     camera.updateMatrixWorld(true)
     camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
     camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
@@ -1763,7 +1818,7 @@ async function bootScene() {
       if (lite) {
         if (
           tipFromGrav &&
-          performance.now() - tipGravStamp > 280
+          now - tipGravStamp > 280
         ) {
           tipFromGrav = false
         }
@@ -1810,21 +1865,9 @@ async function bootScene() {
         ? -(gyroPitch - gyroPhysicsRestPitch)
         : 0
 
-      {
-        // Keep the mobile camera fixed. Device motion may disturb individual
-        // balls, but must not translate the complete 3D composition.
-        camera.position.set(
-          0,
-          0.12,
-          cameraZ,
-        )
-        camera.up.set(0, 1, 0)
-        camera.lookAt(lookTarget)
-        camera.updateMatrixWorld(true)
-        camRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
-        camUp.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
-        camForward.setFromMatrixColumn(camera.matrixWorld, 2).normalize().negate()
-      }
+      // The lite camera is deliberately fixed. `syncCamera()` caches its
+      // world-space basis after every real resize, so rebuilding the same
+      // look-at matrix on all 60 frames only burns mobile main-thread time.
       const wallX = ringRadius * LITE_WALL_X
       const wallY = ringRadius * LITE_WALL_Y
       const depthMax = ringRadius * LITE_DEPTH_MAX_RATIO
@@ -2258,22 +2301,13 @@ async function bootScene() {
   runFrame = tick
   if (gen !== bootGen) return
 
-  // Compile and paint the final lighting/material state before lifting the cover.
-  syncCamera({ force: true })
-  gl.render(scene, camera)
+  // `settleAndEmitLit()` owns compilation and the covered warm frames once the
+  // final matcaps/environment are attached. Rendering here would compile a
+  // throwaway material variant and then repeat the same cold work for `lit`.
   scheduleGyroAttach()
 
   if (props.active) startLoop()
   else stopLoop()
-
-  if (!firstSceneReady) {
-    renderer.render(scene, camera)
-    requestAnimationFrame(() => {
-      firstSceneReady = true
-    })
-  } else {
-    renderer.render(scene, camera)
-  }
 }
 </script>
 

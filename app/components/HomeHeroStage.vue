@@ -692,10 +692,9 @@ function scheduleSwarmMount(
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
   if (plainColdHome && !constrained) {
-    // Give WebGL exclusive ownership of cold startup. Copy stays CSS-hidden
-    // until `lit`, so module evaluation, context setup, HDR/PMREM and shader
-    // compilation cannot interrupt its entrance. Warm the module immediately,
-    // but do not create a mobile context beneath the visibility-hidden Surface.
+    // Start the scene as soon as the critical font has committed. Mobile copy
+    // is allowed to reveal in parallel; desktop retains the proven lit-scene
+    // handoff because its cold GPU path completes inside the first beat.
     void preloadThreeBundle()
     const startVisibleMount = () => requestAnimationFrame(mount)
     if (simpleHomeIntroReady.value) startVisibleMount()
@@ -1045,7 +1044,12 @@ onMounted(() => {
   const connection = (navigator as Navigator & {
     connection?: { saveData?: boolean }
   }).connection
-  const waitForPlainScene = plainColdHome && !connection?.saveData
+  // A fast desktop scene may keep the authored all-at-once reveal. Mobile has
+  // a much slower and less deterministic cold WebGL compile, so its primary
+  // copy must never be held behind the decorative scene.
+  const waitForPlainScene = plainColdHome
+    && !mobileLite.value
+    && !connection?.saveData
   const fromNavigation = skipHeroIntro.value
   const fromNav = fromNavigation
   if (skipHeroIntro.value) skipHeroIntro.value = false

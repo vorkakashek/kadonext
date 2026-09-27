@@ -8,7 +8,6 @@ import {
 // client initial trees identical. Returning visitors are hidden before paint
 // by the small head probe, then this node is removed after hydration.
 const visible = ref(true)
-const fontReady = ref(false)
 const { t, tm } = useI18n()
 const localePath = useLocalePath()
 const titleLines = computed(() => tm('cookieNotice.titleLines') as string[])
@@ -21,19 +20,10 @@ function dismiss() {
   visible.value = false
 }
 
-onMounted(async () => {
+onMounted(() => {
   if (wasCookieNoticeSeen()) {
     visible.value = false
-    return
   }
-
-  // This notice is present in the prerendered HTML, while the critical face
-  // still uses `font-display: swap`. Do not expose the fallback metrics for a
-  // frame: the later Fixel swap would visibly rewrap the compact mobile copy.
-  if ('fonts' in document) {
-    await document.fonts.load('400 1rem "Fixel Critical"').catch(() => [])
-  }
-  fontReady.value = true
 })
 
 </script>
@@ -43,7 +33,6 @@ onMounted(async () => {
     <aside
       v-if="visible"
       class="cookie-notice pointer-events-auto"
-      :class="{ 'cookie-notice--font-pending': !fontReady }"
       aria-labelledby="cookie-notice-title"
     >
       <div class="cookie-notice__copy">
@@ -89,10 +78,6 @@ onMounted(async () => {
   gap: clamp(1.25rem, 2vw, 2rem);
   outline: none;
   backdrop-filter: blur(16px);
-}
-
-.cookie-notice--font-pending {
-  visibility: hidden;
 }
 
 .cookie-notice__copy {
