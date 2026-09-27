@@ -25,7 +25,7 @@ test('root build output is a tiny cache-safe language selector', () => {
 test('nginx does not vary the root cache by locale negotiation', () => {
   const source = read('ops/nginx/kadonext.conf')
 
-  assert.match(source, /location = \/ \{[\s\S]*?rewrite \^ \/index\.html last;/)
+  assert.match(source, /location = \/ \{[\s\S]*?try_files \/index\.html =404;/)
   assert.match(source, /location = \/ \{[\s\S]*?s-maxage=300/)
   assert.doesNotMatch(source, /location = \/ \{[\s\S]*?Vary.*Accept-Language/)
   assert.match(source, /location = \/api\/contact \{[\s\S]*?proxy_pass/)
@@ -35,6 +35,8 @@ test('production deploy validates localized pages separately from the root selec
   const source = read('scripts/deploy-production.ps1')
 
   assert.match(source, /data-kado-locale-selector/)
+  assert.match(source, /while \[ "\$attempt" -le 10 \]/)
+  assert.match(source, /Origin health check is waiting for the reloaded nginx worker/)
   assert.match(source, /https:\/\/kadonext\.com\/ru\//)
   assert.match(source, /https:\/\/kadonext\.com\/en\//)
   assert.doesNotMatch(source, /\.locale-root\\ru\.html/)
