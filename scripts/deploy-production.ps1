@@ -21,15 +21,11 @@ if (-not $SkipBuild) {
   }
 }
 
-if (-not (Test-Path (Join-Path $publicDirectory 'index.html'))) {
-  throw 'Missing .output/public/index.html. Run npm run build first.'
-}
 if (-not (Test-Path (Join-Path $publicDirectory 'ru\projects\index.html'))) {
   throw 'Missing prerendered /ru/projects page in .output/public.'
 }
-if (-not (Test-Path (Join-Path $publicDirectory '.locale-root\ru.html')) -or
-    -not (Test-Path (Join-Path $publicDirectory '.locale-root\en.html'))) {
-  throw 'Missing locale-selected root pages. Run npm run build first.'
+if (-not (Test-Path (Join-Path $publicDirectory 'index.html'))) {
+  throw 'Missing cacheable root locale selector. Run npm run build first.'
 }
 if (-not (Test-Path $sshKey)) {
   throw "Missing production SSH key: $sshKey"
@@ -90,8 +86,7 @@ activated=0
 tar -xzf "$archive" -C "$release"
 test -f "$release/index.html"
 test -f "$release/ru/projects/index.html"
-test -f "$release/.locale-root/ru.html"
-test -f "$release/.locale-root/en.html"
+grep -q 'data-kado-locale-selector' "$release/index.html"
 test -f "$release/fonts/fixel/FixelVariable.woff2"
 cp "$config" "$backup"
 
@@ -112,13 +107,15 @@ mv -Tf "$current.next" "$current"
 activated=1
 systemctl reload nginx
 
-curl -fsS --noproxy '*' --resolve kadonext.com:443:127.0.0.1 -H 'Accept-Language: ru-RU' https://kadonext.com/ -o /tmp/kadonext-root-ru-__ID__.html
-curl -fsS --noproxy '*' --resolve kadonext.com:443:127.0.0.1 -H 'Accept-Language: en-US' https://kadonext.com/ -o /tmp/kadonext-root-en-__ID__.html
-grep -q 'lang="ru"' /tmp/kadonext-root-ru-__ID__.html
-grep -q 'lang="en"' /tmp/kadonext-root-en-__ID__.html
+curl -fsS --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/ -o /tmp/kadonext-root-__ID__.html
+grep -q 'data-kado-locale-selector' /tmp/kadonext-root-__ID__.html
+curl -fsS --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/ru/ -o /tmp/kadonext-ru-__ID__.html
+curl -fsS --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/en/ -o /tmp/kadonext-en-__ID__.html
+grep -q 'lang="ru"' /tmp/kadonext-ru-__ID__.html
+grep -q 'lang="en"' /tmp/kadonext-en-__ID__.html
 
 trap - ERR
-rm -f "$archive" "$candidate" "$backup" /tmp/kadonext-root-ru-__ID__.html /tmp/kadonext-root-en-__ID__.html
+rm -f "$archive" "$candidate" "$backup" /tmp/kadonext-root-__ID__.html /tmp/kadonext-ru-__ID__.html /tmp/kadonext-en-__ID__.html
 '@
   $activateCommand = $activateCommand.Replace('__RELEASE__', $releasePath).Replace('__ARCHIVE__', $remoteArchive).Replace('__NGINX__', $remoteNginxConfig).Replace('__ID__', $releaseId)
 
@@ -129,7 +126,7 @@ rm -f "$archive" "$candidate" "$backup" /tmp/kadonext-root-ru-__ID__.html /tmp/k
   }
 
   $projectsHtml = (& curl.exe -fsS 'https://kadonext.com/ru/projects/') -join "`n"
-  if ($LASTEXITCODE -ne 0 -or $projectsHtml -notmatch '(?:https://[^/]+)?/fonts/fixel/FixelVariable\.woff2|https://nfb4tt2jyb\.cdn\.twcstorage\.ru/_nuxt/') {
+  if ($LASTEXITCODE -ne 0 -or $projectsHtml -notmatch '(?:https://[^/]+)?/(?:fonts/fixel/FixelVariable\.woff2|_nuxt/)') {
     throw 'Production health check failed: /ru/projects does not contain a static asset URL.'
   }
 

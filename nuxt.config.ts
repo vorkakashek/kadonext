@@ -1,16 +1,23 @@
 import tailwindcss from '@tailwindcss/vite'
 import { homeCaseIds } from './app/utils/homeCases'
 
-/** Large public media stays on the edge CDN. */
-const publicAssetCdnUrl = process.env.NUXT_PUBLIC_ASSET_CDN_URL
-  ?? (process.env.NODE_ENV === 'production' ? 'https://nfb4tt2jyb.cdn.twcstorage.ru' : '')
+/**
+ * Large public media can use the legacy asset-only CDN until the canonical
+ * host is placed behind the edge. Full-site CDN builds intentionally keep all
+ * public paths same-origin so the browser has one asset origin.
+ */
+const fullSiteCdn = process.env.KADO_FULL_SITE_CDN === 'true'
+const publicAssetCdnUrl = fullSiteCdn
+  ? ''
+  : (process.env.NUXT_PUBLIC_ASSET_CDN_URL
+      ?? (process.env.NODE_ENV === 'production' ? 'https://nfb4tt2jyb.cdn.twcstorage.ru' : ''))
 /**
  * Critical Nuxt chunks and fonts default to the canonical origin. Reusing the
  * document's HTTP/2 connection is more predictable for a cold first screen
  * than opening a second DNS/TLS path to the media CDN. Keep this independently
  * overridable for an origin/CDN comparison without moving the media library.
  */
-const appAssetCdnUrl = process.env.KADO_APP_ASSET_CDN_URL ?? ''
+const appAssetCdnUrl = fullSiteCdn ? '' : (process.env.KADO_APP_ASSET_CDN_URL ?? '')
 
 const contentRoutes = ['/', '/projects', '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`)]
 const localizedContentRoutes = ['ru', 'en'].flatMap(locale => (
@@ -43,8 +50,8 @@ export default defineNuxtConfig({
       // Static hosting proxies this path to the separate SMTP gateway.
       // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
       contactEndpoint: '/api/contact',
-      // Public assets may use the Timeweb CDN. The site HTML and contact API
-      // remain on the canonical origin.
+      // In the transitional topology this is the asset-only CDN. A full-site
+      // CDN build leaves it empty and lets the edge proxy the same paths.
       assetCdnUrl: publicAssetCdnUrl,
       // Opt-in only. Production must never silently acknowledge a real enquiry without delivery.
       contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK === 'true' && process.env.NODE_ENV === 'production',
