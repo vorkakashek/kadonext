@@ -25,7 +25,7 @@ test('root build output is a tiny cache-safe language selector', () => {
 test('nginx does not vary the root cache by locale negotiation', () => {
   const source = read('ops/nginx/kadonext.conf')
 
-  assert.match(source, /location = \/ \{[\s\S]*?try_files \$uri \/index\.html;/)
+  assert.match(source, /location = \/ \{[\s\S]*?rewrite \^ \/index\.html last;/)
   assert.match(source, /location = \/ \{[\s\S]*?s-maxage=300/)
   assert.doesNotMatch(source, /location = \/ \{[\s\S]*?Vary.*Accept-Language/)
   assert.match(source, /location = \/api\/contact \{[\s\S]*?proxy_pass/)
