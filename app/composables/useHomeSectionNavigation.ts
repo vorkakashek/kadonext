@@ -31,6 +31,22 @@ export function useHomeSectionNavigation() {
     }
   }
 
+  async function waitForHomeRouteCommit() {
+    for (let frame = 0; frame < 120; frame += 1) {
+      if (baseRoutePath(route.path) === '/') {
+        // Nuxt publishes its deferred route only after the Home subtree has
+        // committed. Give layout and Lenis one more pair of frames to measure
+        // the new document instead of retaining the shorter previous route.
+        await nextTick()
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        return true
+      }
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+    }
+    return false
+  }
+
   async function scrollToSection(id: HomeSectionId, immediate = false) {
     const target = await targetElement(id)
     if (!target) return false
@@ -45,14 +61,32 @@ export function useHomeSectionNavigation() {
       const enteringHome = baseRoutePath(route.path) !== '/'
       if (enteringHome) {
         await router.push(localePath('/'))
-        if (baseRoutePath(route.path) !== '/') return false
-        await waitForScrollUnlock()
+        // Nuxt's `useRoute()` proxy intentionally updates after the new page
+        // has painted. Vue Router's source of truth is already current when
+        // push() resolves, so use it for this transaction check; reading the
+        // deferred proxy here used to abort every cross-page section command.
+        if (baseRoutePath(router.currentRoute.value.path) !== '/') return false
       }
       // Vue Router resolves a navigation before its asynchronous scroll
       // behavior necessarily commits. The route plugin suppresses that native
-      // top reset while this command is pending; land once on the final section
-      // underneath the iris instead of starting a second visible page journey.
-      return await scrollToSection(id, immediate || enteringHome)
+      // top reset while this command is pending. For a cross-page command,
+      // position Home immediately while PageIris still owns the opaque cover;
+      // waiting for its lock to clear exposes both the jump and the Surface's
+      // first activation sync before the destination is ready to be seen.
+      let landed = await scrollToSection(id, immediate || enteringHome)
+      if (enteringHome) {
+        // The first write happens under the route cover. Reassert after Nuxt's
+        // deferred route/page commit so Lenis measures Home rather than clamps
+        // the destination to the previous page's scroll range.
+        if (await waitForHomeRouteCommit()) {
+          landed = await scrollToSection(id, true) || landed
+        }
+        // Keep pendingSection claimed until Vue Router's deferred scroll
+        // behavior has finished. Clearing it on the landing frame lets that
+        // late behavior overwrite the destination with its default top reset.
+        await waitForScrollUnlock()
+      }
+      return landed
     } finally {
       if (pendingSection.value === id) pendingSection.value = null
     }

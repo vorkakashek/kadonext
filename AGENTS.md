@@ -45,6 +45,7 @@
 ## Non-negotiable engineering constraints
 
 - Performance comes before decorative richness. Target stable 60 fps on real mobile Safari/Chrome; desktop smoothness is not sufficient evidence.
+- `experimental.payloadExtraction: false` is safe only while routes have no payload state from `useAsyncData` / `useFetch`. At the first introduction of either API, reviewing this setting is mandatory; for the SSG site, prefer switching it to `'client'` unless measurements justify another mode. Nuxt mode semantics: https://nuxt.com/docs/4.x/getting-started/prerendering#payload-extraction.
 - Avoid full-surface SVG `feTurbulence`, stacked expensive live effects and unnecessary per-frame DOM/layout reads. Prefer baked textures/assets, instancing and transform/opacity animation.
 - Use `--app-screen` / `100svh` for full-screen geometry. Do not base fixed/snap layouts on `100dvh`; mobile browser chrome height changes must not rebuild everything.
 - Keep one coherent motion experience; do not add a system reduced-motion mode. Pause WebGL/animation when hidden or out of view, and keep iOS motion permission behind a user gesture.

@@ -181,6 +181,13 @@ export function useHomeExperience() {
     )
   }
 
+  function abandonDetailRoute() {
+    state.value.handoff = transitionSurfaceHandoff(
+      state.value.handoff,
+      { type: 'detail-route-abandoned' },
+    )
+  }
+
   function beginDetailReturn() {
     state.value.handoff = transitionSurfaceHandoff(
       state.value.handoff,
@@ -253,6 +260,7 @@ export function useHomeExperience() {
     setSurfaceReturning,
     beginDetailOpen,
     completeDetailOpen,
+    abandonDetailRoute,
     beginDetailReturn,
     consumeHomeReturnSurface,
     markHomeReturnMediaDocked,

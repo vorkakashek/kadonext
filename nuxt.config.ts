@@ -21,6 +21,15 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
 
+  experimental: {
+    // Every prerendered payload currently contains only Nuxt's timestamp
+    // (69 bytes): the site has no route-level useAsyncData/useFetch state.
+    // Inline it so SPA hops cannot fail on a redundant CDN _payload request.
+    // Mandatory: review on the first useAsyncData/useFetch; prefer 'client'.
+    // https://nuxt.com/docs/4.x/getting-started/prerendering#payload-extraction
+    payloadExtraction: false,
+  },
+
   runtimeConfig: {
     public: {
       // Static hosting proxies this path to the separate SMTP gateway.
@@ -144,17 +153,20 @@ export default defineNuxtConfig({
           type: 'font/woff2',
           crossorigin: 'anonymous',
         },
-        { key: 'favicon-ico', rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48 96x96', media: '(prefers-color-scheme: light)' },
-        { key: 'favicon-png', rel: 'icon', href: '/favicon-96.png', type: 'image/png', sizes: '96x96', media: '(prefers-color-scheme: light)' },
-        { key: 'favicon-dark-ico', rel: 'icon', href: '/favicon-dark.ico', sizes: '16x16 32x32 48x48 96x96', media: '(prefers-color-scheme: dark)' },
-        { key: 'favicon-dark-png', rel: 'icon', href: '/favicon-dark-96.png', type: 'image/png', sizes: '96x96', media: '(prefers-color-scheme: dark)' },
+        { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
       ],
       noscript: [{
         key: 'static-content-fallback',
-        innerHTML: '<style>.home-hero__copy--intro-hidden,.case-detail--entering h1,.case-detail--entering .case-detail__meta,.case-detail--entering .case-detail__media{opacity:1!important;visibility:visible!important;transform:none!important}</style>',
+        innerHTML: '<style>.home-hero__copy--intro-hidden,.case-detail--entering h1,.case-detail--entering .case-detail__meta,.case-detail--entering .case-detail__media{opacity:1!important;visibility:visible!important;transform:none!important}.home-hero__copy--css-intro .home-hero__title,.home-hero__copy--css-intro .home-hero__desc-lines{opacity:1!important;transform:none!important;animation:none!important}</style>',
       }],
       script: [
+        {
+          key: 'scroll-restoration-policy',
+          innerHTML:
+            "try{if('scrollRestoration'in history)history.scrollRestoration='manual'}catch(e){}",
+          tagPosition: 'head',
+        },
         {
           key: 'cookie-notice-state',
           innerHTML:

@@ -22,6 +22,7 @@ const localePath = useLocalePath()
 const assetUrl = useCdnAsset()
 const {
   activeSection,
+  pendingSection,
   navigateToSection,
   selectSection,
 } = useHomeSectionNavigation()
@@ -29,6 +30,7 @@ const routeBasePath = computed(() => baseRoutePath(route.path))
 const homeCases = useHomeCases()
 const links = headerLinks
 type HeaderLink = typeof links[number]
+type HeaderNavigate = (event?: MouseEvent) => Promise<unknown> | void
 /** Optimistic “you are here” so the chip fill doesn’t wait for the iris hop. */
 // URL fragments never reach SSR. Apply them only after the header hydrates.
 const navHerePath = ref(stripLocalePrefix(route.fullPath).replace(/#.*$/, ''))
@@ -120,6 +122,7 @@ const { bottomExtra: fabBottomExtra, style: fabStyle } = useMobileFabGeometry()
 const thumbNav = ref(false)
 const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
 const simpleHomeIntroReady = useState<boolean>('home-simple-intro-ready', () => false)
+const heroIntroPending = useState<boolean>('home-hero-intro-pending', () => true)
 const introPending = ref(true)
 const homeSurfaceReady = useState<boolean>('home-surface-ready', () => false)
 const homeIntroHeaderReady = useState<boolean>('home-intro-header-ready', () => false)
@@ -149,6 +152,10 @@ function introDomElement(value: unknown): HTMLElement | null {
 function playSimpleHeaderIntro() {
   if (simpleHeaderIntroPlayed) return
   simpleHeaderIntroPlayed = true
+  // Both entrance paths satisfy the same one-shot contract. Without claiming
+  // it here, the first route change away from a cold Home restages the already
+  // visible nav at autoAlpha: 0 and makes the link group enter a second time.
+  authoredHeaderIntroStarted = true
   const logo = logoImgEl.value
   const nav = navEl.value
   const menu = introDomElement(menuBtnEl.value)
@@ -238,19 +245,34 @@ function onNavPointerDown(link: HeaderLink, e: PointerEvent) {
   markNavHere(link, e)
 }
 
-function onNavClick(link: HeaderLink, event: MouseEvent) {
+function onNavIntent(link: HeaderLink, event: PointerEvent | FocusEvent) {
+  onChipPointer(event)
+  void preloadRouteComponents(localePath(link.to))
+  if (linkSection(link)) {
+    preloadHomeSceneAssets()
+  }
+}
+
+function onNavClick(link: HeaderLink, event: MouseEvent, navigate: HeaderNavigate) {
   const section = linkSection(link)
   if (
-    !section
-    || event.button !== 0
+    event.button !== 0
     || event.metaKey
     || event.ctrlKey
     || event.shiftKey
     || event.altKey
   ) return
 
-  event.preventDefault()
-  void navigateToSection(section)
+  if (section) {
+    // `custom` keeps the anchor semantics but gives the section transaction
+    // sole ownership of a plain left click. A RouterLink click racing this
+    // command could previously finish on Home before the section scroll ran.
+    event.preventDefault()
+    void navigateToSection(section)
+    return
+  }
+
+  void navigate(event)
 }
 
 async function onLogoClick(event: MouseEvent) {
@@ -762,8 +784,9 @@ function resetHeaderWide(animate: boolean, deferFabExpand = false) {
   desktopLogoCollapsePending = false
   desktopLogoWantsCompact = false
   desktopScrollMarkOn.value = false
-  window.scrollTo(0, 0)
-  lastFabScrollY = 0
+  // Route/section navigation owns the document position. Header chrome must
+  // never overwrite a destination after the page has already committed it.
+  lastFabScrollY = window.scrollY
   if (deferFabExpand) {
     pendingFabExpandAfterCaseTransition = true
   } else {
@@ -1191,6 +1214,21 @@ onMounted(() => {
         scrolled.value = false
         return
       }
+      if (routeBasePath.value === '/' && pendingSection.value) {
+        // A cross-page section command has already claimed Home's landing
+        // coordinate. Header reset used to write scrollY=0 after that command,
+        // so Services and Contact always opened at the Hero. Let the section
+        // transaction position the page under PageIris; the resulting scroll
+        // frame will update the compact header state normally.
+        if (collapseTimer) {
+          window.clearTimeout(collapseTimer)
+          collapseTimer = 0
+        }
+        pendingExpand = false
+        lastFabScrollY = window.scrollY
+        lastDesktopLogoScrollY = window.scrollY
+        return
+      }
       const wasCollapsed = scrolled.value && canCollapseHeader()
       if (wasCollapsed && pageIrisLive.value) {
         // Stay compact under the sand; expand with morph after the iris opens.
@@ -1198,8 +1236,7 @@ onMounted(() => {
           window.clearTimeout(collapseTimer)
           collapseTimer = 0
         }
-        window.scrollTo(0, 0)
-        lastFabScrollY = 0
+        lastFabScrollY = window.scrollY
         fabLabelOn.value = true
         void fitFabLabel(true, true)
         pendingExpand = true
@@ -1237,11 +1274,15 @@ onMounted(() => {
       routeBasePath,
       simpleHomeIntroReady,
       criticalFontReady,
+      heroIntroPending,
     ],
-    async ([on, surfaceReady, headerReady, basePath, simpleReady, fontReady]) => {
+    async ([on, surfaceReady, headerReady, basePath, simpleReady, fontReady, heroPending]) => {
       const coldHome = initialHomeDocument.value && basePath === '/'
       if (PLAIN_COLD_HOME && coldHome) {
-        if (simpleReady) playSimpleHeaderIntro()
+        // The Hero drops this shared gate on the exact frame that starts the
+        // h1/description CSS entrance. Start the logo from the same signal so
+        // all three LCP candidates become paintable together.
+        if (simpleReady && !heroPending) playSimpleHeaderIntro()
         return
       }
       const introGateWaiting = coldHome
@@ -1453,23 +1494,29 @@ onUnmounted(() => {
             v-for="(link, index) in links"
             :key="link.labelKey"
             :to="localePath(link.to)"
-            class="nav-link chip-scale-host text-ink"
-            :class="{
-              'nav-link--here': isNavHere(link),
-              'is-chip-on': link.to === '/projects' && isNavHere(link),
-            }"
-            :aria-current="isNavHere(link) ? 'page' : undefined"
-            @pointerenter="onChipPointer"
-            @pointerleave="onChipPointer"
-            @focusin="onChipPointer"
-            @pointerdown="onNavPointerDown(link, $event)"
-            @click="onNavClick(link, $event)"
+            v-slot="{ href, navigate }"
+            custom
           >
-            <span class="chip-scale-bg" aria-hidden="true">
-              <span class="chip-scale-bg__fill" />
-            </span>
-            <span class="nav-link__label">{{ t(link.labelKey) }}</span>
-            <span v-if="index < links.length - 1" class="nav-link__comma">,</span>
+            <a
+              :href="href ?? undefined"
+              class="nav-link chip-scale-host text-ink"
+              :class="{
+                'nav-link--here': isNavHere(link),
+                'is-chip-on': link.to === '/projects' && isNavHere(link),
+              }"
+              :aria-current="isNavHere(link) ? 'page' : undefined"
+              @pointerenter="onNavIntent(link, $event)"
+              @pointerleave="onChipPointer"
+              @focusin="onNavIntent(link, $event)"
+              @pointerdown="onNavPointerDown(link, $event)"
+              @click="onNavClick(link, $event, navigate)"
+            >
+              <span class="chip-scale-bg" aria-hidden="true">
+                <span class="chip-scale-bg__fill" />
+              </span>
+              <span class="nav-link__label">{{ t(link.labelKey) }}</span>
+              <span v-if="index < links.length - 1" class="nav-link__comma">,</span>
+            </a>
           </NuxtLink>
         </nav>
 

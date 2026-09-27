@@ -1,49 +1,39 @@
 <script setup lang="ts">
 import {
-  COOKIE_NOTICE_COOKIE,
-  COOKIE_NOTICE_MAX_AGE,
+  rememberCookieNotice,
   wasCookieNoticeSeen,
 } from '~/utils/cookieNotice'
 
-const noticeCookie = useCookie<string | null>(COOKIE_NOTICE_COOKIE, {
-  default: () => null,
-  maxAge: COOKIE_NOTICE_MAX_AGE,
-  path: '/',
-  sameSite: 'lax',
-  secure: useRequestURL().protocol === 'https:',
-})
 // Static generation cannot know the visitor's cookie, so keep server and
 // client initial trees identical. Returning visitors are hidden before paint
 // by the small head probe, then this node is removed after hydration.
 const visible = ref(true)
+const fontReady = ref(false)
 const { t, tm } = useI18n()
 const localePath = useLocalePath()
 const titleLines = computed(() => tm('cookieNotice.titleLines') as string[])
-const noticeTextParts = computed(() => {
-  const words = t('cookieNotice.text').trim().split(/\s+/)
-  if (words.length < 2) return words
-
-  const totalLength = words.reduce((sum, word) => sum + word.length, 0) + words.length - 1
-  let currentLength = 0
-  let splitAt = 1
-  for (let index = 0; index < words.length - 1; index++) {
-    currentLength += words[index]!.length + (index > 0 ? 1 : 0)
-    splitAt = index + 1
-    if (currentLength >= totalLength / 2) break
-  }
-  return [
-    words.slice(0, splitAt).join(' '),
-    words.slice(splitAt).join(' '),
-  ]
-})
 
 function dismiss() {
-  noticeCookie.value = '1'
+  // Persist synchronously before Vue removes the notice. `useCookie` writes
+  // through an async watcher; hiding the only consumer in the same tick could
+  // leave the UI dismissed without ever committing the browser cookie.
+  rememberCookieNotice()
   visible.value = false
 }
 
-onMounted(() => {
-  if (wasCookieNoticeSeen()) visible.value = false
+onMounted(async () => {
+  if (wasCookieNoticeSeen()) {
+    visible.value = false
+    return
+  }
+
+  // This notice is present in the prerendered HTML, while the critical face
+  // still uses `font-display: swap`. Do not expose the fallback metrics for a
+  // frame: the later Fixel swap would visibly rewrap the compact mobile copy.
+  if ('fonts' in document) {
+    await document.fonts.load('400 1rem "Fixel Critical"').catch(() => [])
+  }
+  fontReady.value = true
 })
 
 </script>
@@ -53,6 +43,7 @@ onMounted(() => {
     <aside
       v-if="visible"
       class="cookie-notice pointer-events-auto"
+      :class="{ 'cookie-notice--font-pending': !fontReady }"
       aria-labelledby="cookie-notice-title"
     >
       <div class="cookie-notice__copy">
@@ -64,7 +55,7 @@ onMounted(() => {
           >{{ line }}</span>
         </h2>
         <div class="cookie-notice__text">
-          <p v-for="part in noticeTextParts" :key="part">{{ part }}</p>
+          <p>{{ t('cookieNotice.text') }}</p>
           <p class="cookie-notice__note">
             {{ t('cookieNotice.note') }}
             <NuxtLink :to="localePath('/privacy')" no-prefetch>{{ t('cookieNotice.details') }}</NuxtLink>
@@ -98,6 +89,10 @@ onMounted(() => {
   gap: clamp(1.25rem, 2vw, 2rem);
   outline: none;
   backdrop-filter: blur(16px);
+}
+
+.cookie-notice--font-pending {
+  visibility: hidden;
 }
 
 .cookie-notice__copy {

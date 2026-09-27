@@ -40,10 +40,16 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         samePage
         && document.documentElement.classList.contains('language-switch-lock')
       ) return false
-      // A named home destination owns its final position. Nuxt/Vue Router's
-      // default top reset is scheduled independently from router.push(), so it
-      // can otherwise overwrite the section command a frame later.
-      if (baseRoutePath(to.path) === '/' && pendingSection.value) return false
+      if (baseRoutePath(to.path) === '/' && !samePage) {
+        // Named landings (including the physical case-detail return) own their
+        // exact destination. Every ordinary Home entry starts at Hero instead
+        // of reviving Vue Router's saved position from the kept-alive page.
+        if (pendingSection.value) return false
+        // Resolve immediately while PageIris is still opaque. Nuxt's default
+        // behavior waits for page:loading:end and can expose the old Home
+        // position before its eventual top reset.
+        return { left: 0, top: 0, behavior: 'instant' }
+      }
       return await defaultScrollBehavior?.(to, from, savedPosition) ?? false
     }
     router.options.scrollBehavior = scrollBehavior

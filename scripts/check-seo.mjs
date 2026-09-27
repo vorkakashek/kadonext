@@ -64,7 +64,7 @@ for (const path of paths) {
   assert.equal(getMeta('robots').includes('noindex'), !indexable, context + 'correct indexation policy')
   const canonicals = tags(html, 'link').filter(tag => tag.rel === 'canonical')
   const links = tags(html, 'link')
-  assert.ok(links.some(tag => tag.rel === 'icon' && tag.href === '/favicon-96.png'), context + 'KADO search icon')
+  assert.ok(links.some(tag => tag.rel === 'icon' && tag.href === '/favicon.ico' && tag.type === 'image/x-icon'), context + 'KADO search icon')
   assert.ok(links.some(tag => tag.rel === 'apple-touch-icon' && tag.href === '/apple-touch-icon.png'), context + 'mobile icon')
   assert.equal(canonicals.length, 1, context + 'one canonical')
   assert.equal(canonicals[0].href, site + path, context + 'absolute canonical without parameters or fragments')

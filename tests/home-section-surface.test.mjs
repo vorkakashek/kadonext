@@ -27,6 +27,8 @@ function harness() {
     'paintAnchorSurfaceHandoff',
     'tick',
     'ensureTick',
+    'pageTransitionOwnsScrollSync',
+    'snapDesktopSurfaceToScroll',
     'onAnchorVisibilityChange',
     'onAppliedSurfaceFrame',
   ])
@@ -35,6 +37,7 @@ function harness() {
   const paints = []
   const style = new Map()
   const noop = () => {}
+  let undocks = 0
   let now = 0
   const context = createContext({
     frame: { value: { style: { getPropertyValue: key => style.get(key) ?? '', setProperty: (key, value) => style.set(key, value) } } },
@@ -50,8 +53,13 @@ function harness() {
     contactStageProgress: { value: 0 }, lastAboutTitleOpacity: '', lastCaseToneCss: '',
     stMod: null, ANCHOR_SURFACE_DURATION_MS: 720,
     HOME_SECTION_DESTINATIONS, isHomeMotionSection,
-    props: { formatsSurfaceEl: {} },
-    window: { scrollY: 4000 }, document: { hidden: false }, performance: { now: () => now },
+    props: { formatsSurfaceEl: {}, projectFormatSurfaceEls: [{}] },
+    window: { scrollY: 4000 },
+    document: {
+      hidden: false,
+      documentElement: { classList: { contains: name => name === 'page-iris-lock' } },
+    },
+    performance: { now: () => now },
     proxyPose: () => null,
     stableViewportHeight: () => 900,
     suspendDetachedSurfaceHost: () => false,
@@ -62,12 +70,16 @@ function harness() {
     requestAnimationFrame: () => 1, cancelAnimationFrame: noop,
     capturePoses: noop, killHopTween: noop, killCaseSettleTween: noop,
     killFormatsSettleTween: noop, killAboutSettleTween: noop,
-    clearCaseMediaReveal: noop, endMobileCaseTransformPaint: noop, unpinFrame: noop,
+    clearCaseMediaReveal: noop, endMobileCaseTransformPaint: noop,
+    frameDocked: () => true, unpinFrame: () => { undocks += 1 },
     setSurfaceDocked: noop, setSurfaceReady: noop, setCaseMediaVisible: noop, clearCaseMediaFlight: noop,
     releaseHomeReturnSnapshot: noop,
+    paintForwardHeroRevealFrame: () => false,
+    desktopHeroRevealTarget: () => -0.42,
     paintAboutTitleContrast: noop, lerpBox, mixSurfaceVisualSnapshot, planSurfaceRoute,
     clearAboutTitleContrast: noop,
-    parkMobileAboutWaypoint: noop, pinMobileHeroRevealFrame: noop,
+    parkMobileAboutWaypoint: noop, parkProjectFormatWaypoint: noop,
+    pinMobileHeroRevealFrame: noop, settleSurfaceRest: noop,
     clampUnit: value => Math.max(0, Math.min(1, value)),
     smoothUnit: value => value * value * (3 - 2 * value),
   })
@@ -97,8 +109,33 @@ function harness() {
   context.paintFormatsToAboutSegment = context.paintDesktop
   context.paintMobileScrollCorridor = context.paintDesktop
   runInContext(ts.transpileModule(functions, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context)
-  return { context, paints, advance(ms) { now += ms; context.tick(now) }, setNow(value) { now = value } }
+  return {
+    context,
+    paints,
+    undocks: () => undocks,
+    advance(ms) { now += ms; context.tick(now) },
+    setNow(value) { now = value },
+  }
 }
+
+test('an opaque route landing snaps a stale desktop Surface clock atomically', () => {
+  const h = harness()
+  h.context.desktopLiveS = 5
+  h.context.destinationS = 5 // Downstream ScrollTriggers still describe Cases.
+  h.context.onAppliedSurfaceFrame({ y: 0 })
+  assert.equal(h.context.desktopLiveS, -0.42)
+  assert.equal(h.undocks(), 1)
+  assert.equal(h.context.raf, 0)
+})
+
+test('the physical case-detail return keeps exclusive paint ownership', () => {
+  const h = harness()
+  h.context.desktopLiveS = 2
+  h.context.destinationS = 0
+  h.context.returningHomeFromCaseDetail = () => true
+  assert.equal(h.context.snapDesktopSurfaceToScroll(), false)
+  assert.equal(h.context.desktopLiveS, 2)
+})
 
 test('scroll holds the source; settlement interpolates directly to the final pose', () => {
   const h = harness()

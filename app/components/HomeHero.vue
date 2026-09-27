@@ -15,38 +15,61 @@ import {
   readMobileHeroCopyLayout,
   type MobileHeroCopyLayout,
 } from '~/utils/mobileHeroCopyMotion'
+import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
 
 const { locale, tm } = useI18n()
 const heroTitleLines = computed(() => {
   locale.value
   return tm('home.hero.titleLines') as string[]
 })
-const heroTitleLineWords = computed(() => (
-  heroTitleLines.value.map(line => (
-    line.trim().split(/\s+/).map(word => Array.from(word))
-  ))
-))
+
+interface HeroTitleChar {
+  value: string
+  revealIndex: number
+  settlesIntro: boolean
+}
+
+function buildTitleLineWords(lines: string[]): HeroTitleChar[][][] {
+  const rows = lines.map(line => line.trim().split(/\s+/).map(word => Array.from(word)))
+  const rowLengths = rows.map(words => words.reduce((length, word) => length + word.length, 0))
+  const longestRow = Math.max(0, ...rowLengths)
+
+  return rows.map((words, rowIndex) => {
+    let revealIndex = 0
+    return words.map(word => word.map((value) => {
+      const index = revealIndex++
+      return {
+        value,
+        revealIndex: index,
+        settlesIntro: rowLengths[rowIndex] === longestRow && index === longestRow - 1,
+      }
+    }))
+  })
+}
+
+const heroTitleLineWords = computed(() => buildTitleLineWords(heroTitleLines.value))
 const heroMobileTitleLines = computed(() => {
   locale.value
   return tm('home.hero.mobileTitleLines') as string[]
 })
-const heroMobileTitleLineWords = computed(() => (
-  heroMobileTitleLines.value.map(line => (
-    line.trim().split(/\s+/).map(word => Array.from(word))
-  ))
-))
+const heroMobileTitleLineWords = computed(() => buildTitleLineWords(heroMobileTitleLines.value))
 const heroDescriptionLines = computed(() => {
   locale.value
   return tm('home.hero.descriptionLines') as string[]
 })
 
 const heroIntroPending = useState<boolean>('home-hero-intro-pending', () => true)
+const heroIntroSettled = useState<boolean>('home-hero-intro-settled', () => false)
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const plainColdCssIntro = computed(() => PLAIN_COLD_HOME && initialHomeDocument.value)
 const flowSurfaceMask = useFlowSurfaceMask()
 const section = ref<HTMLElement | null>(null)
 const surfaceSlot = ref<HTMLElement | null>(null)
 const titleBlock = ref<HTMLElement | null>(null)
 const titleText = ref<HTMLElement | null>(null)
 const descLines = ref<HTMLElement | null>(null)
+let cssIntroTitleSettled = false
+let cssIntroDescriptionSettled = false
 // Native sticky owns the full scroll compensation on iOS. JS only paints the
 // small authored drift, so asynchronous scrolling cannot race a 1:1 transform.
 const nativeCopyAnchor = ref(false)
@@ -152,6 +175,22 @@ function onCopyResize() {
   updateCopyExit()
 }
 
+function onCssIntroEnd(event: AnimationEvent) {
+  const target = event.target
+  if (
+    !plainColdCssIntro.value
+    || !(target instanceof HTMLElement)
+  ) return
+
+  const sentinel = target.dataset.heroIntroSentinel
+  if (sentinel === 'title') cssIntroTitleSettled = true
+  if (sentinel === 'description') cssIntroDescriptionSettled = true
+  if (
+    cssIntroTitleSettled
+    && (cssIntroDescriptionSettled || heroDescriptionLines.value.length === 0)
+  ) heroIntroSettled.value = true
+}
+
 onMounted(() => {
   nativeCopyAnchor.value = isAppleTouchDevice()
   // Commit sticky before measuring/painting, including restored scroll on SPA
@@ -200,8 +239,11 @@ defineExpose({ section, surfaceSlot })
       :class="{
         'home-hero__copy--intro-hidden': heroIntroPending,
         'home-hero__copy--native-anchor': nativeCopyAnchor,
+        'home-hero__copy--css-intro': plainColdCssIntro,
+        'home-hero__copy--css-intro-finished': plainColdCssIntro && heroIntroSettled,
       }"
       :data-hero-copy-native-anchor="nativeCopyAnchor ? '' : undefined"
+      @animationend="onCssIntroEnd"
       :style="{
         maxWidth: 'var(--layout-content-max)',
         gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
@@ -233,9 +275,11 @@ defineExpose({ section, surfaceSlot })
             >
               <span
                 v-for="(char, charIndex) in word"
-                :key="`${char}-${charIndex}`"
+                :key="`${char.value}-${charIndex}`"
                 class="home-hero__title-char"
-              >{{ char }}</span>
+                :data-hero-intro-sentinel="char.settlesIntro ? 'title' : undefined"
+                :style="{ '--home-hero-char-index': char.revealIndex }"
+              >{{ char.value }}</span>
             </span>
           </span>
           <span
@@ -252,9 +296,11 @@ defineExpose({ section, surfaceSlot })
             >
               <span
                 v-for="(char, charIndex) in word"
-                :key="`${char}-${charIndex}`"
+                :key="`${char.value}-${charIndex}`"
                 class="home-hero__title-char"
-              >{{ char }}</span>
+                :data-hero-intro-sentinel="char.settlesIntro ? 'title' : undefined"
+                :style="{ '--home-hero-char-index': char.revealIndex }"
+              >{{ char.value }}</span>
             </span>
           </span>
         </h1>
@@ -270,6 +316,8 @@ defineExpose({ section, surfaceSlot })
             <p
               data-hero-description-line
               class="home-hero__desc"
+              :data-hero-intro-sentinel="lineIndex === heroDescriptionLines.length - 1 ? 'description' : undefined"
+              :style="{ '--home-hero-desc-index': lineIndex }"
             >
               {{ line }}
             </p>
@@ -302,6 +350,42 @@ defineExpose({ section, surfaceSlot })
 .home-hero__copy--intro-hidden {
   opacity: 0;
   visibility: hidden;
+}
+
+.home-hero__copy--css-intro .home-hero__title-char {
+  transform: translate3d(0, 125%, 0);
+  will-change: transform;
+}
+
+.home-hero__copy--css-intro .home-hero__desc {
+  transform: translate3d(0, 115%, 0);
+  will-change: transform;
+}
+
+.home-hero__copy--css-intro:not(.home-hero__copy--intro-hidden) .home-hero__title-char {
+  animation: home-hero-title-char-in 1100ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(var(--home-hero-char-index) * 55ms);
+}
+
+.home-hero__copy--css-intro:not(.home-hero__copy--intro-hidden) .home-hero__desc {
+  animation: home-hero-desc-line-in 1100ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(60ms + var(--home-hero-desc-index) * 180ms);
+}
+
+.home-hero__copy--css-intro-finished .home-hero__title-char {
+  will-change: auto;
+}
+
+@keyframes home-hero-title-char-in {
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes home-hero-desc-line-in {
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .home-hero__title-block {
@@ -394,6 +478,10 @@ defineExpose({ section, surfaceSlot })
   .home-hero__copy {
     position: relative;
     z-index: 1;
+  }
+
+  .home-hero__copy--css-intro:not(.home-hero__copy--intro-hidden) .home-hero__desc {
+    animation-delay: 0ms;
   }
 
   .home-hero__copy--native-anchor {

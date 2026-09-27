@@ -2,12 +2,18 @@
 import { homeCaseDetailPath, type HomeCase } from '~/utils/homeCases'
 import { warmCaseDetailRoute } from '~/utils/caseDetailRouteWarmup'
 
-const { openCaseDetail } = useCaseDetailTransition()
+const {
+  active: caseDetailTransitionActive,
+  openCaseDetail,
+} = useCaseDetailTransition()
 const { t } = useI18n()
 const localePath = useLocalePath()
 const homeCases = useHomeCases()
 const projectsCatalogTitle = computed(() => t('projects.catalog.title'))
-const { pageIrisLive } = usePageCanvas()
+const {
+  pageIrisLive,
+  surfaceOn: pageCanvasSurfaceOn,
+} = usePageCanvas()
 const projectsCatalogEl = ref<HTMLElement | null>(null)
 const projectsHeaderEl = ref<HTMLElement | null>(null)
 const projectsSurfaceEl = ref<HTMLElement | null>(null)
@@ -19,6 +25,8 @@ let initialRevealPlayed = false
 
 const pageRevealReady = computed(() => (
   !pageIrisLive.value
+  && !pageCanvasSurfaceOn.value
+  && !caseDetailTransitionActive.value
 ))
 
 function playInitialCardReveal() {

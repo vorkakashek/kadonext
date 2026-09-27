@@ -41,6 +41,7 @@
     "type.hero": [32, 40, 64, 72, 80, 88],
     "type.catalog-title": [64, 112, 192, 224, 288, 360],
     "type.case-title": [40, 48, 80, 96, 128, 128],
-    "radius.surface": [4, 4, 4, 4, 4, 4]
+    "radius.surface": [4, 4, 4, 4, 4, 4],
+    "radius.tag": [4, 8, 12, 16, 20, 24]
   }
 }

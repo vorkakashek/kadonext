@@ -143,7 +143,9 @@ const CHAOS_POP_FORCE = 0.012
 /** Entry gather window: stronger springs, with input and idle knocks muted. */
 const SETTLE_MS = 700
 /** Intro: place balls this far out (× ringRadius), then spring home. */
-const ENTRY_SCATTER_RATIO = 2.25
+// Keep the richer desktop strand just outside the frame, but close enough for
+// its leading balls to enter promptly once the lit canvas is revealed.
+const ENTRY_SCATTER_RATIO = 1.7
 /** Mobile starts near the final outer silhouette so its entrance is visible immediately. */
 const ENTRY_SCATTER_RATIO_MOBILE = 1.55
 /** Debounce real window resizes before a full scene reboot. */
@@ -798,12 +800,11 @@ async function bootScene() {
   // shell as soon as it is behind us; lighting may continue under the cover.
   emit('booted')
 
-  if (lite) {
-    // Keep renderer/context setup and geometry/material construction in
-    // separate tasks. The cover remains opaque, so this yield is invisible.
-    await new Promise<void>(resolve => window.setTimeout(resolve, 0))
-    if (gen !== bootGen || renderer !== gl) return
-  }
+  // Keep renderer/context setup and geometry/material construction in separate
+  // tasks on every device. The cover remains opaque, so this yield is invisible
+  // while preventing one cold task from accumulating both costs.
+  await new Promise<void>(resolve => window.setTimeout(resolve, 0))
+  if (gen !== bootGen || renderer !== gl) return
 
   // Mobile lighting and reflections are baked into matcaps. Real lights remain
   // for the desktop PBR scene only.
@@ -946,6 +947,12 @@ async function bootScene() {
     })
   }
   for (const material of materialPlan) material.dispose()
+
+  // The next phase prepares/compiles the final lighting state. Give the browser
+  // a task boundary after constructing the complete mesh set so cold desktop
+  // startup cannot merge geometry and shader work into one long task.
+  await new Promise<void>(resolve => window.setTimeout(resolve, 0))
+  if (gen !== bootGen || renderer !== gl) return
 
   let litEmitted = false
   let envFallbackChosen = false

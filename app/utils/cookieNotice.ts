@@ -19,6 +19,9 @@ export function rememberCookieNotice() {
   try {
     const secure = window.location.protocol === 'https:' ? '; Secure' : ''
     document.cookie = `${COOKIE_NOTICE_COOKIE}=1; Max-Age=${COOKIE_NOTICE_MAX_AGE}; Path=/; SameSite=Lax${secure}`
+    // Keep the current document consistent even if the component is remounted
+    // before the next navigation or the browser refuses persistent storage.
+    document.documentElement.classList.add('cookie-notice-seen')
   } catch {
     // A blocked cookie API must not make the notice unusable for this visit.
   }

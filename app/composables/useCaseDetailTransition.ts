@@ -39,7 +39,7 @@ export function useCaseDetailTransition() {
   const origin = useState<CaseDetailOrigin>('case-detail-origin', () => 'projects')
   const home = useHomeExperience()
   const detail = useCaseDetailExperience()
-  const { selectSection } = useHomeSectionNavigation()
+  const { pendingSection, selectSection } = useHomeSectionNavigation()
 
   function openCaseDetail(next: Omit<CaseDetailTransitionRequest, 'direction'> & { origin: CaseDetailOrigin }) {
     if (active.value || request.value) return
@@ -58,6 +58,9 @@ export function useCaseDetailTransition() {
     detail.beginExit()
     if (returningHome) {
       selectSection('cases')
+      // The physical return flight, not Vue Router's generic saved position,
+      // owns the preserved Cases landing until the proxy has docked.
+      pendingSection.value = 'cases'
       home.beginDetailReturn()
     }
     request.value = {
@@ -69,6 +72,11 @@ export function useCaseDetailTransition() {
         ? `[data-case-media="${next.src}"]`
         : `[data-case-cover="${next.src}"]`,
     }
+  }
+
+  function completeDetailReturn() {
+    home.completeDetailReturn()
+    if (pendingSection.value === 'cases') pendingSection.value = null
   }
 
   return {
@@ -85,7 +93,7 @@ export function useCaseDetailTransition() {
     completeDetailOpen: home.completeDetailOpen,
     consumeHomeReturnSurface: home.consumeHomeReturnSurface,
     markHomeReturnMediaDocked: home.markHomeReturnMediaDocked,
-    completeDetailReturn: home.completeDetailReturn,
+    completeDetailReturn,
     openCaseDetail,
     closeCaseDetail,
   }

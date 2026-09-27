@@ -69,6 +69,8 @@ import {
   CASE_MEDIA_FLIGHT_START_EVENT,
   mixSurfaceVisualSnapshot,
   planSurfaceRoute,
+  resolveSurfaceRestOwnership,
+  type SurfaceRestDescriptor,
   type SurfaceRouteDecision,
   type SurfaceVisualSnapshot,
 } from '~/utils/flowSurfaceContract'
@@ -264,6 +266,7 @@ const {
   setSurfaceReady,
   setCaseMediaVisible,
   setSurfaceReturning,
+  abandonDetailRoute,
   consumeHomeReturnSurface,
   releaseHomeReturnSnapshot,
 } = useHomeExperience()
@@ -610,7 +613,15 @@ let lastWordDoc: SurfaceBox | null = null
 /** Pin host currently holding the frame (term/word slot). */
 let pinHost: HTMLElement | null = null
 let pinRo: ResizeObserver | null = null
-type SurfaceProxyKind = 'kado' | 'case' | 'formats' | 'about' | 'contact'
+type SurfaceRestKind = 'hero' | 'kado' | 'case' | 'formats' | 'project' | 'about' | 'contact'
+type SurfaceProxyKind = SurfaceRestKind
+type SurfaceRestRequest = SurfaceRestDescriptor & {
+  kind: SurfaceRestKind
+  host?: HTMLElement | null
+  box: SurfaceBox
+  morph?: number
+  onResize?: (() => void) | null
+}
 let proxyHost: HTMLElement | null = null
 let proxyKind: SurfaceProxyKind | null = null
 let caseMediaRevealTimer = 0
@@ -1217,11 +1228,6 @@ function pinMobileHeroRevealFrame(pose?: SurfaceBox | null) {
   if (!host || !el) return
   const box = pose ?? readBox(host)
   if (!box) return
-  if (anchorSample) {
-    syncStageRest(box)
-    paintBox(box, 0)
-    return
-  }
 
   syncStageRest(box)
   el.style.setProperty('--hero-stage-top', '0px')
@@ -1230,32 +1236,13 @@ function pinMobileHeroRevealFrame(pose?: SurfaceBox | null) {
     '--hero-copy-x',
     `${(window.innerWidth * 0.5 - box.left - box.width * 0.5).toFixed(3)}px`,
   )
-  liveBox = morphBox(box)
-  writeMaskBox(liveBox, 0)
-  flushFlowSurfacePath(liveBox)
-
-  if (heroRevealFramePinned()) return
-  if (frameDocked()) {
-    unpinFrame(flowSurfaceMask.morph)
-    void nextTick(() => pinMobileHeroRevealFrame())
-    return
-  }
-
-  // Preserve the current viewport pose until Teleport has moved the frame.
-  el.style.position = 'fixed'
-  applyBox(el, box)
-  pinHost = host
-  pinTo.value = host
-  void nextTick(() => {
-    if (!frame.value || pinTo.value !== host) return
-    frame.value.style.position = 'absolute'
-    frame.value.style.top = '0px'
-    frame.value.style.left = '0px'
-    frame.value.style.width = '100%'
-    frame.value.style.height = '100%'
-    frame.value.style.right = 'auto'
-    frame.value.style.bottom = 'auto'
-    frame.value.style.transform = ''
+  settleSurfaceRest({
+    kind: 'hero',
+    space: 'document',
+    content: 'live',
+    host,
+    box,
+    morph: 0,
   })
 }
 
@@ -2231,6 +2218,52 @@ function paintDesktop(s = desktopLiveS) {
   const contactSegmentIndex = aboutSegmentIndex + 1
   const segmentCount = contactSegmentIndex + 1
   const { segmentIndex, localT } = resolveCorridorSegment(s, segmentCount)
+  const targetS = computeDesktopTarget()
+  const settledAt = (waypoint: number) => (
+    Math.abs(targetS - waypoint) < SURFACE_MORPH_EPSILON
+    && Math.abs(s - waypoint) < SURFACE_MORPH_EPSILON
+  )
+  const settledProjectIndex = Math.round(targetS) - 4
+  const decorativeRest = settledAt(contactSegmentIndex)
+    ? {
+        kind: 'about' as const,
+        host: props.aboutSurfaceEl,
+        box: aboutSurfacePose(),
+      }
+    : settledProjectIndex >= 0
+      && settledProjectIndex < projectCount
+      && settledAt(4 + settledProjectIndex)
+      ? {
+          kind: 'project' as const,
+          host: props.projectFormatSurfaceEls[settledProjectIndex],
+          box: projectFormatSurfacePose(settledProjectIndex),
+        }
+      : settledAt(3)
+        ? {
+            kind: 'formats' as const,
+            host: props.formatsSurfaceEl,
+            box: formatsSurfacePose(),
+          }
+        : settledAt(2)
+          ? {
+              kind: 'case' as const,
+              host: props.caseMediaEl,
+              box: caseMediaPose(),
+            }
+          : null
+
+  if (
+    (
+      proxyKind === 'case'
+      || proxyKind === 'formats'
+      || proxyKind === 'project'
+      || proxyKind === 'about'
+    )
+    && (!decorativeRest || proxyKind !== decorativeRest.kind)
+  ) {
+    unpinFrame()
+  }
+
   if (segmentIndex > 0) publishHeroHorizontalMorph(1)
   if (segmentIndex === contactSegmentIndex) {
     paintAboutToContactSegment(localT)
@@ -2244,6 +2277,19 @@ function paintDesktop(s = desktopLiveS) {
     paintKadoToCasesSegment(localT)
   } else {
     paintHeroToKadoSegment(localT)
+  }
+
+  // Commit every decorative document-space rest through the shared ownership
+  // contract. No settled desktop waypoint may chase an in-flow slot from the
+  // fixed shell.
+  if (decorativeRest?.box) {
+    settleSurfaceRest({
+      kind: decorativeRest.kind,
+      space: 'document',
+      content: 'decorative',
+      host: decorativeRest.host,
+      box: decorativeRest.box,
+    })
   }
 }
 
@@ -2399,30 +2445,39 @@ function prepareMobileScrollFlight(useCaseTransform = false) {
 /** A true DOM-owned hold cannot drift a frame behind native touch scrolling. */
 function parkMobileKadoWaypoint(hop: MobileHop, box: SurfaceBox) {
   const host = pinSlot(hop)
-  if (!host) {
-    prepareMobileScrollFlight()
-    paintBox(box, 1)
-    return
-  }
-  if (proxyHost === host && proxyKind === 'kado') return
-  paintBox(box, 1)
-  parkFrameOnProxy(host, 'kado', box)
+  settleSurfaceRest({
+    kind: 'kado',
+    space: 'document',
+    content: 'decorative',
+    host,
+    box,
+  })
 }
 
 /** Biography's own dark slot becomes the settled Surface after the morph. */
 function parkMobileAboutWaypoint(box: SurfaceBox) {
   const host = props.aboutSurfaceEl
-  if (!host) {
-    prepareMobileScrollFlight()
-    paintBox(box, 1)
-    paintAboutTitleContrast(box)
-    return
-  }
-  if (proxyHost === host && proxyKind === 'about') return
-  paintBox(box, 1)
-  parkFrameOnProxy(host, 'about', box)
+  settleSurfaceRest({
+    kind: 'about',
+    space: 'document',
+    content: 'decorative',
+    host,
+    box,
+  })
   // The static author slot is already ink; its base heading is fully light.
   clearAboutTitleContrast()
+}
+
+/** Let the price/duration card own a settled Surface on the scroll compositor. */
+function parkProjectFormatWaypoint(index: number, box: SurfaceBox) {
+  const host = props.projectFormatSurfaceEls[index]
+  settleSurfaceRest({
+    kind: 'project',
+    space: 'document',
+    content: 'decorative',
+    host,
+    box,
+  })
 }
 
 /** Linear for now; kept as one hook so the complete corridor shares one ease. */
@@ -2526,8 +2581,8 @@ function paintMobileScrollCorridor(
   )
   const aboutSettledClock = aboutSegmentIndex + 1
 
-  // Holds stay in the fixed shell and follow the current document box. Moving
-  // the frame into a proxy/Teleport here creates a second coordinate system.
+  // Resting waypoints hand ownership to their destination DOM layer. The fixed
+  // shell is reserved for active flights and genuinely viewport-bound poses.
   {
     if (
       mobileCorridorSettledAt(2)
@@ -2594,9 +2649,7 @@ function paintMobileScrollCorridor(
       setSurfaceDocked(true)
       clearAboutTitleContrast()
       paintAboutSurfaceTone(0)
-      prepareMobileScrollFlight()
-      paintBox(docToViewport(bounds.caseDoc), 1)
-      setSurfaceReady(true)
+      parkMobileCaseFrame(docToViewport(bounds.caseDoc), false)
       setCaseMediaVisible(mediaVisible)
       return
     }
@@ -2622,8 +2675,7 @@ function paintMobileScrollCorridor(
         clearCaseMediaFlight()
         clearAboutTitleContrast()
         paintAboutSurfaceTone(0)
-        prepareMobileScrollFlight()
-        paintBox(projectFormatsNow[index]!, 1)
+        parkProjectFormatWaypoint(index, projectFormatsNow[index]!)
         return
       }
     }
@@ -2901,7 +2953,7 @@ function pinSlot(hop: MobileHop): HTMLElement | null {
   return (word.querySelector('[data-flow-pin]') as HTMLElement | null) ?? word
 }
 
-function syncPinnedMask() {
+function syncPinnedMask(morph = 1) {
   const el = frame.value
   if (!el || !pinTo.value) return
   const r = el.getBoundingClientRect()
@@ -2921,7 +2973,7 @@ function syncPinnedMask() {
     return
   }
   liveBox = box
-  writeMaskBox(box, 1)
+  writeMaskBox(box, morph)
   flushFlowSurfacePath(box)
 }
 
@@ -2966,15 +3018,12 @@ function proxyPose(): SurfaceBox | null {
   return readBox(proxyHost)
 }
 
-function parkFrameOnProxy(
+function settleDocumentProxy(
   host: HTMLElement,
   kind: SurfaceProxyKind,
   box: SurfaceBox,
+  morph: number,
 ) {
-  if (anchorSample) {
-    paintBox(box, 1)
-    return
-  }
   endMobileCaseTransformPaint()
   if (pinTo.value) unpinFrame()
   if (proxyHost && proxyHost !== host) {
@@ -2982,12 +3031,95 @@ function parkFrameOnProxy(
   }
   const next = morphBox(box)
   liveBox = next
-  writeMaskBox(next, 1)
+  writeMaskBox(next, morph)
   flushFlowSurfacePath(next)
   proxyHost = host
   proxyKind = kind
   host.setAttribute('data-flow-surface-proxy-active', '')
   proxyParked.value = true
+}
+
+function settleDocumentFrame(request: SurfaceRestRequest) {
+  const host = request.host
+  const el = frame.value
+  if (!host || !el) return false
+  const morph = request.morph ?? 1
+
+  if (pinTo.value === host) {
+    syncPinnedMask(morph)
+    request.onResize?.()
+    return true
+  }
+
+  endMobileCaseTransformPaint()
+  if (frameDocked()) unpinFrame(morph)
+  proxyParked.value = false
+
+  const next = morphBox(request.box)
+  liveBox = next
+  writeMaskBox(next, morph)
+  flushFlowSurfacePath(next)
+
+  // Freeze in viewport coordinates until Teleport has committed the new DOM
+  // parent. The next frame switches to local 100% geometry inside the host.
+  el.style.position = 'fixed'
+  applyBox(el, next)
+  pinHost = host
+  pinTo.value = host
+  void nextTick(() => {
+    const pinned = frame.value
+    if (!pinned || pinTo.value !== host) return
+    pinned.style.position = 'absolute'
+    pinned.style.top = '0px'
+    pinned.style.left = '0px'
+    pinned.style.width = '100%'
+    pinned.style.height = '100%'
+    pinned.style.right = 'auto'
+    pinned.style.bottom = 'auto'
+    pinned.style.transform = ''
+
+    pinRo?.disconnect()
+    pinRo = new ResizeObserver(() => {
+      syncPinnedMask(morph)
+      request.onResize?.()
+    })
+    pinRo.observe(host)
+    syncPinnedMask(morph)
+    request.onResize?.()
+  })
+  return true
+}
+
+/**
+ * Single resting-state boundary for the shared Surface.
+ *
+ * Document-space rests never follow scrolling through JS. Decorative surfaces
+ * become a CSS proxy on the destination; live surfaces move into that DOM
+ * node. Only viewport-space rests remain in the fixed host.
+ */
+function settleSurfaceRest(request: SurfaceRestRequest) {
+  const morph = request.morph ?? 1
+  if (anchorSample) {
+    paintBox(request.box, morph)
+    return
+  }
+
+  const ownership = resolveSurfaceRestOwnership(request)
+  if (ownership === 'document-proxy' && request.host) {
+    if (proxyHost === request.host && proxyKind === request.kind) return
+    if (!proxyParked.value) paintBox(request.box, morph)
+    settleDocumentProxy(request.host, request.kind, request.box, morph)
+    return
+  }
+  if (ownership === 'document-frame' && settleDocumentFrame(request)) return
+
+  // Missing document hosts degrade to the only safe paintable state. Normal
+  // waypoint contracts always provide a host; viewport rests intentionally do
+  // not need one.
+  if (frameDocked()) unpinFrame(morph)
+  endMobileCaseTransformPaint()
+  proxyParked.value = false
+  paintBox(request.box, morph)
 }
 
 /** Mobile case rest: a CSS backplate owns the still frame; the live Surface is free. */
@@ -2998,7 +3130,13 @@ function parkMobileCaseFrame(
   const host = props.caseMediaEl
   if (!host) return
   clearCaseMediaFlight()
-  parkFrameOnProxy(host, 'case', box)
+  settleSurfaceRest({
+    kind: 'case',
+    space: 'document',
+    content: 'decorative',
+    host,
+    box,
+  })
   setSurfaceReady(true)
   scheduleCaseMediaReveal(delayMedia ? MOBILE_CASE_MEDIA_REVEAL_DELAY_MS : 0)
 }
@@ -3017,7 +3155,7 @@ function pinCaseFrame() {
   }
 }
 
-/** Settle Formats into its viewport-bound background rectangle. */
+/** Settle Formats into the section-owned sticky background rectangle. */
 function pinFormatsFrame() {
   const dest = formatsSurfacePose()
   const host = props.formatsSurfaceEl
@@ -3028,61 +3166,41 @@ function pinFormatsFrame() {
   clearCaseMediaFlight()
   setSurfaceReady(false)
   paintAboutSurfaceTone(0)
-  // The mobile target is viewport-bound (list top → screen bottom), so a
-  // document-bound CSS proxy cannot represent it. Keep the real fixed Surface
-  // alive and repaint its cheap rectangle on native-scroll updates.
-  if (mobileActive) {
-    if (frameDocked()) unpinFrame()
-    endMobileCaseTransformPaint()
-    proxyParked.value = false
-    paintBox(finalDest, 1)
-    return
-  }
-  parkFrameOnProxy(host, 'formats', finalDest)
+  settleSurfaceRest({
+    kind: 'formats',
+    // The mobile rectangle looks viewport-bound, but its lifetime is the
+    // document section. CSS sticky owns it after settlement; a fixed frame
+    // would chase the list bottom on Safari.
+    space: 'document',
+    content: 'decorative',
+    host,
+    box: finalDest,
+  })
 }
 
 function aboutFramePinned() {
-  return !!props.aboutSurfaceEl && pinTo.value === props.aboutSurfaceEl
+  return !!props.aboutSurfaceEl
+    && (
+      pinTo.value === props.aboutSurfaceEl
+      || (proxyKind === 'about' && proxyHost === props.aboutSurfaceEl)
+    )
 }
 
-/** Attach the settled mobile surface to the author panel. */
+/** Settle the decorative author surface into the author panel. */
 function pinAboutFrame() {
   const host = props.aboutSurfaceEl
-  const el = frame.value
-  if (!host || !el) return
+  const box = aboutSurfacePose()
+  if (!host || !box) return
   setCaseMediaVisible(false)
   clearCaseMediaFlight()
-  if (pinTo.value === host) {
-    syncPinnedMask()
-    const box = aboutSurfacePose()
-    if (box) paintAboutTitleContrast(box)
-    return
-  }
-
-  unpinFrame()
-  pinHost = host
-  el.style.position = 'absolute'
-  el.style.top = '0px'
-  el.style.left = '0px'
-  el.style.width = '100%'
-  el.style.height = '100%'
-  el.style.right = 'auto'
-  el.style.bottom = 'auto'
-  el.style.transform = ''
-  pinTo.value = host
-
-  pinRo?.disconnect()
-  pinRo = new ResizeObserver(() => {
-    syncPinnedMask()
-    const box = aboutSurfacePose()
-    if (box) paintAboutTitleContrast(box)
+  settleSurfaceRest({
+    kind: 'about',
+    space: 'document',
+    content: 'decorative',
+    host,
+    box,
   })
-  pinRo.observe(host)
-  void nextTick(() => {
-    syncPinnedMask()
-    const box = aboutSurfacePose()
-    if (box) paintAboutTitleContrast(box)
-  })
+  clearAboutTitleContrast()
 }
 
 function contactFramePinned() {
@@ -3092,38 +3210,18 @@ function contactFramePinned() {
 /** Attach the settled Surface and its interactive form to the contact field. */
 function pinContactFrame() {
   const host = props.contactSurfaceEl
-  const el = frame.value
-  if (!host || !el) return
-  if (anchorSample) {
-    const box = contactSurfacePose()
-    if (box) paintBox(box, 1)
-    return
-  }
+  const box = contactSurfacePose()
+  if (!host || !box) return
   setCaseMediaVisible(false)
   clearCaseMediaFlight()
   setContactStageProgress(1)
-  if (pinTo.value === host) {
-    syncPinnedMask()
-    return
-  }
-
-  unpinFrame()
-  proxyParked.value = false
-  pinHost = host
-  el.style.position = 'absolute'
-  el.style.top = '0px'
-  el.style.left = '0px'
-  el.style.width = '100%'
-  el.style.height = '100%'
-  el.style.right = 'auto'
-  el.style.bottom = 'auto'
-  el.style.transform = ''
-  pinTo.value = host
-
-  pinRo?.disconnect()
-  pinRo = new ResizeObserver(syncPinnedMask)
-  pinRo.observe(host)
-  void nextTick(syncPinnedMask)
+  settleSurfaceRest({
+    kind: 'contact',
+    space: 'document',
+    content: 'live',
+    host,
+    box,
+  })
 }
 
 function unpinFrame(morph = 1) {
@@ -3175,14 +3273,16 @@ function unpinFrame(morph = 1) {
 
 function pinFrame(hop: MobileHop) {
   const host = pinSlot(hop)
-  const el = frame.value
-  if (!host || !el) return
-  if (proxyHost === host) {
-    return
-  }
+  if (!host) return
   const box = readBox(host)
   if (!box) return
-  parkFrameOnProxy(host, 'kado', box)
+  settleSurfaceRest({
+    kind: 'kado',
+    space: 'document',
+    content: 'decorative',
+    host,
+    box,
+  })
 }
 
 function settleHop(hop: MobileHop) {
@@ -3590,7 +3690,7 @@ function paintAnchorDestination(targetId: HomeMotionSection) {
   if (targetId === 'about') {
     paintFormatsToAboutSegment(1)
     const box = aboutSurfacePose()
-    if (!anchorSample && mobileActive && box) parkMobileAboutWaypoint(box)
+    if (!anchorSample && box) parkMobileAboutWaypoint(box)
     return
   }
   paintAboutSurfaceTone(0)
@@ -3600,12 +3700,28 @@ function paintAnchorDestination(targetId: HomeMotionSection) {
     const box = mobileActive && track
       ? mobileFormatsSettledBox(track, list)
       : formatsSurfacePose()
-    if (box) paintBox(box, 1)
+    if (box) {
+      paintBox(box, 1)
+      if (!anchorSample) {
+        settleSurfaceRest({
+          kind: 'formats',
+          space: 'document',
+          content: 'decorative',
+          host: props.formatsSurfaceEl,
+          box,
+        })
+      }
+    }
     return
   }
   if (targetId === 'project-formats') {
     const box = projectFormatSurfacePose(0) ?? formatsSurfacePose()
-    if (box) paintBox(box, 1)
+    if (box) {
+      paintBox(box, 1)
+      if (!anchorSample && props.projectFormatSurfaceEls[0]) {
+        parkProjectFormatWaypoint(0, box)
+      }
+    }
     return
   }
   const box = heroLivePose()
@@ -3871,6 +3987,41 @@ function ensureTick() {
     lastTs = performance.now()
     raf = requestAnimationFrame(tick)
   }
+}
+
+/**
+ * A kept-alive Home can be reactivated after Vue Router has already replaced
+ * its old scroll position. That is a route landing, not user-driven travel:
+ * carrying the stale Surface clock through the velocity limiter makes the old
+ * Cases pose visibly spend several seconds travelling back to Hero.
+ */
+function pageTransitionOwnsScrollSync() {
+  return document.documentElement.classList.contains('page-iris-lock')
+    || document.documentElement.classList.contains('page-canvas-lock')
+}
+
+function snapDesktopSurfaceToScroll(scrollY = window.scrollY) {
+  if (
+    mobileActive
+    || returningHomeFromCaseDetail()
+    || surfacePaintOwner.value !== 'scroll'
+  ) return false
+
+  // ScrollTrigger progress can still describe the Home position from before
+  // deactivation. Reconcile it synchronously while the route cover is opaque.
+  stMod?.ScrollTrigger.update()
+  // At the document top, downstream trigger progress is irrelevant and may be
+  // stale until ScrollTrigger's deferred refresh. Reading it here would revive
+  // the old Cases pose for one more visible frame after the iris opens.
+  const next = scrollY <= 1
+    ? desktopHeroRevealTarget(scrollY)
+    : computeDesktopTarget()
+  if (!Number.isFinite(next)) return false
+  if (scrollY <= 1 && frameDocked()) unpinFrame(0)
+  desktopTargetS = next
+  desktopLiveS = next
+  paintDesktop(next)
+  return true
 }
 
 function killMorph() {
@@ -4391,7 +4542,8 @@ function onAppliedSurfaceFrame(scrollFrame: AppliedScrollFrame) {
     paintMobileScrollCorridor(scrollFrame.y)
     return
   }
-  if (caseFramePinned()) {
+  if (pageTransitionOwnsScrollSync() && snapDesktopSurfaceToScroll(scrollFrame.y)) return
+  if (caseFramePinned() && pinTo.value) {
     syncPinnedMask()
     return
   }
@@ -4534,8 +4686,17 @@ onActivated(() => {
       keepAliveActive = true
       claimSurfaceDomOwnership()
       connectAppliedScrollFrames()
+      // A logo/header navigation leaves the detail route without starting its
+      // physical return flight. Relinquish that stale proxy owner only here,
+      // after Home has actually reactivated; the special return-flight state
+      // remains protected by returningHomeFromCaseDetail().
+      if (!returningHomeFromCaseDetail()) abandonDetailRoute()
       capturePoses()
       onResize()
+      // Ordinary route entries adopt the router-owned scroll position in one
+      // frame. The physical case-detail return deliberately keeps its dock and
+      // remains the only path that may restore the old Home visual state.
+      snapDesktopSurfaceToScroll()
       ensureTick()
     })
   })

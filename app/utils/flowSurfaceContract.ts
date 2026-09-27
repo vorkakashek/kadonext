@@ -36,6 +36,35 @@ export const DEFAULT_SURFACE_ROUTE_POLICY: SurfaceRoutePolicy = {
 export const CASE_MEDIA_FLIGHT_START_EVENT = 'kado:case-media-flight-start'
 
 /**
+ * Resting Surface ownership contract.
+ *
+ * A document-aligned Surface must join the destination element's compositor
+ * layer. Keeping it fixed and copying `getBoundingClientRect()` on scroll is
+ * inherently one frame late under Safari's asynchronous scrolling. Decorative
+ * rests use the destination's CSS backplate; rests with live Surface content
+ * teleport the real frame into the destination. Only genuinely viewport-bound
+ * geometry may remain in the fixed host while settled.
+ */
+export type SurfaceRestDescriptor = {
+  space: 'document' | 'viewport'
+  content: 'decorative' | 'live'
+}
+
+export type SurfaceRestOwnership =
+  | 'document-proxy'
+  | 'document-frame'
+  | 'viewport-frame'
+
+export function resolveSurfaceRestOwnership(
+  descriptor: SurfaceRestDescriptor,
+): SurfaceRestOwnership {
+  if (descriptor.space === 'viewport') return 'viewport-frame'
+  return descriptor.content === 'live'
+    ? 'document-frame'
+    : 'document-proxy'
+}
+
+/**
  * One authority owns Surface paint at a time.
  *
  * `detail-proxy` covers both the detail route and its return flight. The home
@@ -60,6 +89,7 @@ export type SurfaceHandoffState =
 export type SurfaceHandoffEvent =
   | { type: 'detail-open-started' }
   | { type: 'detail-open-completed' }
+  | { type: 'detail-route-abandoned' }
   | { type: 'detail-return-started' }
   | { type: 'return-surface-prepared' }
   | { type: 'return-media-docked' }
@@ -85,6 +115,10 @@ export function transitionSurfaceHandoff(
     case 'detail-open-completed':
       return state.phase === 'detail-opening'
         ? { phase: 'detail', owner: 'detail-proxy' }
+        : state
+    case 'detail-route-abandoned':
+      return state.phase === 'detail-opening' || state.phase === 'detail'
+        ? INITIAL_SURFACE_HANDOFF_STATE
         : state
     case 'detail-return-started':
       return state.owner === 'detail-proxy'

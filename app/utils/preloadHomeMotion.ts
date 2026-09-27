@@ -4,6 +4,7 @@
  */
 let gsapWarm: Promise<void> | null = null
 let threeWarm: Promise<void> | null = null
+let heroEnvironmentWarm: Promise<void> | null = null
 
 export function preloadGsapBundle() {
   if (!import.meta.client) return Promise.resolve()
@@ -30,6 +31,37 @@ export function preloadHomeMotionBundles() {
   )
 }
 
+/** Warm only the desktop HDR response, without evaluating the Three scene. */
+export function preloadHeroEnvironmentAsset() {
+  if (!import.meta.client || heroEnvironmentWarm) return heroEnvironmentWarm ?? Promise.resolve()
+
+  const connection = (navigator as Navigator & {
+    connection?: { effectiveType?: string; saveData?: boolean }
+  }).connection
+  if (
+    connection?.saveData
+    || connection?.effectiveType === 'slow-2g'
+    || connection?.effectiveType === '2g'
+  ) return Promise.resolve()
+
+  const runtimeConfig = (globalThis as typeof globalThis & {
+    __NUXT__?: { config?: { public?: { assetCdnUrl?: string } } }
+  }).__NUXT__?.config?.public
+  const environmentUrl = prefixPublicAssetReferences(
+    '/env/studio_small_09_256.hdr',
+    String(runtimeConfig?.assetCdnUrl || ''),
+  )
+  heroEnvironmentWarm = fetch(environmentUrl, {
+    credentials: 'same-origin',
+  })
+    // Consume the body so the later HDRLoader request can reliably reuse the
+    // completed HTTP-cache entry instead of racing an abandoned response.
+    .then(response => response.arrayBuffer())
+    .then(() => undefined)
+    .catch(() => undefined)
+  return heroEnvironmentWarm
+}
+
 /** Warm motion modules and the desktop Hero environment before scene mount. */
 export function preloadHomeSceneAssets(modeOrEvent?: 'desktop' | 'mobile' | Event) {
   void preloadHomeMotionBundles()
@@ -50,15 +82,6 @@ export function preloadHomeSceneAssets(modeOrEvent?: 'desktop' | 'mobile' | Even
     : window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches
   // Mobile uses baked matcaps and has no HDR/PMREM startup cost.
   if (mobile) return
-  const runtimeConfig = (globalThis as typeof globalThis & {
-    __NUXT__?: { config?: { public?: { assetCdnUrl?: string } } }
-  }).__NUXT__?.config?.public
-  const environmentUrl = prefixPublicAssetReferences(
-    '/env/studio_small_09_256.hdr',
-    String(runtimeConfig?.assetCdnUrl || ''),
-  )
-  void fetch(environmentUrl, {
-    credentials: 'same-origin',
-  }).catch(() => undefined)
+  void preloadHeroEnvironmentAsset()
 }
 import { prefixPublicAssetReferences } from './assetCdn'

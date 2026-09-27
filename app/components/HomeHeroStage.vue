@@ -81,6 +81,7 @@ const homeIntroStarted = useState<boolean>('home-intro-gate-started', () => fals
 const homeIntroUnlocked = useState<boolean>('home-intro-gate-unlocked', () => false)
 const homeIntroSettled = useState<boolean>('home-intro-settled', () => false)
 const homeIntroContentReady = useState<boolean>('home-intro-content-ready', () => false)
+const simpleHomeIntroReady = useState<boolean>('home-simple-intro-ready', () => false)
 const heroIntroSettled = useState('home-hero-intro-settled', () => false)
 const criticalFontReady = useState<boolean>('home-critical-font-ready', () => false)
 const focusEl = ref<HTMLElement | null>(null)
@@ -652,6 +653,8 @@ let swarmIntentPending = false
 let mobileSwarmDeferred = false
 let requestSwarmMount: (() => void) | null = null
 let stopSurfaceMountWatch: (() => void) | null = null
+let cssIntroFallbackTimer = 0
+const CSS_INTRO_FALLBACK_MS = 3000
 
 function scheduleSwarmMount(
   fromNavigation: boolean,
@@ -688,6 +691,24 @@ function scheduleSwarmMount(
   // Save-Data may defer the scene; slow estimates still skip speculative asset
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
+  if (plainColdHome && !constrained) {
+    // Give WebGL exclusive ownership of cold startup. Copy stays CSS-hidden
+    // until `lit`, so module evaluation, context setup, HDR/PMREM and shader
+    // compilation cannot interrupt its entrance. Warm the module immediately,
+    // but do not create a mobile context beneath the visibility-hidden Surface.
+    void preloadThreeBundle()
+    const startVisibleMount = () => requestAnimationFrame(mount)
+    if (simpleHomeIntroReady.value) startVisibleMount()
+    else {
+      const stop = watch(simpleHomeIntroReady, (ready) => {
+        if (!ready) return
+        stop()
+        startVisibleMount()
+      })
+      removeSwarmIntent = stop
+    }
+    return
+  }
   if (coldHomeIntro && !constrained && !mobileLite.value) {
     // Desktop WebGL context creation is the only measured >50 ms startup task.
     // Pay that cost while the full-screen intro is still static; the intro waits
@@ -749,7 +770,7 @@ function scheduleSwarmMount(
         window.setTimeout(warmThree, 120)
       }
     }
-    const delay = constrained ? 5000 : plainColdHome ? (mobileLite.value ? 500 : 250) : 1100
+    const delay = constrained ? 5000 : 1100
     let stopIntroGate: (() => void) | null = null
     let automaticUpgradeQueued = false
     const queueAutomaticUpgrade = () => {
@@ -1021,6 +1042,10 @@ onMounted(() => {
   window.addEventListener('resize', onCopyParallaxResize, { passive: true })
 
   const plainColdHome = plainColdDocument.value
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean }
+  }).connection
+  const waitForPlainScene = plainColdHome && !connection?.saveData
   const fromNavigation = skipHeroIntro.value
   const fromNav = fromNavigation
   if (skipHeroIntro.value) skipHeroIntro.value = false
@@ -1070,18 +1095,21 @@ onMounted(() => {
       homeIntroStarted,
       homeIntroContentReady,
       criticalFontReady,
+      swarmLit,
     ],
-    async ([on, surfaceReady, introStarted, introContentReady, fontReady]) => {
+    async ([on, surfaceReady, introStarted, introContentReady, fontReady, sceneLit]) => {
       // Desktop copy should enter with the Surface morph, not wait for its
       // 640 ms crop plus opacity handoff to finish. Mobile keeps the stricter
       // gate because its direct handoff owns the whole first-screen reveal.
       const introGateWaiting = mobileLite.value && introStarted && !introContentReady
       const criticalFontWaiting = (coldHomeIntro || plainColdHome) && !fontReady
+      const plainSceneWaiting = waitForPlainScene && !sceneLit
       if (
         !on
         || !surfaceReady
         || introGateWaiting
         || criticalFontWaiting
+        || plainSceneWaiting
       ) {
         if (fromNav) return
         swarmLoopReady.value = false
@@ -1115,6 +1143,19 @@ onMounted(() => {
       if (mediaEl.value) {
         mediaEl.value.style.opacity = directColdScene ? '1' : '0'
         mediaEl.value.style.visibility = directColdScene ? 'visible' : 'hidden'
+      }
+
+      if (plainColdHome) {
+        // Removing the pending class starts native CSS keyframes in HomeHero.
+        // JavaScript no longer computes or writes any copy-animation frame.
+        swarmLoopReady.value = true
+        coverMayLift.value = true
+        introPending.value = false
+        cssIntroFallbackTimer = window.setTimeout(() => {
+          cssIntroFallbackTimer = 0
+          if (gen === introGen) heroIntroSettled.value = true
+        }, CSS_INTRO_FALLBACK_MS)
+        return
       }
 
       const { default: gsap } = await import('gsap')
@@ -1207,8 +1248,8 @@ onMounted(() => {
         if (descEls.value.length) {
           tl.to(
             descEls.value,
-            { yPercent: 0, duration: 1.1, stagger: 0.18, ease: 'power4.out' },
-            directColdScene ? 0.06 : 0.34,
+            { yPercent: 0, duration: 1.1, stagger: 0, ease: 'power4.out' },
+            0,
           )
         }
       } else {
@@ -1248,6 +1289,8 @@ onUnmounted(() => {
     window.cancelIdleCallback(swarmIdleId)
   }
   if (swarmFallbackTimer) window.clearTimeout(swarmFallbackTimer)
+  if (cssIntroFallbackTimer) window.clearTimeout(cssIntroFallbackTimer)
+  cssIntroFallbackTimer = 0
   removeSwarmIntent?.()
   removeSwarmIntent = null
   requestSwarmMount = null
@@ -1338,6 +1381,7 @@ onUnmounted(() => {
                 'hero-swarm-cover--lock': glCoverLocked,
                 'hero-swarm-cover--entry': sceneEntryArmed,
                 'hero-swarm-cover--cold-direct': coldSceneFadeArmed && mobileLite,
+                'hero-swarm-cover--plain-desktop': plainColdDocument && !mobileLite,
               }"
               aria-hidden="true"
             />
@@ -1424,6 +1468,10 @@ onUnmounted(() => {
 
 .hero-swarm-cover--cold-direct {
   transition: none;
+}
+
+.hero-swarm-cover--plain-desktop {
+  transition-duration: 0.28s;
 }
 
 .hero-copy {

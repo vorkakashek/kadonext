@@ -149,7 +149,9 @@ async function setupEntranceMotion() {
         const fromD = line.dataset.fromD
         if (fromD) gsap.set(line, { attr: { d: fromD } })
       })
-      gsap.set(dots, { autoAlpha: 0, scale: 0, transformOrigin: '50% 50%' })
+      if (dots.length) {
+        gsap.set(dots, { autoAlpha: 0, scale: 0, transformOrigin: '50% 50%' })
+      }
 
       const itemReveal = gsap.timeline({
         paused: isMobile,
@@ -546,7 +548,7 @@ onUnmounted(() => {
 
 .project-formats__scope li {
   padding: clamp(0.62rem, 0.85vw, 0.82rem) clamp(0.82rem, 1.1vw, 1.1rem);
-  border-radius: 999px;
+  border-radius: var(--radius-tag);
   background: var(--palette-ink);
   color: var(--palette-milk, #f5f1e8);
   font-size: clamp(0.875rem, 1vw, 1rem);
@@ -597,9 +599,17 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.035em;
   line-height: 1.15;
+  white-space: nowrap;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1280px) {
+  .project-formats__header,
+  .project-formats__list {
+    grid-column: 2 / span 10;
+  }
+}
+
+@media (min-width: 1920px) {
   .project-formats__header,
   .project-formats__list {
     grid-column: 3 / span 8;

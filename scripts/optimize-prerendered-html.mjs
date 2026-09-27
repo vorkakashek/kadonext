@@ -5,9 +5,9 @@ import { extname, join, resolve } from 'node:path'
 const outputRoot = resolve(process.cwd(), '.output/public')
 const modulePreloadPattern = /<link\s+rel="modulepreload"[^>]*>\s*/g
 const asyncPrefetchPattern = /<link\s+rel="prefetch"\s+as="(?:script|style)"[^>]*>\s*/g
-// The initial page already contains Nuxt's inline payload. Keeping its
-// fetch-preload makes Chromium report an unused preload; route navigation can
-// still request the payload on demand.
+// Payload extraction is disabled in the current static build. Keep this
+// cleanup defensive for preview/legacy output so an emitted fetch hint cannot
+// compete with the critical page assets.
 const payloadPreloadPattern = /<link\s+rel="preload"\s+as="fetch"[^>]*href="[^"]*\/_payload\.json[^\"]*"[^>]*>\s*/g
 const criticalStylesheetPattern = /<link\s+rel="stylesheet"\s+href="([^"]*\/_nuxt\/(?:entry|navWaveHover|SiteIcon|LanguageSwitch|useFooterPhotoRubberBand)\.[^"/]+\.css)"[^>]*>\s*/g
 const cssUrlPattern = /url\(\s*(['"]?)([^'")]+)\1\s*\)/g

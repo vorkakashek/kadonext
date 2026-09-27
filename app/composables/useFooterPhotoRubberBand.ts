@@ -13,6 +13,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   const MOBILE_PULL_SCREEN_P = 0.7
   const RESISTANCE_EXPONENT = 2.5
   const RESISTANCE_NORMALIZER = 1 - Math.exp(-RESISTANCE_EXPONENT)
+  const RETURN_SCROLL_GRACE_MS = 160
   let mounted = false
   let active = false
   let resizeObserver: ResizeObserver | null = null
@@ -34,6 +35,9 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   let returnStartedAt: number | null = null
   let returnProgress = 0
   let returning = false
+  let returnGuardUntil = 0
+  let returnGuardMin = 0
+  let returnGuardMax = 0
   let ownsScroll = false
   let lastWrittenY = -1
   let frame = 0
@@ -97,7 +101,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     lastTime = 0
   }
 
-  function reset() {
+  function reset(preserveReturnGuard = false) {
     stopFrame()
     window.clearTimeout(idleTimer)
     idleTimer = 0
@@ -109,6 +113,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     wheelPull = false
     wheelFrom = wheelElapsed = 0
     lastWrittenY = -1
+    if (!preserveReturnGuard) returnGuardUntil = 0
   }
 
   function tick(time: number) {
@@ -140,7 +145,15 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     write(restY + offset)
     if (settled) {
       lastTime = 0
-      if (returning) reset()
+      if (returning) {
+        // Keep a short, bounded guard for Safari's late scroll event from the
+        // final write. Without it the completed return can be started again
+        // from a stale offset before Safari has flushed its event queue.
+        returnGuardMin = restY - 2
+        returnGuardMax = restY + returnFrom + 2
+        reset(true)
+        returnGuardUntil = performance.now() + RETURN_SCROLL_GRACE_MS
+      }
       return
     }
     frame = requestAnimationFrame(tick)
@@ -338,7 +351,13 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
   function onScroll() {
     if (!available()) return
     const y = window.scrollY
-    if (Math.abs(y - lastWrittenY) <= 1) return
+    const inActiveReturn = returning && y >= restY - 2 && y <= restY + returnFrom + 2
+    const inSettledReturn = performance.now() < returnGuardUntil
+      && y >= returnGuardMin && y <= returnGuardMax
+    // iOS Safari can deliver a scroll event for a previous `scrollTo` a
+    // frame late. Keep events inside the captured return range out of the
+    // external-input path, including the short tail after the final frame.
+    if (inActiveReturn || inSettledReturn || Math.abs(y - lastWrittenY) <= 1) return
     if (y < restY - 1) {
       if (ownsScroll || frame || idleTimer) reset()
       return
@@ -352,6 +371,10 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
 
   function syncAvailability() {
     if (!available()) reset()
+  }
+
+  function onCancel() {
+    reset()
   }
 
   function connect() {
@@ -370,7 +393,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     window.addEventListener('touchstart', onOutsideTouchStart, { capture: true, passive: true })
     window.addEventListener('touchend', onAnyTouchEnd, { passive: true })
     window.addEventListener('touchcancel', onAnyTouchEnd, { passive: true })
-    window.addEventListener(FOOTER_PHOTO_CANCEL_EVENT, reset)
+    window.addEventListener(FOOTER_PHOTO_CANCEL_EVENT, onCancel)
     touchTarget = footer.value
     touchTarget?.addEventListener('touchstart', onTouchStart, { capture: true, passive: true })
     touchTarget?.addEventListener('touchmove', onTouchMove, { capture: true, passive: false })
@@ -391,7 +414,7 @@ export function useFooterPhotoRubberBand(footer: Ref<HTMLElement | null>, photo:
     window.removeEventListener('touchstart', onOutsideTouchStart, true)
     window.removeEventListener('touchend', onAnyTouchEnd)
     window.removeEventListener('touchcancel', onAnyTouchEnd)
-    window.removeEventListener(FOOTER_PHOTO_CANCEL_EVENT, reset)
+    window.removeEventListener(FOOTER_PHOTO_CANCEL_EVENT, onCancel)
     touchTarget?.removeEventListener('touchstart', onTouchStart, true)
     touchTarget?.removeEventListener('touchmove', onTouchMove, true)
     touchTarget?.removeEventListener('touchend', onTouchEnd, true)

@@ -16,7 +16,10 @@ import {
 } from '~/utils/caseRailTouch'
 
 const SMOOTH_WHEEL_ENABLED =
-  '(hover: hover) and (pointer: fine)'
+  // `pointer` describes the primary input only. A tablet/2-in-1 can keep a
+  // coarse primary pointer while a mouse or trackpad is connected, so use the
+  // any-* queries for the capability that actually enables the wheel driver.
+  '(any-hover: hover) and (any-pointer: fine)'
 
 const CONTROLLED_TOUCH_ENABLED =
   '(pointer: coarse)'
@@ -408,7 +411,12 @@ export default defineNuxtPlugin((nuxtApp) => {
     ScrollTrigger.config({ ignoreMobileResize: true })
     lenis = new Lenis({
       autoRaf: false,
-      smoothWheel: wheelQuery.matches,
+      // Once Lenis is present it may serve both touch and wheel input. This is
+      // important for coarse/mobile layouts used with a connected mouse (and
+      // for Chrome's mobile emulation, which still dispatches wheel events):
+      // `smoothWheel` affects wheel only; `syncTouch` keeps the touch policy
+      // below independent.
+      smoothWheel: true,
       syncTouch: controlledTouch,
       syncTouchLerp: TOUCH_INERTIA_LERP,
       touchInertiaExponent: TOUCH_INERTIA_EXPONENT,

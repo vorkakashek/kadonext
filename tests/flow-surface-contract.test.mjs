@@ -5,6 +5,7 @@ import {
   INITIAL_SURFACE_HANDOFF_STATE,
   mixSurfaceVisualSnapshot,
   planSurfaceRoute,
+  resolveSurfaceRestOwnership,
   transitionSurfaceHandoff,
 } from '../app/utils/flowSurfaceContract.ts'
 import {
@@ -70,6 +71,24 @@ test('an incomplete return falls back to scroll ownership', () => {
   assert.deepEqual(state, INITIAL_SURFACE_HANDOFF_STATE)
 })
 
+test('ordinary navigation away from detail returns paint to scroll only', () => {
+  const detail = transitionSurfaceHandoff(
+    { phase: 'detail', owner: 'detail-proxy' },
+    { type: 'detail-route-abandoned' },
+  )
+  const returnFlight = transitionSurfaceHandoff(
+    {
+      phase: 'return-flight',
+      owner: 'detail-proxy',
+      surfacePrepared: false,
+      mediaDocked: false,
+    },
+    { type: 'detail-route-abandoned' },
+  )
+  assert.deepEqual(detail, INITIAL_SURFACE_HANDOFF_STATE)
+  assert.equal(returnFlight.phase, 'return-flight')
+})
+
 test('return paint ownership never prevents the full corridor from being built', () => {
   const source = readFileSync(
     new URL('../app/components/FlowSurfaceHost.vue', import.meta.url),
@@ -121,6 +140,28 @@ test('shared surface DOM registrations use identity-safe cleanup', () => {
   assert.match(source, /if \(liveBoxNudge === fn\) liveBoxNudge = null/)
   assert.doesNotMatch(source, /pathFlush/)
   assert.match(source, /flowSurfaceMask\.pathRequestRevision \+= 1/)
+})
+
+test('document-aligned resting surfaces are owned by the destination DOM layer', () => {
+  assert.equal(resolveSurfaceRestOwnership({
+    space: 'document',
+    content: 'decorative',
+  }), 'document-proxy')
+  assert.equal(resolveSurfaceRestOwnership({
+    space: 'document',
+    content: 'live',
+  }), 'document-frame')
+})
+
+test('only viewport-aligned resting surfaces stay in the fixed frame', () => {
+  assert.equal(resolveSurfaceRestOwnership({
+    space: 'viewport',
+    content: 'decorative',
+  }), 'viewport-frame')
+  assert.equal(resolveSurfaceRestOwnership({
+    space: 'viewport',
+    content: 'live',
+  }), 'viewport-frame')
 })
 
 test('nearby scroll goals retain the normal bounded follow contract', () => {

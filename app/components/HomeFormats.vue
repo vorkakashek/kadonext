@@ -973,6 +973,17 @@ onUnmounted(() => {
     margin: 0;
   }
 
+  /* The settled mobile Surface follows the Formats section, not the fixed
+     viewport. Sticky keeps the panel in the same compositor layer as the
+     scrolling list and removes the one-frame JS chase on iOS Safari. */
+  .work-formats__surface[data-flow-surface-proxy-active] {
+    position: sticky;
+    inset-block: auto;
+    top: max(8px, var(--layout-margin));
+    align-self: start;
+    height: calc(100svh - 2 * max(8px, var(--layout-margin)));
+  }
+
   .work-formats__trigger {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto auto;

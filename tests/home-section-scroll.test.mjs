@@ -222,9 +222,93 @@ test('legacy localized section hashes are removed without restoring the section'
     await router.options.scrollBehavior({ path: '/ru/' }, { path: '/en/' }, null),
     { top: 0, behavior: 'auto' },
   )
+  assert.equal(
+    JSON.stringify(await router.options.scrollBehavior(
+      { path: '/ru/' },
+      { path: '/ru/projects' },
+      { left: 0, top: 1400 },
+    )),
+    JSON.stringify({ left: 0, top: 0, behavior: 'instant' }),
+  )
   pendingSection.value = 'contact'
   assert.equal(
     await router.options.scrollBehavior({ path: '/ru/' }, { path: '/ru/projects' }, null),
     false,
   )
+})
+
+test('cross-page section landing is committed while the page iris still covers Home', async () => {
+  const calls = []
+  let irisLocked = true
+  let rafCount = 0
+  const state = new Map()
+  const route = { path: '/projects' }
+  const router = {
+    currentRoute: { value: { path: '/projects' } },
+    async push(path) {
+      calls.push(['push', path])
+      this.currentRoute.value.path = path
+    },
+  }
+  const target = { id: 'services' }
+  const modules = {
+    '~/utils/localeRouting': { baseRoutePath },
+  }
+  const source = readFileSync(new URL('../app/composables/useHomeSectionNavigation.ts', import.meta.url), 'utf8')
+  const context = createContext({
+    exports: {}, require: name => modules[name],
+    useNuxtApp: () => ({
+      $scrollToSection(element, immediate) {
+        calls.push(['scroll', element.id, immediate, irisLocked])
+      },
+    }),
+    useRoute: () => route,
+    useRouter: () => router,
+    useLocalePath: () => path => path,
+    useState: (key, init) => {
+      if (!state.has(key)) state.set(key, { value: init() })
+      return state.get(key)
+    },
+    nextTick: () => Promise.resolve(),
+    document: {
+      documentElement: { classList: { contains: () => irisLocked } },
+      getElementById: id => id === 'services' ? target : null,
+    },
+    requestAnimationFrame(callback) {
+      rafCount += 1
+      if (rafCount === 1) route.path = '/'
+      if (rafCount === 4) {
+        calls.push(['unlock', state.get('home-pending-section')?.value])
+        irisLocked = false
+      }
+      callback()
+    },
+  })
+  runInContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, context)
+
+  const navigation = context.exports.useHomeSectionNavigation()
+  assert.equal(await navigation.navigateToSection('services'), true)
+  assert.deepEqual(calls, [
+    ['push', '/'],
+    ['scroll', 'services', true, true],
+    ['scroll', 'services', true, true],
+    ['unlock', 'services'],
+  ])
+  assert.equal(state.get('home-pending-section').value, null)
+})
+
+test('header route reset yields scroll ownership to a named Home landing', () => {
+  const source = readFileSync(new URL('../app/components/SiteHeader.vue', import.meta.url), 'utf8')
+  const resetStart = source.indexOf('function resetHeaderWide(')
+  const resetEnd = source.indexOf('\nfunction onScroll(', resetStart)
+  const resetHeader = source.slice(resetStart, resetEnd)
+  const routeWatchStart = source.indexOf('() => route.path')
+  const irisWatchStart = source.indexOf('watch(pageIrisLive', routeWatchStart)
+  const routeWatch = source.slice(routeWatchStart, irisWatchStart)
+
+  assert.ok(resetStart >= 0 && resetEnd > resetStart)
+  assert.ok(routeWatchStart >= 0 && irisWatchStart > routeWatchStart)
+  assert.match(routeWatch, /routeBasePath\.value === '\/' && pendingSection\.value/)
+  assert.doesNotMatch(resetHeader, /window\.scrollTo/)
+  assert.doesNotMatch(routeWatch, /window\.scrollTo/)
 })
