@@ -388,8 +388,6 @@ let gsapMod: typeof import('gsap') | null = null
 let stMod: typeof import('gsap/ScrollTrigger') | null = null
 let motionBootPromise: Promise<void> | null = null
 let motionBootTimer = 0
-let motionIdleId: number | null = null
-let removeMotionIntent: (() => void) | null = null
 let stopIntroUnlockMotionWatch: (() => void) | null = null
 let removeAppliedScrollFrame: (() => void) | null = null
 let releaseClipPathEl: (() => void) | null = null
@@ -443,12 +441,6 @@ async function bootMotionEngine() {
       window.clearTimeout(motionBootTimer)
       motionBootTimer = 0
     }
-    if (motionIdleId !== null && 'cancelIdleCallback' in window) {
-      window.cancelIdleCallback(motionIdleId)
-      motionIdleId = null
-    }
-    removeMotionIntent?.()
-    removeMotionIntent = null
 
     const [nextGsap, nextScrollTrigger] = await Promise.all([
       import('gsap'),
@@ -468,43 +460,16 @@ async function bootMotionEngine() {
 }
 
 function scheduleColdMotionBoot() {
-  // Fetch and evaluate the shared motion modules without putting them on the
-  // first-paint path. Corridor capture remains separately scheduled below.
+  // Start fetching the shared motion modules immediately, then build the
+  // corridor in a deterministic follow-up task. requestIdleCallback can be
+  // starved by the live WebGL loop on a genuinely cold desktop load; in that
+  // case the first wheel event used to inherit the complete ScrollTrigger build
+  // and visibly freeze the Surface before it caught up with Lenis.
   void preloadGsapBundle()
-  const onIntent = () => void bootMotionEngine()
-  const intentEvents: Array<keyof WindowEventMap> = [
-    'wheel',
-    'touchstart',
-    'pointerdown',
-    'keydown',
-  ]
-  for (const event of intentEvents) {
-    window.addEventListener(event, onIntent, { once: true, passive: true })
-  }
-  removeMotionIntent = () => {
-    for (const event of intentEvents) window.removeEventListener(event, onIntent)
-  }
-
-  // On a cold Home document, build the scroll corridor in its first quiet slot
-  // instead of putting GSAP, ScrollTrigger and all corridor measurements on the
-  // first-paint path or leaving them for the first wheel event.
-  // That event must only advance an already-live surface; otherwise its main-
-  // thread boot steals the WebGL scene's first visible frames.
-  const scheduleTimeout = window.setTimeout.bind(window)
-  if ('requestIdleCallback' in window) {
-    motionIdleId = window.requestIdleCallback(
-      () => {
-        motionIdleId = null
-        void bootMotionEngine()
-      },
-      { timeout: 900 },
-    )
-  } else {
-    motionBootTimer = scheduleTimeout(() => {
-      motionBootTimer = 0
-      void bootMotionEngine()
-    }, 160)
-  }
+  motionBootTimer = window.setTimeout(() => {
+    motionBootTimer = 0
+    void bootMotionEngine()
+  }, 160)
 }
 
 /** Mobile corridor state */
@@ -4630,12 +4595,6 @@ onUnmounted(() => {
   poseResyncRaf = 0
   if (motionBootTimer) window.clearTimeout(motionBootTimer)
   motionBootTimer = 0
-  if (motionIdleId !== null && 'cancelIdleCallback' in window) {
-    window.cancelIdleCallback(motionIdleId)
-  }
-  motionIdleId = null
-  removeMotionIntent?.()
-  removeMotionIntent = null
   stopIntroUnlockMotionWatch?.()
   stopIntroUnlockMotionWatch = null
   morphGen += 1

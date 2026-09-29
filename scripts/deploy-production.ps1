@@ -79,6 +79,7 @@ archive='__ARCHIVE__'
 candidate='__NGINX__'
 config='/etc/nginx/sites-enabled/kadonext'
 current='/var/www/kadonext/current'
+shared_nuxt='/var/www/kadonext/shared-assets/_nuxt'
 backup='/tmp/kadonext-nginx-__ID__.backup'
 old_release=$(readlink -f "$current")
 activated=0
@@ -100,6 +101,12 @@ rollback() {
 }
 trap rollback ERR
 
+mkdir -p "$shared_nuxt"
+if [ -d "$old_release/_nuxt" ]; then
+  cp -a "$old_release/_nuxt/." "$shared_nuxt/"
+fi
+cp -a "$release/_nuxt/." "$shared_nuxt/"
+
 cp "$candidate" "$config"
 nginx -t
 ln -sfn "$release" "$current.next"
@@ -113,6 +120,22 @@ curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve 
 curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/en/ -o /tmp/kadonext-en-__ID__.html
 grep -q 'lang="ru"' /tmp/kadonext-ru-__ID__.html
 grep -q 'lang="en"' /tmp/kadonext-en-__ID__.html
+
+# In asset-CDN mode, validate the exact new hashed entry and critical font
+# before committing the release. A failed pull or missing CORS header triggers
+# the ERR trap above and restores the previous symlink/nginx configuration.
+check_cdn_cors_asset() {
+  url="$1"
+  [ -n "$url" ] || return 0
+  headers=$(curl -fsS --retry 5 --retry-delay 1 --retry-all-errors --connect-timeout 10 --max-time 60 \
+    -H 'Origin: https://kadonext.com' -D - -o /dev/null "$url")
+  printf '%s\n' "$headers" | tr -d '\r' | grep -Eqi '^Access-Control-Allow-Origin: (https://kadonext\.com|\*)$'
+}
+
+cdn_app_url=$(grep -oE 'https://[^"[:space:]<>]+/_nuxt/[^"[:space:]<>]+\.js' /tmp/kadonext-ru-__ID__.html | head -n 1 || true)
+cdn_font_url=$(grep -oE 'https://[^"[:space:]<>]+/fonts/fixel/FixelCritical\.woff2' /tmp/kadonext-ru-__ID__.html | head -n 1 || true)
+check_cdn_cors_asset "$cdn_app_url"
+check_cdn_cors_asset "$cdn_font_url"
 
 trap - ERR
 rm -f "$archive" "$candidate" "$backup" /tmp/kadonext-root-__ID__.html /tmp/kadonext-ru-__ID__.html /tmp/kadonext-en-__ID__.html

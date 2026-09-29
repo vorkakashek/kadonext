@@ -98,21 +98,33 @@ npm run deploy -- -SkipBuild
 
 Этот быстрый вариант использовать только после успешного `npm run build`. Скрипт
 ожидает production-ключ в `~/.ssh/kado_codex_ed25519` и после переключения проверяет
-`/ru/projects/`, загрузку шрифта и кэшируемый language-selector на `/`.
+`/ru/projects/`, кэшируемый language-selector на `/`, а в asset-CDN режиме —
+доступность нового Nuxt entry и critical font вместе с их CORS-заголовками.
 
 ### CDN
 
-Текущий переходный режим оставляет HTML, `/_nuxt` и шрифты на origin, а
-крупную медиатеку может отдавать через `NUXT_PUBLIC_ASSET_CDN_URL`. Когда
-`kadonext.com` уже переведён за CDN, собирайте релиз с
-`KADO_FULL_SITE_CDN=true`: все публичные пути снова становятся same-origin,
-а edge прозрачно кэширует `/`, `/ru/`, `/en/`, `/_nuxt/*`, `/fonts/*` и медиа.
+Текущий production-режим оставляет HTML и `/api/contact` на `kadonext.com`, а
+всю статику отдаёт через pull CDN: публичную медиатеку настраивает
+`NUXT_PUBLIC_ASSET_CDN_URL`, а Nuxt JS/CSS и шрифты —
+`KADO_APP_ASSET_CDN_URL` (по умолчанию он наследует первый адрес). CDN должен
+разрешать CORS для origin `https://kadonext.com`; первый cache miss проходит к
+VPS, последующие запросы обслуживает edge. HTML всегда revalidate, хешированные
+Nuxt-файлы и шрифты имеют годовой immutable TTL, а нехешированная медиатека —
+суточный browser/shared TTL. При замене шрифта нужно менять имя файла либо
+очищать CDN-кэш, потому что файлы шрифтов намеренно immutable.
+
+Хешированные `/_nuxt/*` при деплое добавляются в общий каталог
+`/var/www/kadonext/shared-assets/_nuxt`. Это сохраняет lazy chunks предыдущих
+релизов для уже открытых вкладок и для cold miss на любом CDN edge.
+
+Если `kadonext.com` будет действительно переведён за reverse-proxy CDN,
+собирайте релиз с `KADO_FULL_SITE_CDN=true`: все публичные пути станут
+same-origin, а edge сможет прозрачно кэшировать HTML и статику.
 
 `/` — маленькая кэшируемая страница-переключатель без `Accept-Language`/cookie
 в ключе кэша. Реальный HTML находится на `/ru/` и `/en/`; `/api/contact`
 остаётся динамическим маршрутом с `no-store` и проксируется на API-процесс.
-После активации нового релиза CDN нужно purge HTML (или дождаться короткого
-TTL в пять минут); хешированные Nuxt-файлы и шрифты имеют годовой immutable TTL.
+В текущем asset-CDN режиме HTML purge не нужен, потому что CDN его не обслуживает.
 
 Production-сборка разрешает индексацию страниц. Для тестового хостинга установите
 `NUXT_PUBLIC_SITE_INDEXABLE=false` **до сборки**: HTML получит `noindex`, sitemap

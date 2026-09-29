@@ -2,27 +2,6 @@
 @import "./colors.css";
 @import "./fluid.generated.css";
 
-/* Variable critical cut for the first screen. It preserves the same axes and
-   metrics as the full Fixel file, so the later full-face load cannot reflow
-   the Hero or header. */
-@font-face {
-  font-family: "Fixel Critical";
-  src: url("/fonts/fixel/FixelCritical.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 100 900;
-  font-stretch: 87.5% 100%;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Fixel";
-  src: url("/fonts/fixel/FixelVariable.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 100 900;
-  font-stretch: 87.5% 100%;
-  font-display: swap;
-}
-
 @theme {
   --font-sans: "Fixel", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fixel", ui-sans-serif, system-ui, sans-serif;

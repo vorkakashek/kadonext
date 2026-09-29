@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 
 const root = process.cwd()
 const outputRoot = resolve(root, '.output/public')
-// The root becomes a tiny locale selector at the end of a full-site CDN build.
+// The root becomes a tiny locale selector at the end of every production build.
 // Always measure the real home page, both during build and on a later perf:check.
 const htmlPath = resolve(outputRoot, 'ru/index.html')
 const budgetsPath = resolve(root, 'performance-budgets.json')

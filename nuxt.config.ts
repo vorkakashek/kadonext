@@ -1,23 +1,25 @@
 import tailwindcss from '@tailwindcss/vite'
 import { homeCaseIds } from './app/utils/homeCases'
 
+const productionAssetCdnUrl = 'https://nfb4tt2jyb.cdn.twcstorage.ru'
+const normalizeAssetCdnUrl = (value: string) => value.trim().replace(/\/+$/, '')
+
 /**
- * Large public media can use the legacy asset-only CDN until the canonical
- * host is placed behind the edge. Full-site CDN builds intentionally keep all
- * public paths same-origin so the browser has one asset origin.
+ * The normal production topology keeps HTML/API on kadonext.com and serves
+ * every static asset class from one pull-CDN origin. Full-site CDN builds keep
+ * the same paths on the canonical host because the edge then owns that host.
  */
 const fullSiteCdn = process.env.KADO_FULL_SITE_CDN === 'true'
-const publicAssetCdnUrl = fullSiteCdn
-  ? ''
-  : (process.env.NUXT_PUBLIC_ASSET_CDN_URL
-      ?? (process.env.NODE_ENV === 'production' ? 'https://nfb4tt2jyb.cdn.twcstorage.ru' : ''))
-/**
- * Critical Nuxt chunks and fonts default to the canonical origin. Reusing the
- * document's HTTP/2 connection is more predictable for a cold first screen
- * than opening a second DNS/TLS path to the media CDN. Keep this independently
- * overridable for an origin/CDN comparison without moving the media library.
- */
-const appAssetCdnUrl = fullSiteCdn ? '' : (process.env.KADO_APP_ASSET_CDN_URL ?? '')
+const assetOnlyCdn = !fullSiteCdn && process.env.NODE_ENV === 'production'
+const publicAssetCdnUrl = assetOnlyCdn
+  ? normalizeAssetCdnUrl(process.env.NUXT_PUBLIC_ASSET_CDN_URL ?? productionAssetCdnUrl)
+  : ''
+const appAssetCdnUrl = assetOnlyCdn
+  ? normalizeAssetCdnUrl(process.env.KADO_APP_ASSET_CDN_URL ?? publicAssetCdnUrl)
+  : ''
+const assetPreconnectUrls = [...new Set([appAssetCdnUrl, publicAssetCdnUrl].filter(Boolean))]
+const fontAssetUrl = (file: string) => `${appAssetCdnUrl}/fonts/fixel/${file}`
+const fontFacesCss = `@font-face{font-family:"Fixel Critical";src:url("${fontAssetUrl('FixelCritical.woff2')}") format("woff2");font-style:normal;font-weight:100 900;font-stretch:87.5% 100%;font-display:swap}@font-face{font-family:"Fixel";src:url("${fontAssetUrl('FixelVariable.woff2')}") format("woff2");font-style:normal;font-weight:100 900;font-stretch:87.5% 100%;font-display:swap}`
 
 const contentRoutes = ['/', '/projects', '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`)]
 const localizedContentRoutes = ['ru', 'en'].flatMap(locale => (
@@ -158,12 +160,14 @@ export default defineNuxtConfig({
         { name: 'robots', content: 'noindex, follow' },
       ],
       link: [
-        ...(publicAssetCdnUrl
-          ? [{ rel: 'preconnect' as const, href: publicAssetCdnUrl, crossorigin: 'anonymous' as const }]
-          : []),
+        ...assetPreconnectUrls.map(href => ({
+          rel: 'preconnect' as const,
+          href,
+          crossorigin: 'anonymous' as const,
+        })),
         {
           rel: 'preload',
-          href: `${appAssetCdnUrl}/fonts/fixel/FixelCritical.woff2`,
+          href: fontAssetUrl('FixelCritical.woff2'),
           as: 'font',
           type: 'font/woff2',
           crossorigin: 'anonymous',
@@ -171,6 +175,10 @@ export default defineNuxtConfig({
         { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
       ],
+      style: [{
+        key: 'fixel-font-faces',
+        innerHTML: fontFacesCss,
+      }],
       noscript: [{
         key: 'static-content-fallback',
         innerHTML: '<style>.home-hero__copy--intro-hidden,.case-detail--entering h1,.case-detail--entering .case-detail__meta,.case-detail--entering .case-detail__media{opacity:1!important;visibility:visible!important;transform:none!important}.home-hero__copy--css-intro .home-hero__title,.home-hero__copy--css-intro .home-hero__desc-lines{opacity:1!important;transform:none!important;animation:none!important}</style>',

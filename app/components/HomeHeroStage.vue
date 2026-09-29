@@ -8,6 +8,7 @@ import { flowSurfaceMask, useFlowSurfaceMask } from '~/composables/useFlowSurfac
 import { useInitialReveal } from '~/composables/useInitialReveal'
 import { preloadHomeSceneAssets, preloadThreeBundle } from '~/utils/preloadHomeMotion'
 import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
+import { supportsHeroWorkerRenderer } from '~/utils/heroWorkerSupport'
 import { isCoarsePointer, isMobileChromeHeightOnlyResize, isNarrowViewport } from '~/utils/mobileViewport'
 import {
   subscribeAppliedScrollFrame,
@@ -138,6 +139,7 @@ const descEls = computed(() =>
 const introPending = useState<boolean>('home-hero-intro-pending', () => true)
 
 const mobileLite = ref(false)
+const workerRendererReady = ref(false)
 /** Cursor knocks on the swarm — desktop width only (≥1200). */
 const swarmInteractive = ref(false)
 function syncSwarmInteractive() {
@@ -146,6 +148,7 @@ function syncSwarmInteractive() {
 }
 if (import.meta.client) {
   mobileLite.value = isNarrowViewport() || isCoarsePointer()
+  workerRendererReady.value = mobileLite.value && supportsHeroWorkerRenderer()
   syncSwarmInteractive()
 }
 
@@ -695,7 +698,7 @@ function scheduleSwarmMount(
     // Start the scene as soon as the critical font has committed. Mobile copy
     // is allowed to reveal in parallel; desktop retains the proven lit-scene
     // handoff because its cold GPU path completes inside the first beat.
-    void preloadThreeBundle()
+    if (!workerRendererReady.value) void preloadThreeBundle()
     const startVisibleMount = () => requestAnimationFrame(mount)
     if (simpleHomeIntroReady.value) startVisibleMount()
     else {
@@ -712,7 +715,10 @@ function scheduleSwarmMount(
     // Desktop WebGL context creation is the only measured >50 ms startup task.
     // Pay that cost while the full-screen intro is still static; the intro waits
     // only for `booted`, never for HDR/PMREM or the first fully lit scene.
-    void preloadThreeBundle()
+    // The mobile scene graph belongs to the OffscreenCanvas worker. Importing
+    // the legacy Three graph here would recreate the same long task on the main
+    // thread that the worker path exists to remove.
+    if (!workerRendererReady.value) void preloadThreeBundle()
     requestAnimationFrame(mount)
     return
   }
@@ -741,7 +747,7 @@ function scheduleSwarmMount(
     // mounts it as soon as the media layer becomes paintable.
     const warmMobileScene = () => {
       swarmIdleId = null
-      if (!stageUnmounted) preloadHomeSceneAssets('mobile')
+      if (!stageUnmounted && !workerRendererReady.value) preloadHomeSceneAssets('mobile')
     }
     if (typeof window.requestIdleCallback === 'function') {
       swarmIdleId = window.requestIdleCallback(warmMobileScene, { timeout: 320 })
@@ -759,7 +765,7 @@ function scheduleSwarmMount(
     // shortly after the primary title/description entrance. Interaction stays
     // gated separately until the scene has faded in.
     const warmBundle = () => {
-      if (constrained) return
+      if (constrained || workerRendererReady.value) return
       const warmThree = () => {
         if (!stageUnmounted) void preloadThreeBundle()
       }
@@ -936,6 +942,11 @@ async function startSceneEntryReveal() {
       },
     },
   )
+}
+
+function onWorkerRendererFailed() {
+  workerRendererReady.value = false
+  void preloadThreeBundle()
 }
 
 async function startColdSceneFade() {
@@ -1364,8 +1375,20 @@ onUnmounted(() => {
             ]"
           >
             <ClientOnly>
+              <LazyHeroSwarmWorkerCanvas
+                v-if="swarmMount && workerRendererReady"
+                class="size-full"
+                :class="{ 'hero-swarm--cold': !swarmVisible }"
+                :active="swarmActive"
+                :controls-ready="!sceneEntryArmed"
+                :overlay-inset-x="sceneBleedX"
+                :overlay-inset-y="sceneBleedY"
+                @booted="onSwarmBooted"
+                @lit="onSwarmLit"
+                @failed="onWorkerRendererFailed"
+              />
               <LazyHeroSwarmCanvas
-                v-if="swarmMount"
+                v-else-if="swarmMount"
                 class="size-full"
                 :class="{ 'hero-swarm--cold': !swarmVisible }"
                 :active="swarmActive"

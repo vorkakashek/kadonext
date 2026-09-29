@@ -60,7 +60,49 @@ test('the cold scene evaluates Three before the async Vue scene mounts', () => {
   assert.doesNotMatch(source, /threeWarm = import\('~\/components\/HeroSwarmCanvas\.vue'\)/)
 })
 
-test('critical app assets stay same-origin while public media keeps the CDN', () => {
+test('the cold surface corridor never boots inside the first desktop wheel input', () => {
+  const source = readComponent('FlowSurfaceHost')
+  const scheduleStart = source.indexOf('function scheduleColdMotionBoot()')
+  const scheduleEnd = source.indexOf('/** Mobile corridor state */', scheduleStart)
+  const schedule = source.slice(scheduleStart, scheduleEnd)
+
+  assert.match(schedule, /motionBootTimer = window\.setTimeout/)
+  assert.match(schedule, /void bootMotionEngine\(\)[\s\S]*?, 160\)/)
+  assert.doesNotMatch(schedule, /(?:window\.)?requestIdleCallback\s*\(/)
+  assert.doesNotMatch(schedule, /addEventListener\(['"]wheel['"]/)
+})
+
+test('the mobile cold scene moves WebGL startup off the main thread', () => {
+  const stage = readComponent('HomeHeroStage')
+  const workerHost = readComponent('HeroSwarmWorkerCanvas')
+  const worker = readFileSync(
+    new URL('../app/workers/heroSwarm.worker.ts', import.meta.url),
+    'utf8',
+  )
+  const support = readFileSync(
+    new URL('../app/utils/heroWorkerSupport.ts', import.meta.url),
+    'utf8',
+  )
+
+  assert.match(stage, /workerRendererReady\.value = mobileLite\.value && supportsHeroWorkerRenderer\(\)/)
+  assert.match(stage, /if \(!workerRendererReady\.value\) void preloadThreeBundle\(\)/)
+  assert.match(stage, /<LazyHeroSwarmWorkerCanvas[\s\S]*?v-if="swarmMount && workerRendererReady"/)
+  assert.match(stage, /@failed="onWorkerRendererFailed"/)
+  assert.match(workerHost, /transferControlToOffscreen\(\)/)
+  assert.match(workerHost, /if \(event\.data\.type === 'error'\) fail\(\)/)
+  assert.match(workerHost, /heroSwarm\.worker\.ts\?worker&url/)
+  assert.match(workerHost, /new URL\(heroSwarmWorkerUrl, window\.location\.href\)/)
+  assert.match(workerHost, /window\.location\.origin/)
+  assert.match(workerHost, /new Worker\(sameOriginWorkerUrl, \{ type: 'module' \}\)/)
+  assert.match(workerHost, /try \{\s*worker = new Worker[\s\S]*?\} catch \{\s*fail\(\)/)
+  assert.doesNotMatch(workerHost, /new Worker\(new URL\('\.\.\/workers\/heroSwarm\.worker\.ts'/)
+  assert.match(worker, /new Renderer\(\{[\s\S]*?canvas: message\.canvas/)
+  assert.match(worker, /from 'ogl'/)
+  assert.doesNotMatch(worker, /from 'three'/)
+  assert.match(support, /typeof HTMLCanvasElement\.prototype\.transferControlToOffscreen === 'function'/)
+})
+
+test('critical app assets and public media share the configured CDN', () => {
   const source = readFileSync(
     new URL('../nuxt.config.ts', import.meta.url),
     'utf8',
@@ -68,5 +110,6 @@ test('critical app assets stay same-origin while public media keeps the CDN', ()
 
   assert.match(source, /assetCdnUrl: publicAssetCdnUrl/)
   assert.match(source, /cdnURL: appAssetCdnUrl/)
-  assert.match(source, /href: `\$\{appAssetCdnUrl\}\/fonts\/fixel\/FixelCritical\.woff2`/)
+  assert.match(source, /process\.env\.KADO_APP_ASSET_CDN_URL \?\? publicAssetCdnUrl/)
+  assert.match(source, /href: fontAssetUrl\('FixelCritical\.woff2'\)/)
 })

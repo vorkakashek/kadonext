@@ -136,3 +136,8 @@ export function swarmHapticPrune(alive: Set<number>): void {
     if (!alive.has(key)) activePairs.delete(key)
   }
 }
+
+/** Release one pair reported by a physics worker once its contact ends. */
+export function swarmHapticRelease(pairKey: number): void {
+  activePairs.delete(pairKey)
+}
