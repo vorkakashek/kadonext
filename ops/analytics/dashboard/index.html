@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <title>KADO — трафик</title>
+    <link rel="stylesheet" href="/analytics/styles.css">
+    <script src="/analytics/app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Открыть сайт KADO">KADO</a>
+        <div class="topbar-copy">
+          <p class="eyebrow">Приватная статистика</p>
+          <h1>Трафик сайта</h1>
+        </div>
+        <button class="refresh" id="refresh" type="button">Обновить</button>
+      </header>
+
+      <section class="controls" aria-label="Период отчёта">
+        <div class="periods" role="group" aria-label="Выберите период">
+          <button type="button" data-days="7">7 дней</button>
+          <button class="is-active" type="button" data-days="30">30 дней</button>
+          <button type="button" data-days="90">90 дней</button>
+        </div>
+        <p class="status" id="status" aria-live="polite">Загрузка…</p>
+      </section>
+
+      <section class="metrics" aria-label="Основные показатели">
+        <article class="metric"><span>Просмотры</span><strong id="pageviews">—</strong></article>
+        <article class="metric"><span>В среднем в день</span><strong id="average">—</strong></article>
+        <article class="metric"><span>Главная страница</span><strong class="metric-text" id="top-path">—</strong></article>
+        <article class="metric"><span>Главная страна</span><strong class="metric-text" id="top-country">—</strong></article>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Динамика</p><h2>Просмотры по дням</h2></div>
+          <p id="period-caption">—</p>
+        </div>
+        <div class="chart" id="chart" role="img" aria-label="График просмотров по дням"></div>
+      </section>
+
+      <section class="grid">
+        <article class="panel ranked-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Контент</p><h2>Страницы</h2></div></div>
+          <div class="ranked" id="paths"></div>
+        </article>
+        <article class="panel ranked-panel">
+          <div class="panel-heading"><div><p class="eyebrow">География</p><h2>Страны</h2></div></div>
+          <div class="ranked" id="countries"></div>
+        </article>
+        <article class="panel ranked-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Устройства</p><h2>Браузеры</h2></div></div>
+          <div class="ranked" id="browsers"></div>
+        </article>
+        <article class="panel ranked-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Переходы</p><h2>Источники</h2></div></div>
+          <div class="ranked" id="sources"></div>
+        </article>
+      </section>
+
+      <footer>
+        <p>Без cookies, IP посетителей и полных URL перехода.</p>
+        <p>Данные обновляются на сервере каждые 5 минут.</p>
+      </footer>
+    </main>
+  </body>
+</html>

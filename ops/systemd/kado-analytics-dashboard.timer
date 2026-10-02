@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh KADO private analytics dashboard every five minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=20s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Refresh KADO private analytics dashboard data
+After=nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kado-update-analytics-dashboard
+User=root
+Group=root
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/kado-analytics

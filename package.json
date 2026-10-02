@@ -20,6 +20,8 @@
     "analytics:report": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/report-production-analytics.ps1",
     "analytics:report:file": "node scripts/report-analytics.mjs",
     "analytics:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure-production-analytics.ps1",
+    "analytics:dashboard:configure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure-analytics-dashboard.ps1",
+    "analytics:test": "node --test tests/analytics.test.mjs tests/analytics-dashboard.test.mjs",
     "typecheck": "nuxt typecheck",
     "contact:serve": "node --env-file=.env contact-api/server.mjs",
     "contact:test": "node --test tests/contact-*.test.mjs",
