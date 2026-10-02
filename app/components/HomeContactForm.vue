@@ -491,8 +491,10 @@ async function submitForm() {
     contactToken.value = ''
     contactTokenValidUntil.value = 0
     if (!contactMock.value) void refreshContactToken().catch(() => {})
-    const data = (cause as { data?: { message?: string } }).data
-    submitError.value = data?.message || t('contactForm.submitFailed')
+    const data = (cause as { data?: { code?: string, message?: string } }).data
+    submitError.value = data?.code === 'RATE_LIMITED'
+      ? t('contactForm.rateLimited')
+      : data?.message || t('contactForm.submitFailed')
   } finally {
     submitting.value = false
   }

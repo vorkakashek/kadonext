@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh KADO local country lookup database weekly
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=6h
+
+[Install]
+WantedBy=timers.target

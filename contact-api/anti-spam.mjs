@@ -2,8 +2,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 
 const TOKEN_VERSION = 'v1'
 const DEFAULT_TOKEN_TTL_MS = 2 * 60 * 60 * 1000
-const DEFAULT_HOURLY_LIMIT = 10
-const DEFAULT_DAILY_LIMIT = 30
+const DEFAULT_MIN_SUBMISSION_INTERVAL_MS = 5 * 60 * 1000
+const DEFAULT_DAILY_LIMIT = 2
 const DEFAULT_DUPLICATE_TTL_MS = 24 * 60 * 60 * 1000
 const MAX_TRACKED_CLIENTS = 10000
 const MAX_TRACKED_TOKENS = 20000
@@ -74,8 +74,13 @@ export function createContactAntiSpam(options = {}) {
   const now = options.now ?? (() => Date.now())
   const secret = env.CONTACT_ANTI_SPAM_SECRET?.trim() || randomBytes(32).toString('base64url')
   const tokenTtlMs = boundedInteger(env.CONTACT_TOKEN_TTL_MS, DEFAULT_TOKEN_TTL_MS, 60000, 24 * 60 * 60 * 1000)
-  const hourlyLimit = boundedInteger(env.CONTACT_RATE_LIMIT_PER_HOUR, DEFAULT_HOURLY_LIMIT, 1, 1000)
-  const dailyLimit = boundedInteger(env.CONTACT_RATE_LIMIT_PER_DAY, DEFAULT_DAILY_LIMIT, hourlyLimit, 5000)
+  const minSubmissionIntervalMs = boundedInteger(
+    env.CONTACT_RATE_LIMIT_INTERVAL_MS,
+    DEFAULT_MIN_SUBMISSION_INTERVAL_MS,
+    1000,
+    24 * 60 * 60 * 1000,
+  )
+  const dailyLimit = boundedInteger(env.CONTACT_RATE_LIMIT_PER_DAY, DEFAULT_DAILY_LIMIT, 1, 5000)
   const duplicateTtlMs = boundedInteger(env.CONTACT_DUPLICATE_TTL_MS, DEFAULT_DUPLICATE_TTL_MS, 60000, 7 * 24 * 60 * 60 * 1000)
   const usedTokens = new Map()
   const requests = new Map()
@@ -130,9 +135,10 @@ export function createContactAntiSpam(options = {}) {
     cleanup(timestamp)
     const clientKey = requestClientKey(clientIp, userAgent)
     const entries = requests.get(clientKey) || []
-    const hourStart = timestamp - 60 * 60 * 1000
-    const hourlyCount = entries.reduce((count, value) => count + (value > hourStart ? 1 : 0), 0)
-    if (hourlyCount >= hourlyLimit || entries.length >= dailyLimit) return { accepted: false, clientKey }
+    const lastAcceptedAt = entries.at(-1)
+    const submittedTooRecently = lastAcceptedAt !== undefined
+      && timestamp - lastAcceptedAt < minSubmissionIntervalMs
+    if (submittedTooRecently || entries.length >= dailyLimit) return { accepted: false, clientKey }
     entries.push(timestamp)
     requests.set(clientKey, entries)
     return { accepted: true, clientKey }

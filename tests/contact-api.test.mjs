@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createContactHandler, normaliseAudio, MAX_BODY_BYTES } from '../contact-api/handler.mjs'
+import { createContactAntiSpam } from '../contact-api/anti-spam.mjs'
 import { contactDevMockMode, createContactDevMockOptions } from '../contact-api/dev-mock.mjs'
 import { CONTACT_CONSENT_VERSION, CONTACT_CONSENT_CHECKBOX, contactConsentSnapshot } from '../contact-api/consent.mjs'
 
@@ -109,15 +110,35 @@ test('no more than two recordings; valid audio-only briefing preserves attachmen
   assert.equal((await submit(handle, data, 'too-many')).status, 400)
 })
 
-test('per-client limit silently discards excess submissions', async () => {
+test('per-client limit explains when a submission is too frequent', async () => {
   let sends = 0
   const handle = createContactHandler({ env, skipDecoyDelay: true, send: async () => { sends++; return accepted() } })
-  for (let i = 0; i < 12; i++) {
-    assert.equal((await submit(handle, form({ description: `Проект ${i}` }), 'one-client')).status, 200)
-  }
-  assert.equal(sends, 10)
+  assert.equal((await submit(handle, form({ description: 'Проект 1' }), 'one-client')).status, 200)
+  const limited = await submit(handle, form({ description: 'Проект 2' }), 'one-client')
+  assert.equal(limited.status, 429)
+  assert.deepEqual(await limited.json(), {
+    code: 'RATE_LIMITED',
+    message: 'Попробуйте отправить обращение через 5 минут или напишите мне напрямую hello@kadonext.com.',
+  })
+  assert.equal(sends, 1)
   assert.equal((await submit(handle, form({ description: 'Другой клиент' }), 'other-client')).status, 200)
-  assert.equal(sends, 11)
+  assert.equal(sends, 2)
+})
+
+test('per-client limit accepts one submission per five minutes and two per rolling day', () => {
+  let now = Date.UTC(2026, 9, 2, 12)
+  const antiSpam = createContactAntiSpam({ env, now: () => now, skipDelay: true })
+
+  assert.equal(antiSpam.acceptRate('one-client').accepted, true)
+  assert.equal(antiSpam.acceptRate('one-client').accepted, false)
+  now += 5 * 60 * 1000 - 1
+  assert.equal(antiSpam.acceptRate('one-client').accepted, false)
+  now += 1
+  assert.equal(antiSpam.acceptRate('one-client').accepted, true)
+  now += 5 * 60 * 1000
+  assert.equal(antiSpam.acceptRate('one-client').accepted, false)
+  now += 24 * 60 * 60 * 1000 - 10 * 60 * 1000
+  assert.equal(antiSpam.acceptRate('one-client').accepted, true)
 })
 
 test('missing, replayed and spammy submissions get indistinguishable success without delivery', async () => {
@@ -135,9 +156,12 @@ test('missing, replayed and spammy submissions get indistinguishable success wit
 })
 
 test('an already delivered duplicate is acknowledged but not sent twice', async () => {
+  let now = Date.UTC(2026, 9, 2, 12)
   let sends = 0
-  const handle = createContactHandler({ env, skipDecoyDelay: true, send: async () => { sends++; return accepted() } })
+  const antiSpam = createContactAntiSpam({ env, now: () => now, skipDelay: true })
+  const handle = createContactHandler({ env, antiSpam, send: async () => { sends++; return accepted() } })
   assert.equal((await submit(handle, form(), 'duplicate-client')).status, 200)
+  now += 5 * 60 * 1000
   assert.equal((await submit(handle, form(), 'duplicate-client')).status, 200)
   assert.equal(sends, 1)
 })

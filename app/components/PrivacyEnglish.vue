@@ -8,7 +8,7 @@ const sections = [
     paragraphs: [
       'This Policy sets out how the operator processes and protects personal data when visitors use kadonext.com, use its features or contact the operator.',
       'The Policy has been prepared under Federal Law No. 152-FZ “On Personal Data” dated 27 July 2006. The operator processes only the data needed for specified purposes and does not process it in a manner incompatible with those purposes.',
-      'The website can be viewed without providing a name, telephone number or email address. A visitor who does not accept optional processing may choose not to submit an inquiry and may decline analytics cookies.',
+      'The website can be viewed without providing a name, telephone number or email address. The website uses no advertising or analytics cookies and connects no third-party web analytics service.',
     ],
   },
   {
@@ -25,7 +25,8 @@ const sections = [
       {
         title: 'Technical data',
         paragraphs: [
-          'IP address, date and time of access, pages viewed, referral source, browser, operating system and device type, technical identifiers and cookie data. When web analytics is enabled, anonymized or pseudonymized information about activity on the website may also be processed.',
+          'To deliver pages and protect the website, the web server receives request data including the IP address, date and time, requested address and browser headers. It is used only as necessary to return the response, prevent abuse and diagnose faults.',
+          'The first-party traffic counter records only the calendar date, requested page path without query parameters, browser family, two-letter country code and a broad referrer category. The full User-Agent and referrer URL are immediately reduced to categories. Country is resolved from the IP address on the server, after which the IP address itself is not written to the counter log. The log also contains no search query, cookies or another visitor identifier. It counts page loads, not unique people, and cannot link separate loads to one visitor.',
           'The operator does not intend to process special categories of personal data or biometric personal data. Visitors should not include such information in free-text fields or emails unless it is necessary for the inquiry.',
         ],
       },
@@ -37,7 +38,7 @@ const sections = [
     subtitles: [
       { title: 'Responding to an inquiry', paragraphs: ['Discussing a project, preparing a proposal, contacting the visitor and taking steps at the visitor’s request before entering into a contract. The legal basis is the visitor’s consent and, where applicable, the need to take pre-contractual steps at the visitor’s request.'] },
       { title: 'Operation and security', paragraphs: ['Displaying pages correctly, remembering visitor choices, preventing abuse and diagnosing errors. Only the minimum technical data needed to operate the website and protect the legitimate interests of the operator and visitors is processed.'] },
-      { title: 'Web analytics', paragraphs: ['Measuring traffic and improving the website’s structure, content and performance. Optional analytics is enabled with the visitor’s consent if an analytics service is connected.'] },
+      { title: 'Traffic measurement', paragraphs: ['Measuring page loads and improving the website’s structure, content and performance. A minimised first-party log includes broad browser and referrer categories and a country code but uses no cookies or visitor profiles and is not disclosed to web analytics services. The minimum technical processing is necessary to operate the website and protect the operator’s legitimate interests without overriding visitor rights and freedoms.'] },
     ],
   },
   {
@@ -52,16 +53,17 @@ const sections = [
   {
     title: 'Cookies and local storage',
     html: [
-      'The website uses essential browser storage. The <code>kado_motion_intro</code> cookie, retained for up to 7 days, records whether motion-control guidance has been shown. The <code>kado_cookie_notice</code> cookie, retained for 30 days, records that the cookie notice has been seen. These entries contain no name or contact details and are required for the interface features requested by the visitor.',
-      'If Yandex Metrica is connected, it may set its own cookies and process technical visit data. The analytics counter will run only with the visitor’s separate consent. A way to change or withdraw that choice will be provided at the same time. Declining analytics does not restrict core website functions, and stored files can be deleted through browser settings.',
+      'The website uses essential browser storage. The <code>kado_motion_intro</code> cookie, retained for up to 7 days, records whether motion-control guidance has been shown. The <code>kado_cookie_notice</code> cookie, retained for up to 30 days, records that the cookie notice has been seen. The <code>kadonext-case-gesture-hint-v2</code> cookie, retained for up to 7 days, prevents the case-navigation hint from being shown repeatedly.',
+      'The <code>kadonext-locale</code> and <code>kadonext-root-locale</code> cookies, retained for up to one year, and the <code>kadonext-locale</code> browser local-storage entry remember the selected language and prevent an unnecessary redirect. The local entry remains until the visitor or browser deletes it. All these entries contain only a setting value, no name or contact details, and are required for interface features requested by the visitor.',
+      'The first-party traffic counter uses no cookies, local storage or device fingerprint. If analytics using identifiers or third-party cookies is introduced later, it will not run before separate visitor consent is obtained and this Policy is updated.',
       'Blocking all cookies may affect remembered interface settings but does not prevent access to website content.',
     ],
   },
   {
-    title: 'Yandex Metrica, email and other parties',
+    title: 'Hosting, email and other parties',
     html: [
-      'The operator may use Yandex Metrica, supplied by YANDEX LLC (16 Leo Tolstoy Street, Moscow 119021, Russia), for web analytics. When enabled, Yandex processes visit and device data on the operator’s instructions. The operator must not send form content, contact details, CRM data or other information that directly identifies a visitor to Metrica.',
-      'Yandex processing is governed by the <a href="https://yandex.ru/legal/metrica_termsofuse/ru/" target="_blank" rel="noopener noreferrer">Yandex Metrica terms</a> and the <a href="https://yandex.ru/legal/confidential/ru/" target="_blank" rel="noopener noreferrer">Yandex privacy policy</a>.',
+      'Traffic measurement runs on the KADO server. No data is sent to Yandex Metrica, Google Analytics or another web analytics service. The Russian hosting provider operates the server and may process technical data only as needed to supply and secure the service.',
+      'Country is resolved using the local <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">DB-IP Country Lite</a> database. The IP address is not sent to DB-IP or another party.',
       'The operator uses a server-side processor and the REG.RU email service, supplied by Registrar of Domain Names REG.RU LLC, with a private mailbox to deliver inquiries. Those providers receive information voluntarily included in the inquiry, selected voice messages, the submission date and confirmation of consent only to the extent needed to deliver and store the email.',
       'REG.RU processing is governed by its <a href="https://www.reg.ru/company/privacy" target="_blank" rel="noopener noreferrer">personal-data processing policy</a>. This Policy is updated before another provider is enabled. If the new provider’s infrastructure involves a cross-border transfer, the channel is enabled only after the applicable processor-engagement and cross-border-transfer requirements have been met.',
       'Hosting, information-security, email and message-delivery providers may also access data to the extent necessary to provide their services, perform their contract with the operator and comply with law. The operator requires confidentiality and appropriate protection. Data is disclosed to other parties only with the data subject’s consent or on another legal basis.',
@@ -71,7 +73,7 @@ const sections = [
     title: 'Retention, storage and destruction',
     paragraphs: [
       'Inquiry data is processed until correspondence ends and then for no more than three years after the last substantive contact, unless a contract or law requires longer retention. When the purpose has been fulfilled, data is deleted or anonymized unless another lawful basis for storage applies.',
-      'Technical and analytics data is retained for the periods set by the relevant service and only as long as required for the purposes stated in this Policy, or until consent is withdrawn, whichever comes first.',
+      'The traffic log containing the date, page path, country code and broad browser and referrer categories is stored in Russia for the configured server-log rotation period and deleted automatically; it is not used to build visitor profiles. Other technical logs are retained only as long as needed for security, diagnostics and legal compliance.',
       'When personal data of Russian citizens is collected, its recording, organization, accumulation, storage, correction and retrieval are performed using databases located in the Russian Federation, except where the law expressly provides otherwise. If email delivery involves a cross-border transfer of the information and files supplied by the visitor, it occurs only after the statutory requirements have been met.',
     ],
   },
@@ -105,7 +107,7 @@ const sections = [
       <p class="privacy-page__eyebrow">documents</p>
       <h1>Personal data processing policy</h1>
       <div class="privacy-page__meta">
-        <p>Version dated 22 September 2026</p>
+        <p>Version dated 2 October 2026</p>
         <p>Website: <a href="https://kadonext.com">kadonext.com</a></p>
       </div>
     </header>

@@ -261,7 +261,12 @@ export function createContactHandler(options = {}) {
     const token = antiSpam.acceptToken(request.headers.get('x-contact-token') || '')
     if (!token.accepted) return decoy()
     const rate = antiSpam.acceptRate(clientIp, request.headers.get('user-agent') || '')
-    if (!rate.accepted) return decoy()
+    if (!rate.accepted) {
+      return response(429, {
+        code: 'RATE_LIMITED',
+        message: 'Попробуйте отправить обращение через 5 минут или напишите мне напрямую hello@kadonext.com.',
+      })
+    }
     if (inFlight >= 2) return response(503, { message: 'Сейчас обрабатываем другие заявки. Повторите отправку через минуту; записи сохранены.' })
     inFlight++
     try {

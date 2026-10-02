@@ -96,11 +96,11 @@
   "home": {
     "hero": {
       "titleLines": [
-        "digital form",
+        "Digital form",
         "for your business"
       ],
       "mobileTitleLines": [
-        "digital form",
+        "Digital form",
         "for your",
         "business"
       ],
@@ -130,7 +130,7 @@
       "gestureDismiss": "Tap to dismiss this hint."
     },
     "formats": {
-      "title": "Ways to work together.",
+      "title": "Ways to work\ntogether.",
       "intro": "Bring an idea, a finished design or an existing website.",
       "items": [
         {
@@ -219,7 +219,7 @@
     },
     "contact": {
       "label": "Discuss a project",
-      "title": "let's start a project.",
+      "title": "Let's start a project.",
       "personal": "Tell me what you are working on. I'll read your message myself and suggest where to start.",
       "taskLabel": "What do you need?",
       "clearTask": "Clear project type",
@@ -738,16 +738,17 @@
       "this website remembers",
       "a few things too 🍪"
     ],
-    "text": "Essential cookies and browser storage remember your settings, so you do not see the same prompts twice.",
-    "note": "Nothing personal. Literally.",
+    "text": "Essential cookies remember settings. The first-party counter uses no cookies and records the date, page, country, browser family and referrer category.",
+    "note": "The counter stores no IP address, full User-Agent or referrer URL.",
     "details": "What exactly?",
-    "accept": "ok"
+    "accept": "got it"
   },
   "contactForm": {
     "addVoice": "Add another voice message",
     "recordVoice": "Record a voice message",
     "descriptionRequired": "Tell me about the project in writing or record a voice message.",
     "submitFailed": "Your inquiry could not be sent. Your text and recordings are still on this page — try again or email hello@kadonext.com.",
+    "rateLimited": "Please try sending your inquiry again in 5 minutes, or email me directly at hello@kadonext.com.",
     "sendingStatus": "Sending your message…",
     "sentStatus": "Message sent. Thank you for reaching out — I will read it and reply soon.",
     "fieldset": "Project details",

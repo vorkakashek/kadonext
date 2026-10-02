@@ -25,8 +25,11 @@ const { open: pageCanvasOpen, busy: pageCanvasBusy } = usePageCanvas()
 const formats = computed(() => tm('home.formats.items') as WorkFormat[])
 const activeFormat = computed(() => formats.value[activeIndex.value] ?? formats.value[0])
 const formatsTitle = computed(() => t('home.formats.title'))
-const formatsTitleWords = computed(() => (
-  formatsTitle.value.trim().split(/\s+/).map((word) => Array.from(word))
+const formatsTitleLabel = computed(() => formatsTitle.value.trim().replace(/\s+/g, ' '))
+const formatsTitleLines = computed(() => (
+  formatsTitle.value.trim().split(/\r?\n/).map(line => (
+    line.trim().split(/\s+/).map(word => Array.from(word))
+  ))
 ))
 
 function smallPreview(src: string) {
@@ -456,21 +459,27 @@ onUnmounted(() => {
         <h2
           id="work-formats-title"
           class="work-formats__title"
-          :aria-label="formatsTitle"
+          :aria-label="formatsTitleLabel"
         >
-          <span class="sr-only">{{ formatsTitle }}</span>
+          <span class="sr-only">{{ formatsTitleLabel }}</span>
           <span
-            v-for="(word, wordIndex) in formatsTitleWords"
-            :key="`${word.join('')}-${wordIndex}`"
-            class="work-formats__title-word-mask"
+            v-for="(line, lineIndex) in formatsTitleLines"
+            :key="`${lineIndex}-${line.map(word => word.join('')).join(' ')}`"
+            class="work-formats__title-line"
             aria-hidden="true"
           >
-            <span class="work-formats__title-word-reveal">
-              <span
-                v-for="(char, charIndex) in word"
-                :key="`${char}-${charIndex}`"
-                class="work-formats__title-char"
-              >{{ char }}</span>
+            <span
+              v-for="(word, wordIndex) in line"
+              :key="`${word.join('')}-${wordIndex}`"
+              class="work-formats__title-word-mask"
+            >
+              <span class="work-formats__title-word-reveal">
+                <span
+                  v-for="(char, charIndex) in word"
+                  :key="`${char}-${charIndex}`"
+                  class="work-formats__title-char"
+                >{{ char }}</span>
+              </span>
             </span>
           </span>
         </h2>
@@ -648,6 +657,10 @@ onUnmounted(() => {
   padding-bottom: 0.12em;
   margin-bottom: -0.12em;
   vertical-align: bottom;
+}
+
+.work-formats__title-line {
+  display: block;
 }
 
 .work-formats__title-word-mask:not(:last-child) {

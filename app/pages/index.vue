@@ -136,10 +136,3 @@ onMounted(() => {
     </main>
   </div>
 </template>
-
-<style scoped>
-.home-page :deep(h2) {
-  text-transform: lowercase;
-}
-
-</style>
