@@ -116,6 +116,10 @@ systemctl reload nginx
 
 curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/ -o /tmp/kadonext-root-__ID__.html
 grep -q 'data-kado-locale-selector' /tmp/kadonext-root-__ID__.html
+grep -q '<html lang="en"' /tmp/kadonext-root-__ID__.html
+grep -q 'name="description"' /tmp/kadonext-root-__ID__.html
+grep -q 'property="og:image" content="https://[^" ]*/og/home.jpg"' /tmp/kadonext-root-__ID__.html
+if grep -qi 'select language' /tmp/kadonext-root-__ID__.html; then exit 1; fi
 curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/ru/ -o /tmp/kadonext-ru-__ID__.html
 curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/en/ -o /tmp/kadonext-en-__ID__.html
 grep -q 'lang="ru"' /tmp/kadonext-ru-__ID__.html

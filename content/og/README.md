@@ -21,5 +21,5 @@ on its top face, the supplied English logo and headline on the left, restrained
 grey background, and no additional objects or decorative motifs.
 
 `npm run seo:images` resizes the master and writes `/og/home.jpg` on every build.
-The original attached image is not modified. HTML titles and descriptions stay
-in Russian to match the language of the actual website.
+The original attached image is not modified. The root sharing document uses the
+English title, description and artwork; localized pages keep their own metadata.

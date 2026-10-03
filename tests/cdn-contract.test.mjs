@@ -22,11 +22,15 @@ test('asset CDN mode shares one origin across public and app assets', () => {
   assert.doesNotMatch(css, /url\(["']?\/fonts\//)
 })
 
-test('root build output is a tiny cache-safe language selector', () => {
+test('root build output is a cache-safe English social card and language selector', () => {
   const source = read('scripts/build-root-locales.mjs')
 
   assert.match(source, /data-kado-locale-selector/)
   assert.match(source, /location\.replace\('\/' \+ locale \+ '\/'/)
+  assert.match(source, /join\(publicRoot, 'en', 'index\.html'\)/)
+  assert.match(source, /'og:image'/)
+  assert.match(source, /'twitter:card'/)
+  assert.doesNotMatch(source, /KADO — select language/)
   assert.match(source, /writeFile\(join\(publicRoot, 'index\.html'\)/)
   assert.doesNotMatch(source, /\.locale-root/)
 })
@@ -65,6 +69,8 @@ test('production deploy validates localized pages separately from the root selec
   const source = read('scripts/deploy-production.ps1')
 
   assert.match(source, /data-kado-locale-selector/)
+  assert.match(source, /property="og:image"/)
+  assert.match(source, /select language/)
   assert.match(source, /curl -fsS --retry 10 --retry-delay 1 --retry-all-errors/)
   assert.match(source, /https:\/\/kadonext\.com\/ru\//)
   assert.match(source, /https:\/\/kadonext\.com\/en\//)

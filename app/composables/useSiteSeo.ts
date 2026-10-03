@@ -27,7 +27,11 @@ export function useSiteSeo() {
     route.path === '/' ? '/' : localizedPath(path.value, locale.value),
   ))
   const localizedUrl = (targetPath: string) => siteUrl(localizedPath(targetPath, locale.value))
-  const image = computed(() => siteUrl(`/og/${item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')}.jpg`))
+  const image = computed(() => {
+    const assetBase = String(config.public.assetCdnUrl || config.app?.cdnURL || '').trim().replace(/\/+$/, '')
+    const assetPath = `/og/${item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')}.jpg`
+    return siteUrl(`${assetBase}${assetPath}`)
+  })
   const imageAlt = computed(() => item.value
     ? t('seo.caseImageAlt', { title: item.value.title })
     : t('seo.imageAlt'))
@@ -122,7 +126,7 @@ export function useSiteSeo() {
       { key: 'canonical', rel: 'canonical', href: canonical.value },
       { key: 'alternate-ru', rel: 'alternate', hreflang: 'ru', href: siteUrl(localizedPath(path.value, 'ru')) },
       { key: 'alternate-en', rel: 'alternate', hreflang: 'en', href: siteUrl(localizedPath(path.value, 'en')) },
-      { key: 'alternate-default', rel: 'alternate', hreflang: 'x-default', href: siteUrl(path.value) },
+      { key: 'alternate-default', rel: 'alternate', hreflang: 'x-default', href: siteUrl(localizedPath(path.value, 'en')) },
     ] : [],
     script: knownPage.value ? [{ key: 'site-schema', type: 'application/ld+json', innerHTML: serializeJsonLd({ '@context': 'https://schema.org', '@graph': graph.value }) }] : [],
   }))

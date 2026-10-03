@@ -38,7 +38,7 @@ const plain = value => JSON.parse(JSON.stringify(value))
 const lookup = key => key.split('.').reduce((value, part) => value?.[part], messages)
 function setup(initialPath = '/', indexable = true) {
   const route = reactive({ path: initialPath })
-  const config = reactive({ public: { siteIndexable: indexable } })
+  const config = reactive({ public: { siteIndexable: indexable, assetCdnUrl: 'https://cdn.example.test' } })
   let meta
   let head
   let calls = 0
@@ -83,15 +83,20 @@ test('one head owner updates every page and restores home after kept-alive navig
     const localizedUrl = seo.siteUrl(routing.localizedPath(cleanPath, 'ru'))
     assert.equal(app.meta('ogUrl'), localizedUrl)
     assert.equal(app.head().link[0].href, localizedUrl)
+    assert.deepEqual(app.head().link.slice(1).map(link => [link.hreflang, link.href]), [
+      ['ru', seo.siteUrl(routing.localizedPath(cleanPath, 'ru'))],
+      ['en', seo.siteUrl(routing.localizedPath(cleanPath, 'en'))],
+      ['x-default', seo.siteUrl(routing.localizedPath(cleanPath, 'en'))],
+    ])
     assert.match(app.meta('robots'), /^index, follow/)
     const graph = app.graph()
     assert.equal(graph.find(node => node['@id'] === `${localizedUrl}#webpage`).name, expected.title)
     if (project) {
-      assert.equal(app.meta('ogImage'), seo.siteUrl(`/og/${project.id}.jpg`))
+      assert.equal(app.meta('ogImage'), `https://cdn.example.test/og/${project.id}.jpg`)
       assert.equal(graph.find(node => node['@type'] === 'CreativeWork').name, project.title)
       assert.equal(graph.find(node => node['@type'] === 'BreadcrumbList').itemListElement.at(-1).item, localizedUrl)
     } else if (cleanPath === '/') {
-      assert.equal(app.meta('ogImage'), seo.siteUrl('/og/home.jpg'))
+      assert.equal(app.meta('ogImage'), 'https://cdn.example.test/og/home.jpg')
       assert.equal(graph.filter(node => node['@type'] === 'Service').length, 4)
       assert.ok(!graph.some(node => node['@type'] === 'BreadcrumbList'))
     }
@@ -137,6 +142,8 @@ test('boolean and string configuration are consistent in HTML, robots and sitema
     assert.equal([...sitemap.matchAll(/<loc>/g)].length, indexable ? 16 : 0)
     if (indexable) {
       assert.ok(sitemap.includes('<image:loc>https://kadonext.com/home/me-1024.webp</image:loc>'))
+      assert.equal([...sitemap.matchAll(/hreflang="x-default"/g)].length, 16)
+      assert.ok(sitemap.includes('<xhtml:link rel="alternate" hreflang="x-default" href="https://kadonext.com/en/"/>'))
       assert.doesNotMatch(sitemap, /<lastmod>|#contact|\/200.html|\/404.html/)
     }
   }

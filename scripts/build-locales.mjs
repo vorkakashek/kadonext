@@ -86,7 +86,7 @@ for (const file of files) {
 }
 
 const localeCodes = files.map(file => basename(file, '.json'))
-const defaultLocale = localeCodes.includes('ru') ? 'ru' : localeCodes[0]
+const defaultLocale = localeCodes.includes('en') ? 'en' : localeCodes[0]
 const loaderLines = localeCodes.map(code => (
   code === defaultLocale
     ? `  ${JSON.stringify(code)}: async () => defaultMessages,`
