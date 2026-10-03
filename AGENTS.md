@@ -50,6 +50,7 @@
 - Use `--app-screen` / `100svh` for full-screen geometry. Do not base fixed/snap layouts on `100dvh`; mobile browser chrome height changes must not rebuild everything.
 - Keep one coherent motion experience; do not add a system reduced-motion mode. Pause WebGL/animation when hidden or out of view, and keep iOS motion permission behind a user gesture.
 - Start development with `npm run dev` (`--host` is required). iOS device-motion QA needs an HTTPS tunnel, not plain LAN HTTP.
+- If the production VPS (`185.240.103.224`) times out over SSH, first ask the user to switch their VPN server and retry; the wrong VPN route is a known cause of false VPS-unavailable failures.
 - If a development server is already running for the user, reuse it and leave it running unless the user explicitly asks to stop/restart it.
 - Do not run browser-based visual scenario QA or invoke the browser visual-check skill after changes unless the user explicitly asks for visual/browser verification. Continue to run proportionate non-visual checks such as builds and static validation.
 - Keep mobile touch scrolling native. Do not re-enable Lenis `syncTouch`, clamp touch deltas, reduce `touchMultiplier`, or otherwise trade finger-to-page response for story pacing without explicit user approval and real-device comparison. Control pacing in the animation/morph layer instead.
