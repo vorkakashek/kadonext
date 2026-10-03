@@ -5,6 +5,7 @@ import sharp from 'sharp'
 const root = process.cwd()
 const publicRoot = resolve(root, 'public')
 const outputRoot = resolve(publicRoot, 'og')
+const russianOutputRoot = resolve(outputRoot, 'ru')
 const structure = JSON.parse(await readFile(resolve(root, 'app/data/homeCases.json'), 'utf8'))
 const details = JSON.parse(await readFile(resolve(root, 'app/data/projectCaseDetails.json'), 'utf8'))
 const copy = JSON.parse(await readFile(resolve(root, 'content/locales/ru.json'), 'utf8'))
@@ -21,11 +22,15 @@ function canvas(content) {
 }
 
 await mkdir(outputRoot, { recursive: true })
+await mkdir(russianOutputRoot, { recursive: true })
 // Keep the approved image artwork as a versioned source. Never replace it with
 // the old text-only slide during a subsequent production build.
 await sharp(resolve(root, 'content/og/home-keycap.png'))
   .resize(1200, 630, { fit: 'cover', position: 'centre' })
   .jpeg({ quality: 90, mozjpeg: true }).toFile(resolve(outputRoot, 'home.jpg'))
+await sharp(resolve(root, 'content/og/home-keycap-ru.png'))
+  .resize(1200, 630, { fit: 'cover', position: 'centre' })
+  .jpeg({ quality: 90, mozjpeg: true }).toFile(resolve(russianOutputRoot, 'home.jpg'))
 
 const tilePositions = [{ left: 568, top: 32 }, { left: 884, top: 32 }, { left: 568, top: 324 }, { left: 884, top: 324 }]
 const tiles = await Promise.all(structure.map(async (project, index) => ({
@@ -87,4 +92,4 @@ for (const [suffix, color] of [['', '#171915'], ['-dark', '#f5f1e8']]) {
   ])
 }
 await writeFile(resolve(publicRoot, 'apple-touch-icon.png'), await iconPng(180, '#343730', '#ece7dd'))
-console.log('Generated six 1200×630 SEO cards, the studio logo and KADO favicons.')
+console.log('Generated seven 1200×630 SEO cards, the studio logo and KADO favicons.')

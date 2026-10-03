@@ -29,7 +29,10 @@ export function useSiteSeo() {
   const localizedUrl = (targetPath: string) => siteUrl(localizedPath(targetPath, locale.value))
   const image = computed(() => {
     const assetBase = String(config.public.assetCdnUrl || config.app?.cdnURL || '').trim().replace(/\/+$/, '')
-    const assetPath = `/og/${item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')}.jpg`
+    const card = item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')
+    const assetPath = path.value === '/' && locale.value === 'ru'
+      ? '/og/ru/home.jpg'
+      : `/og/${card}.jpg`
     return siteUrl(`${assetBase}${assetPath}`)
   })
   const imageAlt = computed(() => item.value

@@ -124,6 +124,8 @@ curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve 
 curl -fsS --retry 10 --retry-delay 1 --retry-all-errors --noproxy '*' --resolve kadonext.com:443:127.0.0.1 https://kadonext.com/en/ -o /tmp/kadonext-en-__ID__.html
 grep -q 'lang="ru"' /tmp/kadonext-ru-__ID__.html
 grep -q 'lang="en"' /tmp/kadonext-en-__ID__.html
+grep -q 'property="og:image" content="https://[^" ]*/og/ru/home.jpg"' /tmp/kadonext-ru-__ID__.html
+grep -q 'property="og:image" content="https://[^" ]*/og/home.jpg"' /tmp/kadonext-en-__ID__.html
 
 # In asset-CDN mode, validate the exact new hashed entry and critical font
 # before committing the release. A failed pull or missing CORS header triggers

@@ -127,9 +127,12 @@ for (const path of paths) {
   assert.equal(getMeta('og:image:height'), '630', context + 'card height')
   const imageUrl = new URL(image)
   const expectedCard = item => `/og/${item}.jpg`
+  const expectedCardPath = locale === 'ru' && basePath === '/'
+    ? '/og/ru/home.jpg'
+    : expectedCard(basePath.startsWith('/projects/') ? basePath.split('/').at(-1) : basePath === '/projects' ? 'projects' : 'home')
   assert.equal(
     imageUrl.pathname,
-    expectedCard(basePath.startsWith('/projects/') ? basePath.split('/').at(-1) : basePath === '/projects' ? 'projects' : 'home'),
+    expectedCardPath,
     context + 'share card path',
   )
   if (process.env.KADO_FULL_SITE_CDN !== 'true') {

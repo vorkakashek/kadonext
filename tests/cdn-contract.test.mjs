@@ -74,6 +74,7 @@ test('production deploy validates localized pages separately from the root selec
   assert.match(source, /curl -fsS --retry 10 --retry-delay 1 --retry-all-errors/)
   assert.match(source, /https:\/\/kadonext\.com\/ru\//)
   assert.match(source, /https:\/\/kadonext\.com\/en\//)
+  assert.match(source, /og\/ru\/home\.jpg/)
   assert.match(source, /check_cdn_cors_asset/)
   assert.match(source, /Access-Control-Allow-Origin/)
   assert.match(source, /cdn_app_url=.*\/_nuxt\//)

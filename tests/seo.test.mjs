@@ -36,7 +36,7 @@ const seo = loadTs('app/utils/siteSeo.ts', {}, {
 })
 const plain = value => JSON.parse(JSON.stringify(value))
 const lookup = key => key.split('.').reduce((value, part) => value?.[part], messages)
-function setup(initialPath = '/', indexable = true) {
+function setup(initialPath = '/', indexable = true, initialLocale = 'ru') {
   const route = reactive({ path: initialPath })
   const config = reactive({ public: { siteIndexable: indexable, assetCdnUrl: 'https://cdn.example.test' } })
   let meta
@@ -45,7 +45,7 @@ function setup(initialPath = '/', indexable = true) {
   const { useSiteSeo } = loadTs('app/composables/useSiteSeo.ts', {
     computed, useRoute: () => route, useRuntimeConfig: () => config,
     useHomeCases: () => ref(projects),
-    useI18n: () => ({ locale: ref('ru'), tm: lookup, t: lookup }),
+    useI18n: () => ({ locale: ref(initialLocale), tm: lookup, t: lookup }),
     useSeoMeta: value => { meta = value; calls += 1 },
     useHead: value => { head = value },
   }, { '~/utils/siteSeo': seo, '~/utils/localeRouting': routing })
@@ -96,12 +96,17 @@ test('one head owner updates every page and restores home after kept-alive navig
       assert.equal(graph.find(node => node['@type'] === 'CreativeWork').name, project.title)
       assert.equal(graph.find(node => node['@type'] === 'BreadcrumbList').itemListElement.at(-1).item, localizedUrl)
     } else if (cleanPath === '/') {
-      assert.equal(app.meta('ogImage'), 'https://cdn.example.test/og/home.jpg')
+      assert.equal(app.meta('ogImage'), 'https://cdn.example.test/og/ru/home.jpg')
       assert.equal(graph.filter(node => node['@type'] === 'Service').length, 4)
       assert.ok(!graph.some(node => node['@type'] === 'BreadcrumbList'))
     }
   }
   assert.equal(app.calls(), 1, 'Route changes must update the existing head owner')
+})
+
+test('home share card follows the active locale', () => {
+  assert.equal(setup('/ru/').meta('ogImage'), 'https://cdn.example.test/og/ru/home.jpg')
+  assert.equal(setup('/en/', true, 'en').meta('ogImage'), 'https://cdn.example.test/og/home.jpg')
 })
 
 test('unknown routes remove canonical and structured data; returning restores them', () => {

@@ -1,9 +1,11 @@
 # Main social sharing artwork
 
-`home-keycap.png` is the imagegen-edited master of the main KADO social card.
+`home-keycap.png` is the imagegen-edited master of the English KADO social card.
+`home-keycap-ru.png` is its Russian text-localized counterpart.
 The reference keycap and the supplied English `public/brand/kado-logo-en.svg`
 wordmark were used as inputs. The source is kept outside `public/` so visitors
-only download the optimized 1200×630 JPEG at `/og/home.jpg`.
+only download the optimized 1200×630 JPEGs at `/og/home.jpg` and
+`/og/ru/home.jpg`.
 
 Image text:
 
@@ -20,6 +22,7 @@ the user's resin keycap image: the key on the right, a white lowercase Latin ō
 on its top face, the supplied English logo and headline on the left, restrained
 grey background, and no additional objects or decorative motifs.
 
-`npm run seo:images` resizes the master and writes `/og/home.jpg` on every build.
+`npm run seo:images` resizes both masters and writes `/og/home.jpg` plus
+`/og/ru/home.jpg` on every build.
 The original attached image is not modified. The root sharing document uses the
-English title, description and artwork; localized pages keep their own metadata.
+English title, description and artwork; `/ru/` uses the Russian artwork.
