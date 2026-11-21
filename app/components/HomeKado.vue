@@ -387,6 +387,26 @@ async function setupSectionParallax() {
   parallaxMatchMedia.add(
     '(min-width: 768px)',
     () => {
+      // Measure once per refresh; independent scrub tails must never let the
+      // body cross the definition, including while reversing direction.
+      const copyMotion = { termY: 0, fillY: 0 }
+      let minimumFillOffset = 0
+      gsap.set([topCopy, bodyParallax], { y: 0 })
+      const setTermY = gsap.quickSetter(topCopy, 'y', 'px')
+      const setFillY = gsap.quickSetter(bodyParallax, 'y', 'px')
+      const syncCopyMotion = () => {
+        setTermY(copyMotion.termY)
+        setFillY(Math.max(copyMotion.fillY, copyMotion.termY + minimumFillOffset))
+      }
+      const measureCopyClearance = () => {
+        const termY = Number(gsap.getProperty(topCopy, 'y')) || 0
+        const fillY = Number(gsap.getProperty(bodyParallax, 'y')) || 0
+        const gap = Number.parseFloat(getComputedStyle(topCopy.parentElement!).rowGap) || 32
+        minimumFillOffset = topCopy.getBoundingClientRect().bottom - termY + gap
+          - (bodyParallax.getBoundingClientRect().top - fillY)
+      }
+      measureCopyClearance()
+
       const corridorProgressAtSurfaceDock = (startY: number) => {
         const viewportHeight = Math.max(1, window.innerHeight)
         const scrollY = window.scrollY || 0
@@ -457,6 +477,7 @@ async function setupSectionParallax() {
       )
 
       const termTimeline = gsap.timeline({
+        onUpdate: syncCopyMotion,
         scrollTrigger: {
           trigger: stoneColumn,
           start: '25% bottom',
@@ -464,19 +485,21 @@ async function setupSectionParallax() {
           end: 'bottom top',
           scrub: 0.14,
           invalidateOnRefresh: true,
+          onRefreshInit: measureCopyClearance,
+          onRefresh: syncCopyMotion,
         },
       })
 
       termTimeline
         .fromTo(
-          topCopy,
-          { y: termEntryOffset },
-          { y: termRevealEndY, duration: 0.14, ease: 'none' },
+          copyMotion,
+          { termY: termEntryOffset },
+          { termY: termRevealEndY, duration: 0.14, ease: 'none' },
           0,
         )
         .to(
-          topCopy,
-          { y: termEndY, duration: 0.86, ease: 'none' },
+          copyMotion,
+          { termY: termEndY, duration: 0.86, ease: 'none' },
           0.14,
         )
         .fromTo(
@@ -487,6 +510,7 @@ async function setupSectionParallax() {
         )
 
       const fillTimeline = gsap.timeline({
+        onUpdate: syncCopyMotion,
         scrollTrigger: {
           trigger: stoneColumn,
           start: '75% bottom',
@@ -499,9 +523,9 @@ async function setupSectionParallax() {
 
       fillTimeline
         .fromTo(
-          bodyParallax,
-          { y: fillEntryOffset },
-          { y: fillEndY, duration: 1, ease: 'none' },
+          copyMotion,
+          { fillY: fillEntryOffset },
+          { fillY: fillEndY, duration: 1, ease: 'none' },
           0,
         )
         .fromTo(
@@ -511,6 +535,14 @@ async function setupSectionParallax() {
           0,
         )
 
+      const copyResizeObserver = new ResizeObserver(() => {
+        measureCopyClearance()
+        syncCopyMotion()
+      })
+      copyResizeObserver.observe(topCopy)
+      copyResizeObserver.observe(bodyParallax)
+      if (topCopy.parentElement) copyResizeObserver.observe(topCopy.parentElement)
+      return () => copyResizeObserver.disconnect()
     },
   )
 
@@ -654,7 +686,7 @@ onUnmounted(() => {
         class="kado-copy-column relative z-10 col-span-12 md:col-span-5 md:col-start-7 md:self-stretch"
       >
         <div
-          class="kado-copy flex flex-col gap-[var(--space-block)] md:absolute md:inset-x-0 md:top-[10%] md:h-[60%] md:gap-0"
+          class="kado-copy flex flex-col gap-[var(--space-block)]"
         >
           <div
             ref="topFocusEl"
@@ -729,6 +761,11 @@ onUnmounted(() => {
 
   .kado-layout {
     flex: none;
+  }
+
+  .kado-copy {
+    min-height: 100%;
+    padding-top: min(7svh, var(--space-block));
   }
 
   .kado-stone-column,

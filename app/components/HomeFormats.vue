@@ -1106,4 +1106,40 @@ onUnmounted(() => {
     transition: none;
   }
 }
+
+/* Keep long localized titles readable before reserving space for the preview. */
+.work-formats__body {
+  container: work-formats / inline-size;
+}
+
+.work-formats__name {
+  min-width: 0;
+}
+
+.work-formats__name-text {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1280px) {
+  .work-formats__trigger {
+    grid-template-columns: max-content minmax(0, 1fr) min(30%, calc(clamp(17rem, 26vw, 29rem) * 1.2));
+  }
+
+  .work-formats__copy {
+    display: flex;
+    max-width: none;
+  }
+}
+
+/* Split the copy only when this section, rather than the viewport, has room. */
+@container work-formats (min-width: 64rem) {
+  .work-formats__copy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    column-gap: var(--space-3);
+    align-items: start;
+  }
+}
+
 </style>

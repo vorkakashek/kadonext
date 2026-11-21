@@ -1423,7 +1423,7 @@ onUnmounted(() => {
         class="header-bar pointer-events-none mx-auto grid max-w-full items-center"
         :class="{ 'header-bar--scrolled': headerCollapsed }"
         :style="{
-          gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+          gridTemplateColumns: 'repeat(11, minmax(0, 1fr)) max-content',
           columnGap: 'var(--layout-gutter)',
         }"
       >
@@ -2030,10 +2030,15 @@ html.page-canvas-lock .menu-btn--float {
   }
 
   .header-nav.header-chip {
+    grid-column: 6 / 12;
+    justify-self: end;
+    width: max-content;
     padding-left: 4px;
     padding-right: 4px;
     margin-left: -4px;
-    margin-right: -4px;
+    /* The menu's invisible slot reserves its intrinsic width. Account for
+       its negative chip margin as well on the narrower desktop grid. */
+    margin-right: max(-4px, calc(2rem - var(--layout-gutter)));
     background-color: var(--palette-sand);
     color: var(--palette-ink, #171915);
   }
@@ -2337,6 +2342,8 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
   position: relative;
   z-index: 0;
   display: inline-flex;
+  flex-shrink: 0;
+  white-space: nowrap;
   align-items: baseline;
   cursor: pointer;
   text-decoration: none;
