@@ -27,5 +27,5 @@ logs
 
 # Design docs & concept art (local only — not shipped)
 docs/
-assets/
+/assets/
 /reference/audience-renders/

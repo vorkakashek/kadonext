@@ -88,7 +88,9 @@ export type ProjectCaseFinalBlock = {
   type: 'final'
   id: string
   text: string
-  variant?: 'default' | 'editorial'
+  variant?: 'default' | 'editorial' | 'interactive'
+  description?: string
+  action?: { to: string; label: string; external?: boolean }
 }
 
 export type ProjectCaseBlock =
@@ -101,6 +103,7 @@ export type ProjectCaseBlock =
 
 export type ProjectCaseDetail = {
   summary?: string
+  interactivePath?: string
   headerMedia?: {
     src: string
     alt: string

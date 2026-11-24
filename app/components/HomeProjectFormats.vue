@@ -627,7 +627,7 @@ onUnmounted(() => {
   }
 
   .project-formats__title {
-    font-size: clamp(3.5rem, 17vw, 5.75rem);
+    font-size: clamp(3.15rem, 15.3vw, 5.175rem);
   }
 
   .project-formats__item-grid {

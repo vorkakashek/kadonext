@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { isMobileChromeHeightOnlyResize, isThumbNav } from '~/utils/mobileViewport'
 import { headerLinks } from '~/utils/siteNav'
+import serviceRoutes from '~/data/serviceRoutes.json'
 import { setChipBgOrigin } from '~/utils/chipHoverBg'
 import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 import { CHIP_FIT_EASE, CHIP_FIT_S } from '~/utils/chipFit'
@@ -28,6 +29,7 @@ const {
 } = useHomeSectionNavigation()
 const routeBasePath = computed(() => baseRoutePath(route.path))
 const homeCases = useHomeCases()
+const projectFilter = useState<'all' | 'commercial' | 'concept'>('projects-catalog-filter', () => 'all')
 const links = headerLinks
 type HeaderLink = typeof links[number]
 type HeaderNavigate = (event?: MouseEvent) => Promise<unknown> | void
@@ -48,6 +50,7 @@ let pendingFabExpandAfterCaseTransition = false
 const shellEl = ref<HTMLElement | null>(null)
 const barEl = ref<HTMLElement | null>(null)
 const fabEl = ref<HTMLElement | null>(null)
+const contactFabEl = ref<HTMLElement | null>(null)
 const logoImgEl = ref<HTMLElement | null>(null)
 const logoLettersEl = ref<HTMLElement | null>(null)
 const logoMarkEl = ref<HTMLElement | null>(null)
@@ -64,7 +67,24 @@ const {
   closeCaseDetail,
   active: caseDetailTransitionActive,
   request: caseDetailTransitionRequest,
+  origin: caseDetailOrigin,
 } = useCaseDetailTransition()
+const caseBackLabel = computed(() => t(caseDetailOrigin.value === 'home' ? 'navigation.backToSelected' : 'navigation.backToProjects'))
+const serviceRoute = computed(() => serviceRoutes.find(item => item.path === routeBasePath.value))
+const locationContext = computed(() => {
+  if (detailCase.value) return {
+    to: '/projects', label: t('navigation.frames.projects.label'), current: detailCase.value.title,
+  }
+  if (routeBasePath.value === '/projects') return {
+    to: '/', label: 'KADO', current: t('navigation.frames.projects.label'),
+  }
+  if (serviceRoute.value) return {
+    to: serviceRoute.value.id === 'index' ? '/' : '/services',
+    label: serviceRoute.value.id === 'index' ? 'KADO' : t('navigation.frames.services.label'),
+    current: serviceRoute.value.id === 'index' ? t('navigation.frames.services.label') : t(`navigation.servicePages.${serviceRoute.value.id}`),
+  }
+  return null
+})
 const returningToHomeCases = computed(() => (
   caseDetailTransitionActive.value
   && caseDetailTransitionRequest.value?.direction === 'close'
@@ -84,6 +104,11 @@ function onCaseDetailBack(event: MouseEvent) {
   const item = detailCase.value
   if (!item) return
   event.preventDefault()
+  // A next-project link can leave the selected category. The return flight
+  // needs a visible catalog card to dock into in that case.
+  if (caseDetailOrigin.value === 'projects' && projectFilter.value !== 'all' && projectFilter.value !== item.type) {
+    projectFilter.value = 'all'
+  }
   const paintedDetailImage = document.querySelector<HTMLImageElement>(
     '.case-detail__first-screen .case-detail__image',
   )
@@ -160,7 +185,8 @@ function playSimpleHeaderIntro() {
   const nav = navEl.value
   const menu = introDomElement(menuBtnEl.value)
   const fab = introDomElement(fabEl.value)
-  const targets = [logo, nav, menu, fab].filter(
+  const contactFab = introDomElement(contactFabEl.value)
+  const targets = [logo, nav, menu, contactFab, fab].filter(
     (el): el is HTMLElement => el instanceof HTMLElement,
   )
   simpleHeaderAnimations = targets.map((el, index) => el.animate(
@@ -213,7 +239,7 @@ function restoreMenuHoverFill() {
 }
 
 function navPathKey(path: string) {
-  return path.replace(/\/+$/, '') || '/'
+  return baseRoutePath(path)
 }
 
 function linkSection(link: HeaderLink) {
@@ -226,7 +252,9 @@ function isNavHere(link: HeaderLink) {
     return navPathKey(navHerePath.value) === '/'
       && activeSection.value === section
   }
-  return navPathKey(navHerePath.value) === navPathKey(link.to)
+  const path = navPathKey(navHerePath.value)
+  const target = navPathKey(link.to)
+  return path === target || (target !== '/' && path.startsWith(`${target}/`))
 }
 
 function markNavHere(link: HeaderLink, e?: PointerEvent) {
@@ -273,6 +301,19 @@ function onNavClick(link: HeaderLink, event: MouseEvent, navigate: HeaderNavigat
   }
 
   void navigate(event)
+}
+
+function onContactFabClick(event: MouseEvent) {
+  if (
+    event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+  ) return
+
+  event.preventDefault()
+  void navigateToSection('contact')
 }
 
 async function onLogoClick(event: MouseEvent) {
@@ -976,13 +1017,11 @@ async function fitFabLabel(on: boolean, instant = false) {
   if (!word || !label) return
   const g = await gsap()
   const labelW = Math.ceil(label.scrollWidth)
+  const targetFabWidth = on ? labelW + 68 : 40
+  const rootStyle = document.documentElement.style
   document.documentElement.style.setProperty(
     '--menu-fab-expanded-width',
     `${labelW + 68}px`,
-  )
-  document.documentElement.style.setProperty(
-    '--menu-fab-current-width',
-    `${on ? labelW + 68 : 40}px`,
   )
   fabFitTl?.kill()
   fabFitTl = null
@@ -990,6 +1029,7 @@ async function fitFabLabel(on: boolean, instant = false) {
   fabFitResolve = null
   prev?.()
   if (instant) {
+    rootStyle.setProperty('--menu-fab-current-width', `${targetFabWidth}px`)
     g.set(word, { width: on ? labelW : 0 })
     g.set(fab, {
       paddingLeft: on ? 24 : 14,
@@ -997,6 +1037,15 @@ async function fitFabLabel(on: boolean, instant = false) {
       gap: on ? 8 : 0,
     })
     return
+  }
+  // The contact/back companion reads this variable for its `right` offset.
+  // Tween it in the same GSAP timeline as the menu internals, rather than
+  // asking an independent CSS transition to approximate the menu width.
+  if (!rootStyle.getPropertyValue('--menu-fab-current-width')) {
+    rootStyle.setProperty(
+      '--menu-fab-current-width',
+      `${Math.ceil(fab.getBoundingClientRect().width)}px`,
+    )
   }
   await new Promise<void>((resolve) => {
     fabFitResolve = resolve
@@ -1025,6 +1074,16 @@ async function fitFabLabel(on: boolean, instant = false) {
         paddingLeft: on ? 24 : 14,
         paddingRight: on ? 24 : 14,
         gap: on ? 8 : 0,
+        duration: CHIP_FIT_S,
+        ease: CHIP_FIT_EASE,
+        overwrite: true,
+      },
+      0,
+    )
+    tl.to(
+      document.documentElement,
+      {
+        '--menu-fab-current-width': `${targetFabWidth}px`,
         duration: CHIP_FIT_S,
         ease: CHIP_FIT_EASE,
         overwrite: true,
@@ -1306,6 +1365,7 @@ onMounted(() => {
       const logo = logoImgEl.value
       const menuBtn = domOf(menuBtnEl.value)
       const fab = domOf(fabEl.value)
+      const contactFab = domOf(contactFabEl.value)
       const caseBack = domOf(caseBackEl.value)
       const caseMobileBack = domOf(caseMobileBackEl.value)
       const navLinks = navEl.value
@@ -1323,6 +1383,7 @@ onMounted(() => {
       if (navLinks.length) g.set(navLinks, { autoAlpha: 0, y: -5 })
       if (menuBtn) g.set(menuBtn, { autoAlpha: 0, y: -10 })
       if (caseMobileBack) g.set(caseMobileBack, { autoAlpha: 0, y: 10 })
+      if (contactFab) g.set(contactFab, { autoAlpha: 0, y: 10 })
       if (fab) g.set(fab, { autoAlpha: 0, y: 10 })
       if (shellEl.value) g.set(shellEl.value, { autoAlpha: 1 })
 
@@ -1355,6 +1416,9 @@ onMounted(() => {
       }
       if (caseMobileBack) {
         tl.to(caseMobileBack, { autoAlpha: 1, y: 0, duration: 0.55 }, 0.48)
+      }
+      if (contactFab) {
+        tl.to(contactFab, { autoAlpha: 1, y: 0, duration: 0.55 }, 0.56)
       }
       if (fab) tl.to(fab, { autoAlpha: 1, y: 0, duration: 0.6 }, 0.68)
     },
@@ -1471,13 +1535,13 @@ onUnmounted(() => {
             ref="caseBackEl"
             type="button"
             class="case-header-back site-nav pointer-events-auto hidden md:row-start-1 md:self-center md:inline-flex md:col-span-2 md:col-start-4"
-            :aria-label="t('common.backHome')"
+            :aria-label="caseBackLabel"
             @click="onCaseDetailBack"
           >
             <span class="case-header-back__frame" aria-hidden="true">
               <SiteIcon name="arrow-left" :size="32" />
             </span>
-            <span class="case-header-back__label">{{ t('common.back') }}</span>
+            <span class="case-header-back__label">{{ caseBackLabel }}</span>
             <span class="case-header-back__frame case-header-back__frame--after" aria-hidden="true">
               <SiteIcon name="arrow-left" :size="32" />
             </span>
@@ -1502,11 +1566,10 @@ onUnmounted(() => {
               class="nav-link chip-scale-host text-ink"
               :class="{
                 'nav-link--here': isNavHere(link),
-                'is-chip-on': link.to === '/projects' && isNavHere(link),
+                'is-chip-on': isNavHere(link),
               }"
-              :aria-current="isNavHere(link) ? 'page' : undefined"
+              :aria-current="isNavHere(link) ? (linkSection(link) ? 'location' : routeBasePath === link.to ? 'page' : 'true') : undefined"
               @pointerenter="onNavIntent(link, $event)"
-              @pointerleave="onChipPointer"
               @focusin="onNavIntent(link, $event)"
               @pointerdown="onNavPointerDown(link, $event)"
               @click="onNavClick(link, $event, navigate)"
@@ -1533,6 +1596,19 @@ onUnmounted(() => {
         </span>
 
       </div>
+      <nav
+        v-if="locationContext && !canvasSurface"
+        class="header-location pointer-events-auto"
+        :aria-label="t('navigation.locationLabel')"
+      >
+        <NuxtLink class="header-location__parent" :to="localePath(locationContext.to)">{{ locationContext.label }}</NuxtLink>
+        <div class="header-location__sections">
+          <NuxtLink data-button-hover :to="localePath('/projects')" :aria-current="routeBasePath.startsWith('/projects') ? 'true' : undefined">{{ t('navigation.frames.projects.label') }}</NuxtLink>
+          <NuxtLink data-button-hover :to="localePath('/services')" :aria-current="serviceRoute ? 'true' : undefined">{{ t('navigation.frames.services.label') }}</NuxtLink>
+        </div>
+        <SiteIcon class="header-location__divider" :size="14" name="arrow-right" aria-hidden="true" />
+        <span :class="{ 'header-location__root': !detailCase && (!serviceRoute || serviceRoute.id === 'index') }" aria-current="page">{{ locationContext.current }}</span>
+      </nav>
     </div>
   </header>
 
@@ -1606,11 +1682,36 @@ onUnmounted(() => {
         'case-mobile-back--transitioning': caseDetailTransitionActive,
       }"
       :style="fabStyle"
-      :aria-label="t('common.backHome')"
+      :aria-label="caseBackLabel"
       @click="onCaseDetailBack"
     >
       <SiteIcon name="arrow-left" :size="32" />
     </button>
+    <NuxtLink
+      v-if="!detailCase && !canvasSurface"
+      :to="localePath('/')"
+      custom
+      v-slot="{ href }"
+    >
+      <a
+        ref="contactFabEl"
+        :href="href ?? undefined"
+        class="contact-fab site-nav chip-scale-host pointer-events-auto"
+        :class="{
+          'header-intro-hide': introPending,
+          'contact-fab--paused': menuBusy || caseDetailTransitionActive,
+        }"
+        :style="fabStyle"
+        @pointerenter="onChipPointer"
+        @focusin="onChipPointer"
+        @click="onContactFabClick"
+      >
+        <span class="chip-scale-bg" aria-hidden="true">
+          <span class="chip-scale-bg__fill" />
+        </span>
+        <span class="contact-fab__label">{{ t('navigation.header.contact') }}</span>
+      </a>
+    </NuxtLink>
     <button
       ref="fabEl"
       type="button"
@@ -1680,6 +1781,37 @@ onUnmounted(() => {
   transition: opacity 0.32s var(--motion-ease, ease), visibility 0.32s;
 }
 
+.header-location {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: .6em;
+  margin-top: 8px;
+  padding: .5em .85em;
+  border-radius: 999px;
+  background: var(--palette-milk);
+  color: var(--palette-ink);
+  font-size: .8125rem;
+  line-height: 1.3;
+}
+.header-location a { flex-shrink: 0; color: inherit; text-decoration: none; }
+.header-location__sections { display: none; }
+.header-location a:hover { text-decoration: underline; text-underline-offset: .2em; }
+.header-location svg { flex-shrink: 0; opacity: .5; }
+.header-location span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-header--case-transitioning .header-location { visibility: hidden; }
+@media (max-width: 767.98px) {
+  .header-location { margin-inline: auto; padding: 4px; gap: .35em; }
+  .header-location__parent { display: none; }
+  .header-location__sections { display: flex; flex-shrink: 0; gap: 2px; }
+  .header-location__sections a { display: flex; min-height: 36px; align-items: center; padding: .4em .75em; border-radius: 999px; }
+  .header-location__sections a[aria-current] { background: var(--palette-forest); color: var(--palette-milk); }
+  .header-location span:not(.header-location__root) { padding-right: .7em; }
+  .header-location__root, .header-location:has(.header-location__root) .header-location__divider { display: none; }
+}
+
 .site-nav {
   font-family: "Fixel Critical", var(--font-sans);
   font-stretch: 87.5%;
@@ -1709,6 +1841,7 @@ onUnmounted(() => {
 .site-header--case-transitioning .header-nav,
 .menu-btn--case-transitioning,
 .menu-fab--case-transitioning,
+.contact-fab--paused,
 .case-mobile-back--transitioning {
   pointer-events: none !important;
   opacity: 0;
@@ -1727,6 +1860,7 @@ onUnmounted(() => {
 .header-nav,
 .case-header-back,
 .case-mobile-back,
+.contact-fab,
 .menu-btn--float,
 .menu-fab {
   transition: opacity 0.28s var(--motion-ease, ease);
@@ -1758,7 +1892,6 @@ onUnmounted(() => {
   color: var(--palette-milk, #f5f1e8);
   background-color: var(--header-chip-bg);
   transition:
-    right 0.52s cubic-bezier(0.645, 0.045, 0.355, 1),
     opacity 0.28s var(--motion-ease, ease),
     transform 0.28s var(--motion-ease, ease);
 }
@@ -1804,6 +1937,7 @@ html.page-iris-lock .header-nav.header-chip--scrolled {
    looks like the header remounting. */
 html.page-canvas-lock .site-header,
 html.page-canvas-lock .menu-fab,
+html.page-canvas-lock .contact-fab,
 html.page-canvas-lock .menu-btn--float {
   transition: none;
 }
@@ -1900,9 +2034,10 @@ html.page-canvas-lock .menu-btn--float {
   align-items: center;
   justify-content: center;
   border: 0;
-  width: 8.5rem;
+  width: max-content;
+  min-width: 8.5rem;
   min-height: 0;
-  padding: 8px 0.9rem;
+  padding: 8px 2.25rem;
   overflow: hidden;
   cursor: pointer;
   appearance: none;
@@ -1962,7 +2097,6 @@ html.page-canvas-lock .menu-btn--float {
 @media (hover: hover) and (pointer: fine) {
   .case-header-back:hover,
   .case-header-back:focus-visible {
-    background-color: var(--palette-ink, #171915);
     color: var(--palette-milk, #f5f1e8);
   }
 
@@ -2002,7 +2136,8 @@ html.page-canvas-lock .menu-btn--float {
 }
 
 .header-chip,
-.menu-fab {
+.menu-fab,
+.contact-fab {
   --header-chip-bg: var(--semantic-bg-control);
 }
 
@@ -2244,10 +2379,56 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
   -webkit-backdrop-filter: none;
 }
 
+.contact-fab {
+  --header-chip-bg: var(--palette-forest);
+  position: fixed;
+  top: auto;
+  left: auto;
+  right: calc(
+    2 * var(--layout-margin) + var(--safe-right, 0px)
+    + var(--menu-fab-current-width, 108px) + 8px
+  );
+  bottom: calc(2 * var(--layout-margin) + var(--safe-bottom, 0px));
+  z-index: 114;
+  display: none;
+  box-sizing: border-box;
+  height: 42px;
+  margin: 0;
+  padding: 10px 20px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  appearance: none;
+  background-color: var(--header-chip-bg);
+  color: var(--palette-milk, #f5f1e8);
+  font: inherit;
+  font-family: "Fixel Critical", var(--font-sans);
+  font-stretch: 87.5%;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    color 0.3s var(--motion-ease, ease),
+    opacity 0.28s var(--motion-ease, ease),
+    transform 0.28s var(--motion-ease, ease);
+}
+
+.contact-fab__label {
+  position: relative;
+  z-index: 1;
+  transform: translateY(calc(var(--header-text-optical-y) - 2px));
+}
+
 .header-nav .chip-scale-bg__fill,
 .menu-btn--float .chip-scale-bg__fill,
 .menu-fab .chip-scale-bg__fill {
   background-color: var(--semantic-bg-control-hover);
+}
+
+.contact-fab .chip-scale-bg__fill {
+  background-color: var(--palette-moss);
 }
 
 /* The link group stays a light editorial surface; only its active hover inverts. */
@@ -2257,6 +2438,7 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
 
 .nav-link,
 .menu-btn--float,
+.contact-fab,
 .menu-fab {
   color: var(--palette-milk, #f5f1e8) !important;
   transition: color 0.3s var(--motion-ease, ease);
@@ -2305,6 +2487,10 @@ html.page-canvas-surface .menu-fab[aria-expanded='true'] .menu-dots {
 @media (max-width: 767.98px), (pointer: coarse) {
   .header-desk-menu {
     display: none !important;
+  }
+
+  .contact-fab {
+    display: inline-flex;
   }
 }
 

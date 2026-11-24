@@ -1,27 +1,12 @@
 import tailwindcss from '@tailwindcss/vite'
 import { homeCaseIds } from './app/utils/homeCases'
+import serviceRoutes from './app/data/serviceRoutes.json'
 
-const productionAssetCdnUrl = 'https://nfb4tt2jyb.cdn.twcstorage.ru'
-const normalizeAssetCdnUrl = (value: string) => value.trim().replace(/\/+$/, '')
-
-/**
- * The normal production topology keeps HTML/API on kadonext.com and serves
- * every static asset class from one pull-CDN origin. Full-site CDN builds keep
- * the same paths on the canonical host because the edge then owns that host.
- */
-const fullSiteCdn = process.env.KADO_FULL_SITE_CDN === 'true'
-const assetOnlyCdn = !fullSiteCdn && process.env.NODE_ENV === 'production'
-const publicAssetCdnUrl = assetOnlyCdn
-  ? normalizeAssetCdnUrl(process.env.NUXT_PUBLIC_ASSET_CDN_URL ?? productionAssetCdnUrl)
-  : ''
-const appAssetCdnUrl = assetOnlyCdn
-  ? normalizeAssetCdnUrl(process.env.KADO_APP_ASSET_CDN_URL ?? publicAssetCdnUrl)
-  : ''
-const assetPreconnectUrls = [...new Set([appAssetCdnUrl, publicAssetCdnUrl].filter(Boolean))]
-const fontAssetUrl = (file: string) => `${appAssetCdnUrl}/fonts/fixel/${file}`
+// HTML, app bundles, fonts and public media are served directly by the VPS.
+const fontAssetUrl = (file: string) => `/fonts/fixel/${file}`
 const fontFacesCss = `@font-face{font-family:"Fixel Critical";src:url("${fontAssetUrl('FixelCritical.woff2')}") format("woff2");font-style:normal;font-weight:100 900;font-stretch:87.5% 100%;font-display:swap}@font-face{font-family:"Fixel";src:url("${fontAssetUrl('FixelVariable.woff2')}") format("woff2");font-style:normal;font-weight:100 900;font-stretch:87.5% 100%;font-display:swap}`
 
-const contentRoutes = ['/', '/projects', '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`)]
+const contentRoutes = ['/', '/projects', ...serviceRoutes.map(item => item.path), '/privacy', '/consent', ...homeCaseIds.map(id => `/projects/${id}`), '/projects/sidequest/interactive']
 const localizedContentRoutes = ['ru', 'en'].flatMap(locale => (
   contentRoutes.map(path => `/${locale}${path}`)
 ))
@@ -41,7 +26,7 @@ export default defineNuxtConfig({
   experimental: {
     // Every prerendered payload currently contains only Nuxt's timestamp
     // (69 bytes): the site has no route-level useAsyncData/useFetch state.
-    // Inline it so SPA hops cannot fail on a redundant CDN _payload request.
+    // Inline it so SPA hops cannot fail on a redundant _payload request.
     // Mandatory: review on the first useAsyncData/useFetch; prefer 'client'.
     // https://nuxt.com/docs/4.x/getting-started/prerendering#payload-extraction
     payloadExtraction: false,
@@ -52,9 +37,9 @@ export default defineNuxtConfig({
       // Static hosting proxies this path to the separate SMTP gateway.
       // Alternatively set its HTTPS URL with NUXT_PUBLIC_CONTACT_ENDPOINT.
       contactEndpoint: '/api/contact',
-      // In the transitional topology this is the asset-only CDN. A full-site
-      // CDN build leaves it empty and lets the edge proxy the same paths.
-      assetCdnUrl: publicAssetCdnUrl,
+      // Empty delivery prefixes keep every static resource on the site origin.
+      assetCdnUrl: '',
+      ogCdnUrl: '',
       // Opt-in only. Production must never silently acknowledge a real enquiry without delivery.
       contactMock: process.env.NUXT_PUBLIC_CONTACT_MOCK === 'true' && process.env.NODE_ENV === 'production',
       contactMockDelayMs: Math.min(Math.max(Number(process.env.NUXT_PUBLIC_CONTACT_MOCK_DELAY_MS) || 500, 0), 10000),
@@ -149,7 +134,7 @@ export default defineNuxtConfig({
   },
 
   app: {
-    cdnURL: appAssetCdnUrl,
+    cdnURL: '',
     head: {
       htmlAttrs: { lang: 'en' },
       charset: 'utf-8',
@@ -160,11 +145,6 @@ export default defineNuxtConfig({
         { name: 'robots', content: 'noindex, follow' },
       ],
       link: [
-        ...assetPreconnectUrls.map(href => ({
-          rel: 'preconnect' as const,
-          href,
-          crossorigin: 'anonymous' as const,
-        })),
         {
           rel: 'preload',
           href: fontAssetUrl('FixelCritical.woff2'),

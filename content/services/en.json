@@ -1,0 +1,183 @@
+{
+  "shared": {
+    "breadcrumb": "Services",
+    "allServices": "All services",
+    "studio": "An independent design and development studio",
+    "discuss": "Discuss a project",
+    "explore": "Explore the scope",
+    "heroCaption": "The View / interface detail",
+    "scopeLabel": "The scope",
+    "processLabel": "The process",
+    "projectsLabel": "In practice",
+    "projectsTitle": "The work speaks",
+    "projectLink": "View the project",
+    "pricingLabel": "Budget and timeline",
+    "faqLabel": "Before we talk",
+    "faqTitle": "Before we begin",
+    "relatedLabel": "Another kind of project",
+    "contactTitle": ["Let's start", "with your project"],
+    "contactCopy": "Tell me what you are launching or would like to change. I read every enquiry myself, ask questions and suggest the next step.",
+    "contactLink": "Tell me about it",
+    "privacy": "Privacy policy",
+    "footer": "Based in Moscow · working worldwide"
+  },
+  "pages": {
+    "index": {
+      "label": "Websites, end to end",
+      "title": ["Websites,", "end to end"],
+      "intro": "I'm Anton, a designer, developer and the founder of KADO. I create websites for businesses and SaaS products, from structure and visual direction to development, launch and ongoing support.",
+      "tags": ["Structure", "Art direction", "Development", "Support"],
+      "statement": ["Freedom of form", "Order in process"],
+      "statementCopy": "I lead both design and development. Early decisions account for how the website will work, and implementation preserves its character. You work directly with the person responsible for the project.",
+      "scopeTitle": ["The right scale", "for your project"],
+      "scopeIntro": "We start with what your business needs today. That gives us the website format and the scope of work.",
+      "scope": [
+        {"title":"Business website","text":"Services, projects and company information in a connected structure. Help visitors find what they need and understand why they should get in touch.","to":"/services/corporate-website"},
+        {"title":"Landing page","text":"One product, service or launch. A clear sequence that explains the offer and leads to an enquiry, booking or another relevant action.","to":"/services/landing-page"},
+        {"title":"Website redesign","text":"For a business that has outgrown its website. Review the existing structure, update its presentation and decide what is worth keeping.","to":"/services/redesign"}
+      ],
+      "processTitle": ["From a conversation", "to a working website"],
+      "processIntro": "Each stage produces something you can see and discuss. Your input matters when sharing context, preparing materials and reviewing decisions.",
+      "steps": [
+        {"title":"Understand the project","text":"We discuss the business, audience and constraints, then define the scope, budget and timeline expectations."},
+        {"title":"Build the structure and direction","text":"I present the page structure and visual direction, then develop the agreed approach across the website and mobile layouts."},
+        {"title":"Turn design into a website","text":"I build the interface, forms and agreed functionality. Behaviour and performance are checked in the working build."},
+        {"title":"Test and launch","text":"I check the main user journeys and publish the website. We discuss content updates and ongoing support."}
+      ],
+      "projects": [
+        {"id":"audience","text":"A venue's atmosphere, menu and booking journey. Art direction, UX/UI and an end-to-end website."},
+        {"id":"schmidt","text":"A brand story in horizontal motion. Art direction, web design, frontend and interactive animation."}
+      ],
+      "pricingTitle": ["The project first", "The estimate next"],
+      "pricingIntro": "Structure, content readiness, visual assets and functionality shape the estimate. These starting points help you understand the scale before we talk.",
+      "pricing": [
+        {"title":"Compact website","value":"from ₽200,000","detail":"From 4 weeks. Defined content, a focused structure and a limited number of complex interactions."},
+        {"title":"Bespoke website","value":"from ₽600,000","detail":"From 2 months. Discovery, structure, art direction, individual design and development."}
+      ],
+      "faq": [
+        {"question":"What should I prepare before getting in touch?","answer":"A short description of your business and project is enough. Share your current website, copy, photos or brand guidelines if available. We will identify what else is needed."},
+        {"question":"Can you work from an existing design?","answer":"Yes. I review the layouts and intended behaviour before estimating development, responsive implementation and launch."},
+        {"question":"Who prepares the copy and images?","answer":"We agree this at the start. We can use your existing materials or involve a suitable specialist. Copywriting, photography and complex visual assets are accounted for in the scope."},
+        {"question":"What happens after launch?","answer":"I can continue supporting the website, updating content, adding pages and developing functionality. We agree the tasks and scope separately."}
+      ],
+      "seo": {"title":"Bespoke Website Design and Development | KADO","description":"Anton, founder of KADO: website structure, design and development for businesses and SaaS products. Explore the work, process, budgets and ongoing support."}
+    },
+    "redesign": {
+      "label": "Website redesign",
+      "title": ["Website", "redesign"],
+      "intro": "Your business has changed, but the website has stayed behind. I review its structure, presentation and technical constraints, identify what is worth keeping and rebuild the rest around your needs.",
+      "tags": ["Website review", "New structure", "Design", "Development"],
+      "statement": ["Keep what matters", "Rethink the rest"],
+      "statementCopy": "An update starts with understanding what already works. Existing content, page addresses and familiar user journeys should be considered before the new design takes shape.",
+      "scopeTitle": ["What needs", "to change"],
+      "scopeIntro": "A redesign can involve individual pages or an entire website. Reviewing the current version gives us the scope.",
+      "scope": [
+        {"title":"Structure and content","text":"Rework navigation, introduce new services and remove outdated material so visitors can understand the offer more easily.","to":""},
+        {"title":"Visual language","text":"Bring the website closer to the character of the business through composition, typography, imagery and mobile layouts.","to":""},
+        {"title":"Implementation and migration","text":"Choose a suitable technical foundation. Account for content migration, forms, integrations and changes to page addresses.","to":""}
+      ],
+      "processTitle": ["Understand first", "Then make changes"],
+      "processIntro": "A link to your current website and a short description are a useful starting point. We assess the existing platform and functionality before estimating the work.",
+      "steps": [
+        {"title":"Review the existing website","text":"I examine pages, navigation and key journeys. We discuss what has changed in the business and what needs improving."},
+        {"title":"Plan the update","text":"We decide what to retain and what to rebuild. I develop the structure and visual direction for the new version."},
+        {"title":"Design and develop","text":"I build the new pages and agreed functionality. Content and integrations are migrated within the defined scope."},
+        {"title":"Move to the new version","text":"I check forms, links and mobile behaviour. Changes to URLs require a migration map and redirects."}
+      ],
+      "projects": [
+        {"id":"audience","text":"Structure, atmosphere and menu and booking journeys. An end-to-end website project."},
+        {"id":"keys-store","text":"A connected catalogue system. Logo, UX/UI, design system and checkout design."}
+      ],
+      "pricingTitle": ["The scope of change", "shapes the estimate"],
+      "pricingIntro": "A new homepage and a full rebuild with data migration require different scopes of work. I start with your current version and its constraints.",
+      "pricing": [
+        {"title":"Estimated after a website review","value":"Built around your needs","detail":"Page types, content, platform, integrations and migration determine the budget and timeline."}
+      ],
+      "faq": [
+        {"question":"Does the whole website need rebuilding?","answer":"Not always. Changes to a few page structures or their presentation may be enough. The review helps establish what is needed."},
+        {"question":"Can we keep the existing platform?","answer":"That depends on its condition and the changes required. I assess the constraints and feasibility before committing to a particular platform."},
+        {"question":"What happens to search rankings?","answer":"Existing URLs, content and metadata need consideration, with redirects where addresses change. A redesign can affect rankings; a loss-free migration cannot be guaranteed in advance."},
+        {"question":"What do you need to get started?","answer":"Send the website address and a few sentences about the changes you want. We can discuss source files, access and analytics at the next step."}
+      ],
+      "seo": {"title":"Website Redesign — Structure, Design and Development | KADO","description":"Update your existing website with Anton, founder of KADO. Structure review, new design, development and migration planning, with a scope-based estimate."}
+    },
+    "corporate": {
+      "label": "Business website",
+      "title": ["Business", "websites"],
+      "intro": "A website where clients can understand your services, explore your work and get in touch. I lead structure, design and development so every page belongs to the same visual system.",
+      "tags": ["Services and work", "Navigation", "Design system", "Development"],
+      "statement": ["Different pages", "A shared character"],
+      "statementCopy": "A service page, a case study and a company story need different presentations. Shared composition and navigation principles connect them into a website that is easy to explore and expand.",
+      "scopeTitle": ["Room for", "the details"],
+      "scopeIntro": "A multi-page website suits businesses with several services, different audiences and content that needs space of its own.",
+      "scope": [
+        {"title":"Services and business areas","text":"Dedicated pages for substantial offers, explaining scope, conditions and examples with a clear way to get in touch.","to":""},
+        {"title":"Projects and experience","text":"Work, decisions and company information that help visitors assess experience relevant to their project.","to":""},
+        {"title":"Content and future growth","text":"Plan who will update content and how. Account for new services, projects and language versions.","to":""}
+      ],
+      "processTitle": ["Connections first", "Then the pages"],
+      "processIntro": "We begin with the content map and visitor journeys. The business needs determine the number of pages.",
+      "steps": [
+        {"title":"Understand the business","text":"We discuss services, audiences and materials, defining who the website is for and what they need to know."},
+        {"title":"Design the structure","text":"I map the pages and their content. Key screens establish the visual direction and navigation principles."},
+        {"title":"Build the system","text":"I develop page types and responsive interfaces. Content management and integrations follow the actual requirements."},
+        {"title":"Prepare for use","text":"I check links, forms and mobile journeys, prepare the pages for indexing and publish the website."}
+      ],
+      "projects": [
+        {"id":"audience","text":"Sections connected by the venue's atmosphere and visitor needs. Art direction, UX/UI and end-to-end delivery."},
+        {"id":"keys-store","text":"Consistent logic across different catalogues. Logo, UX/UI and design system work."}
+      ],
+      "pricingTitle": ["The scope of work", "shapes the estimate"],
+      "pricingIntro": "Distinct page types, content readiness, content management and external services all shape the scope.",
+      "pricing": [
+        {"title":"Business website","value":"A scope-based estimate","detail":"The budget and timeline follow the agreed structure and functionality. Catalogues, integrations and language versions are included in the assessment."}
+      ],
+      "faq": [
+        {"question":"How many pages does a business need?","answer":"Enough to explain its offers and support visitor needs. We start with which services to describe, projects to show and actions to make possible."},
+        {"question":"Can we add services and projects later?","answer":"Yes. We should plan this in the structure and content management approach, including which sections will change and who will update them."},
+        {"question":"Is content preparation included?","answer":"We assess your existing materials and identify what is missing. Copy, photography, illustration and complex graphics are accounted for separately in the scope."},
+        {"question":"Can the website include a catalogue or an account area?","answer":"These features need their own assessment. Their journeys, data and constraints are not automatically included in every business website."}
+      ],
+      "seo": {"title":"Business Website Design and Development | KADO","description":"An individual website for your company: services, projects, business information and enquiry forms. Structure, design, development and support by Anton at KADO."}
+    },
+    "landing": {
+      "label": "Landing pages",
+      "title": ["Landing page", "development"],
+      "intro": "A page for one offer: a product, service or launch. I shape the story, create an individual design and build a website around the action your project needs.",
+      "tags": ["Offer", "Structure", "Visual direction", "Launch"],
+      "statement": ["One clear offer", "A clear next step"],
+      "statementCopy": "A landing page answers the visitor's questions in sequence: what you offer, whether it suits them, the conditions and how to start. The visual idea supports that sequence.",
+      "scopeTitle": ["Focus on", "one purpose"],
+      "scopeIntro": "Landing pages suit individual services, products, events and campaigns. The content depends on who visits and where they come from.",
+      "scope": [
+        {"title":"The offer and its evidence","text":"Explain the substance, show the conditions and answer questions that arise before an enquiry. Define the relevant visitor action.","to":""},
+        {"title":"Character and presentation","text":"Find a visual direction for the brand or product. Build typography, imagery and motion around the content.","to":""},
+        {"title":"Development and launch","text":"Build a responsive page with the agreed forms and functionality. Check behaviour across screen sizes and publish it.","to":""}
+      ],
+      "processTitle": ["From an offer", "to an action"],
+      "processIntro": "We start with the page's purpose and content. Sections and animation follow where they help explain the offer.",
+      "steps": [
+        {"title":"Define the purpose","text":"We discuss the product, audience and traffic sources, then choose the action the page should support."},
+        {"title":"Shape the story","text":"I organise the content and section order, propose a visual direction and develop it into the page design."},
+        {"title":"Build the interface","text":"I create responsive layouts, forms and agreed interactions. Visual assets and integrations are scoped explicitly."},
+        {"title":"Check and publish","text":"I test visitor actions, mobile behaviour and build performance, then launch the page and discuss future updates."}
+      ],
+      "projects": [
+        {"id":"schmidt","text":"Product and brand story in one continuous sequence. Design, frontend and interactive animation."},
+        {"id":"baltika","text":"A product range centred on one object. Web design, 3D graphics and animation."}
+      ],
+      "pricingTitle": ["One page", "Different scopes"],
+      "pricingIntro": "A page with ready content and a launch requiring copy development and 3D graphics involve different amounts of work.",
+      "pricing": [
+        {"title":"Landing page, end to end","value":"A scope-based estimate","detail":"We discuss the offer, content and functionality before setting a budget and timeline. Advertising spend is not included in the development price."}
+      ],
+      "faq": [
+        {"question":"When is a landing page enough?","answer":"When one offer can be explained around one primary action. A business with several services and substantial independent content may need a multi-page website."},
+        {"question":"Does this include advertising?","answer":"I consider traffic sources when designing the page. Campaign setup and management need to be arranged with an advertising specialist."},
+        {"question":"Can we add more pages later?","answer":"Yes. If expansion is planned, we should discuss it early and account for it in the structure. Additional pages are estimated by their content and functionality."},
+        {"question":"What has the biggest effect on the budget?","answer":"Content readiness, design scope, illustration or 3D, forms and external integrations. The number of sections alone does not describe the work."}
+      ],
+      "seo": {"title":"Landing Page Design and Development | KADO","description":"A landing page for your product, service or launch: offer, structure, individual design, responsive development and enquiry forms. Explore the process at KADO."}
+    }
+  }
+}

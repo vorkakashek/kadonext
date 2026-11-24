@@ -4,22 +4,16 @@ import { test } from 'node:test'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('asset CDN mode shares one origin across public and app assets', () => {
+test('all production asset classes use the VPS origin', () => {
   const source = read('nuxt.config.ts')
   const envExample = read('.env.example')
-  const css = read('app/assets/css/main.css')
-
-  assert.match(source, /const fullSiteCdn = process\.env\.KADO_FULL_SITE_CDN === 'true'/)
-  assert.match(source, /const assetOnlyCdn = !fullSiteCdn && process\.env\.NODE_ENV === 'production'/)
-  assert.match(source, /const publicAssetCdnUrl = assetOnlyCdn\s*\? normalizeAssetCdnUrl/)
-  assert.match(source, /const appAssetCdnUrl = assetOnlyCdn\s*\? normalizeAssetCdnUrl/)
-  assert.match(source, /process\.env\.KADO_APP_ASSET_CDN_URL \?\? publicAssetCdnUrl/)
-  assert.match(source, /cdnURL: appAssetCdnUrl/)
-  assert.match(source, /assetCdnUrl: publicAssetCdnUrl/)
+  assert.match(source, /cdnURL: ''/)
+  assert.match(source, /assetCdnUrl: ''/)
+  assert.match(source, /ogCdnUrl: ''/)
   assert.match(source, /fontAssetUrl\('FixelCritical\.woff2'\)/)
   assert.match(source, /innerHTML: fontFacesCss/)
-  assert.match(envExample, /KADO_APP_ASSET_CDN_URL=https:\/\/nfb4tt2jyb\.cdn\.twcstorage\.ru/)
-  assert.doesNotMatch(css, /url\(["']?\/fonts\//)
+  assert.doesNotMatch(source, /twcstorage|fullSiteCdn|assetOnlyCdn|assetPreconnectUrls/)
+  assert.doesNotMatch(envExample, /^\w*CDN\w*=/m)
 })
 
 test('root build output is a cache-safe English social card and language selector', () => {
@@ -30,7 +24,7 @@ test('root build output is a cache-safe English social card and language selecto
   assert.match(source, /join\(publicRoot, 'en', 'index\.html'\)/)
   assert.match(source, /'og:image'/)
   assert.match(source, /'twitter:card'/)
-  assert.doesNotMatch(source, /KADO — select language/)
+  assert.doesNotMatch(source, /KADO вЂ” select language/)
   assert.match(source, /writeFile\(join\(publicRoot, 'index\.html'\)/)
   assert.doesNotMatch(source, /\.locale-root/)
 })
@@ -44,7 +38,7 @@ test('nginx does not vary the root cache by locale negotiation', () => {
   assert.match(source, /location = \/api\/contact \{[\s\S]*?proxy_pass/)
 })
 
-test('nginx revalidates VPS-served HTML in asset-CDN mode', () => {
+test('nginx revalidates VPS-served HTML directly from the VPS', () => {
   const source = read('ops/nginx/kadonext.conf')
   const catchAll = source.match(/location \/ \{([\s\S]*?)\n    \}/)?.[1] ?? ''
 
@@ -60,6 +54,7 @@ test('nginx retains hashed Nuxt assets but bounds unhashed media caching', () =>
   assert.match(nginx, /location \^~ \/_nuxt\/ \{[\s\S]*?root \/var\/www\/kadonext\/shared-assets;/)
   assert.match(nginx, /location ~\* \^\/\(brand\|env\|home[\s\S]*?s-maxage=86400/)
   assert.doesNotMatch(nginx, /location ~\* \^\/\(brand\|env\|home[\s\S]*?s-maxage=31536000/)
+  assert.match(nginx, /location \^~ \/og\/ \{[\s\S]*?max_ranges 0;/)
   assert.match(deploy, /shared_nuxt='\/var\/www\/kadonext\/shared-assets\/_nuxt'/)
   assert.match(deploy, /cp -a "\$old_release\/_nuxt\/\." "\$shared_nuxt\/"/)
   assert.match(deploy, /cp -a "\$release\/_nuxt\/\." "\$shared_nuxt\/"/)
@@ -74,10 +69,9 @@ test('production deploy validates localized pages separately from the root selec
   assert.match(source, /curl -fsS --retry 10 --retry-delay 1 --retry-all-errors/)
   assert.match(source, /https:\/\/kadonext\.com\/ru\//)
   assert.match(source, /https:\/\/kadonext\.com\/en\//)
-  assert.match(source, /og\/ru\/home\.jpg/)
-  assert.match(source, /check_cdn_cors_asset/)
-  assert.match(source, /Access-Control-Allow-Origin/)
-  assert.match(source, /cdn_app_url=.*\/_nuxt\//)
-  assert.match(source, /cdn_font_url=.*\/fonts\/fixel\/FixelCritical/)
+  assert.match(source, /og\/v2\/ru\/home\.jpg/)
+  assert.match(source, /node scripts\/check-origin-assets\.mjs/)
+  assert.match(source, /for asset_path in "\$app_path" \/fonts\/fixel\/FixelCritical\.woff2/)
+  assert.doesNotMatch(source, /check_cdn_cors_asset|Access-Control-Allow-Origin/)
   assert.doesNotMatch(source, /\.locale-root\\ru\.html/)
 })

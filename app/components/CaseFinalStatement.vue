@@ -1,18 +1,27 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
   text: string
-  variant?: 'default' | 'editorial'
+  variant?: 'default' | 'editorial' | 'interactive'
+  description?: string
+  action?: { to: string; label: string; external?: boolean }
 }>(), {
   variant: 'default',
 })
+const localePath = useLocalePath()
 </script>
 
 <template>
   <section
     class="project-story project-story--final"
-    :class="{ 'project-story--final-editorial audience-case audience-case--final': variant === 'editorial' }"
+    :class="{
+      'project-story--final-editorial audience-case audience-case--final': variant === 'editorial',
+      'project-story--final-interactive': variant === 'interactive',
+    }"
   >
-    <p class="case-text-fill" :data-fill-source="text">{{ text }}</p>
+    <h2 v-if="variant === 'interactive'" class="case-text-fill" :data-fill-source="text">{{ text }}</h2>
+    <p v-else class="case-text-fill" :data-fill-source="text">{{ text }}</p>
+    <p v-if="description" class="project-story__description">{{ description }}</p>
+    <RoundAction v-if="action" :href="localePath(action.to)" :external="action.external">{{ action.label }}</RoundAction>
   </section>
 </template>
 
@@ -78,4 +87,29 @@ withDefaults(defineProps<{
     font-size: clamp(1.75rem, 3.5vw, 4rem);
   }
 }
+
+.project-story--final-interactive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: center;
+}
+.project-story--final-interactive h2 {
+  width: 100%;
+  max-width: 18ch;
+  margin: 0;
+  font-size: var(--type-case-title);
+  font-weight: 400;
+  letter-spacing: -.05em;
+  line-height: .98;
+  text-wrap: balance;
+}
+.project-story--final-interactive p.project-story__description {
+  max-width: 42ch;
+  font-size: var(--type-case-body);
+  letter-spacing: -.02em;
+  line-height: 1.4;
+  text-align: center;
+}
+.project-story--final-interactive .round-action { margin-top: var(--space-2); }
 </style>

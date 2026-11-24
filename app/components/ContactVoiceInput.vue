@@ -94,7 +94,7 @@ watch(() => props.disabled, () => { if (props.disabled) playingId.value = null }
 .voice-input__round-button { display: inline-flex; align-items: center; justify-content: center; width: clamp(2.75rem, 7cqi, 4.25rem); aspect-ratio: 1; padding: 0; border: 1px solid var(--voice-line); border-radius: 50%; background: transparent; color: var(--palette-forest); cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s; }
 .voice-input__round-button svg { width: 40%; height: 40%; }
 .voice-input__round-button--small { width: 2.75rem; }
-.voice-input__round-button:hover:not(:disabled) { background: var(--palette-forest); border-color: var(--palette-forest); color: var(--palette-sand); }
+.voice-input__round-button { --button-hover-fill: var(--palette-forest); }
 .voice-input__messages { display: grid; gap: 0.75rem; margin: 1.5rem 0 0; padding: 0; list-style: none; }
 .voice-input__message { padding: clamp(1rem, 3cqi, 2rem); border: 1px solid var(--voice-line); border-radius: 2px; background: color-mix(in srgb, var(--palette-forest) 5%, transparent); }
 .voice-input__message.is-replacing { opacity: 0.5; }

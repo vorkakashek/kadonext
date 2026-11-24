@@ -73,6 +73,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   let ScrollTrigger: typeof import('gsap/ScrollTrigger').ScrollTrigger | null = null
   let lockObserver: MutationObserver | null = null
   let tickerAttached = false
+  let keepTickerWarm = true
   let createGeneration = 0
   let touchSampleY: number | null = null
   let touchSampleAt = 0
@@ -337,7 +338,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Keep one shared RAF alive throughout an active touch. Direct touch frames
     // complete immediately (`lerp: 1`), so checking only `isScrolling` would
     // detach and reattach GSAP's ticker on every touchmove.
-    if (lenis.isScrolling === false && !lenis.isTouching) removeTicker()
+    if (!keepTickerWarm && lenis.isScrolling === false && !lenis.isTouching) removeTicker()
   }
 
   function requestTicker() {
@@ -367,6 +368,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       removeTicker()
     } else {
       lenis.start()
+      if (keepTickerWarm) requestTicker()
     }
   }
 
@@ -434,6 +436,9 @@ export default defineNuxtPlugin((nuxtApp) => {
         event.type.includes('wheel')
         || (controlledTouch && event.type.includes('touch'))
       ) {
+        // Gestures attempted against an overlay lock do not count as the first
+        // driven scroll. Keep the ticker primed for the first usable input.
+        if (!pageIsLocked() && !lenis?.isStopped) keepTickerWarm = false
         requestTicker()
       }
     })
@@ -455,6 +460,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       attributeFilter: ['class'],
     })
     syncRunState()
+    // Keep Lenis/GSAP hot until the first real gesture. Attaching the ticker
+    // from inside that wheel event made its first frame pay a unique cold cost.
+    if (!pageIsLocked()) requestTicker()
   }
 
   function syncInputMode() {

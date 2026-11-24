@@ -4,12 +4,14 @@ import { attachResponsiveMedia } from './responsiveMedia'
 
 export type HomeCase = {
   id: string
+  type: 'commercial' | 'concept'
   label: string
   title: string
   blurb: string
   client: string
   year: string
   collaboration?: string
+  featured?: boolean
   projectUrl?: string
   projectLabel?: string
   focusTags: string[]

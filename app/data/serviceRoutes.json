@@ -1,0 +1,6 @@
+[
+  { "id": "index", "path": "/services" },
+  { "id": "redesign", "path": "/services/redesign" },
+  { "id": "corporate", "path": "/services/corporate-website" },
+  { "id": "landing", "path": "/services/landing-page" }
+]

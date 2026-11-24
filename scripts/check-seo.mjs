@@ -5,8 +5,13 @@ import sharp from 'sharp'
 
 const root = resolve('.output/public')
 const site = 'https://kadonext.com'
+const envText = existsSync('.env') ? readFileSync('.env', 'utf8') : ''
+const envOgCdnUrl = process.env.NUXT_PUBLIC_OG_CDN_URL
+  || envText.match(/^NUXT_PUBLIC_OG_CDN_URL\s*=\s*(\S+)/m)?.[1]
+const ogOrigin = (envOgCdnUrl || site).replace(/\/+$/, '')
 const projects = JSON.parse(readFileSync('app/data/homeCases.json', 'utf8'))
-const basePaths = ['/', '/projects', ...projects.map(project => `/projects/${project.id}`), '/privacy', '/consent']
+const serviceRoutes = JSON.parse(readFileSync('app/data/serviceRoutes.json', 'utf8'))
+const basePaths = ['/', '/projects', ...serviceRoutes.map(item => item.path), ...projects.map(project => `/projects/${project.id}`), '/privacy', '/consent']
 const locales = ['ru', 'en']
 const paths = locales.flatMap(locale => basePaths.map(path => `/${locale}${path}`))
 const basePathFor = path => path.replace(/^\/(?:ru|en)(?=\/|$)/, '').replace(/\/+$/, '') || '/'
@@ -72,10 +77,8 @@ assert.equal(rootCanonicals.length, 1, rootContext + 'one canonical')
 assert.equal(rootCanonicals[0].href, `${site}/en/`, rootContext + 'English home canonical')
 assert.equal(tags(rootHtml, 'link').filter(tag => tag.rel === 'alternate').length, 0, rootContext + 'no hreflang on the noncanonical selector')
 const rootImage = new URL(metaValue(rootHtml, 'og:image', rootContext))
-assert.equal(rootImage.pathname, '/og/home.jpg', rootContext + 'English home card')
-if (process.env.KADO_FULL_SITE_CDN !== 'true') {
-  assert.notEqual(rootImage.origin, site, rootContext + 'share card is served directly by the asset CDN')
-}
+assert.equal(rootImage.pathname, '/og/v2/home.jpg', rootContext + 'English home card')
+assert.equal(rootImage.origin, ogOrigin, rootContext + 'share card uses the configured OG origin')
 
 for (const path of paths) {
   const locale = localeFor(path)
@@ -122,22 +125,22 @@ for (const path of paths) {
   getMeta('twitter:image:alt')
   const image = getMeta('og:image')
   assert.equal(getMeta('twitter:image'), image, context + 'same share image')
-  assert.equal(getMeta('og:image:type'), 'image/jpeg', context + 'image type')
+  assert.equal(getMeta('og:image:type'), image.endsWith('.png') ? 'image/png' : 'image/jpeg', context + 'image type')
   assert.equal(getMeta('og:image:width'), '1200', context + 'card width')
   assert.equal(getMeta('og:image:height'), '630', context + 'card height')
   const imageUrl = new URL(image)
-  const expectedCard = item => `/og/${item}.jpg`
+  const expectedCard = item => `/og/v2/${item}.jpg`
   const expectedCardPath = locale === 'ru' && basePath === '/'
-    ? '/og/ru/home.jpg'
+    ? '/og/v2/ru/home.jpg'
+    : basePath === '/'
+      ? '/og/v2/home.jpg'
     : expectedCard(basePath.startsWith('/projects/') ? basePath.split('/').at(-1) : basePath === '/projects' ? 'projects' : 'home')
   assert.equal(
     imageUrl.pathname,
     expectedCardPath,
     context + 'share card path',
   )
-  if (process.env.KADO_FULL_SITE_CDN !== 'true') {
-    assert.notEqual(imageUrl.origin, site, context + 'share card is served directly by the asset CDN')
-  }
+  assert.equal(imageUrl.origin, ogOrigin, context + 'share card uses the configured OG origin')
   cards.add(fileFor(new URL(image).pathname))
   const scripts = [...html.matchAll(/<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)]
   assert.equal(scripts.length, 1, context + 'one structured-data graph')
@@ -156,6 +159,13 @@ for (const path of paths) {
   }
   if (basePath.startsWith('/projects/')) assert.ok(graph.some(node => node['@type'] === 'CreativeWork'), context + 'case schema')
   if (basePath === '/projects') assert.equal(graph.find(node => node['@type'] === 'ItemList').numberOfItems, projects.length, context + 'catalog schema')
+  if (serviceRoutes.some(item => item.path === basePath)) {
+    assert.ok(graph.some(node => node['@type'] === 'Service' && node.url === site + path), context + 'service schema')
+    assert.ok(html.includes('class="service-faq__items"'), context + 'service answers are prerendered')
+    for (const section of ['service-scope', 'service-work', 'service-process', 'service-pricing', 'service-contact']) {
+      assert.ok(html.includes(section), context + `service content: ${section}`)
+    }
+  }
 
   for (const tag of tags(html, 'img')) {
     imageCount += 1
@@ -185,7 +195,8 @@ for (const card of cards) {
   const metadata = await sharp(card).metadata()
   assert.equal(metadata.width, 1200, `Card width: ${card}`)
   assert.equal(metadata.height, 630, `Card height: ${card}`)
-  assert.equal(metadata.format, 'jpeg', `Card format: ${card}`)
+  assert.ok(['jpeg', 'png'].includes(metadata.format), `Card format: ${card}`)
+  if (metadata.format === 'jpeg') assert.equal(metadata.isProgressive, false, `Baseline JPEG: ${card}`)
 }
 for (const [file, size] of [['favicon-96.png', 96], ['apple-touch-icon.png', 180], ['brand/kado-logo.png', 512]]) {
   const metadata = await sharp(resolve(root, file)).metadata()

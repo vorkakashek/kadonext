@@ -2484,13 +2484,6 @@ async function bootScene() {
     transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
-  .motion-control:hover,
-  .motion-control:focus-visible {
-    background-color: var(--palette-ink, #171915);
-  }
-}
-
 .motion-control--entry-hidden {
   opacity: 0;
   pointer-events: none;

@@ -460,16 +460,11 @@ async function bootMotionEngine() {
 }
 
 function scheduleColdMotionBoot() {
-  // Start fetching the shared motion modules immediately, then build the
-  // corridor in a deterministic follow-up task. requestIdleCallback can be
-  // starved by the live WebGL loop on a genuinely cold desktop load; in that
-  // case the first wheel event used to inherit the complete ScrollTrigger build
-  // and visibly freeze the Surface before it caught up with Lenis.
+  // The desktop cold-runtime gate now owns startup. Build the complete corridor
+  // immediately under that static frame so no deferred timer can collide with
+  // the first wheel gesture.
   void preloadGsapBundle()
-  motionBootTimer = window.setTimeout(() => {
-    motionBootTimer = 0
-    void bootMotionEngine()
-  }, 160)
+  void bootMotionEngine()
 }
 
 /** Mobile corridor state */

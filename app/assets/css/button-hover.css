@@ -1,0 +1,36 @@
+/* Shared button contract:
+   <button> and [role=button] work automatically; use data-button-hover on links.
+   Customize --button-hover-fill / --button-hover-color, never add another hover layer.
+   Composite controls may expose a smaller data-button-hover-surface inside a
+   data-button-hover-proxy host. data-button-hover="off" is an explicit opt-out.
+   Header/Page Canvas chips keep their authored layer and share entry coordinates. */
+:root {
+  --button-hover-duration: .42s;
+  --button-hover-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+:where(button, [role='button'], [data-button-hover], [data-button-hover-surface]):not(:where(.chip-scale-host, [data-button-hover='off'], [data-button-hover-proxy])) {
+  position: relative;
+  isolation: isolate;
+}
+
+:where(button, [role='button'], [data-button-hover], [data-button-hover-surface]):not(:where(.chip-scale-host, [data-button-hover='off'], [data-button-hover-proxy]))::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--button-hover-fill, var(--palette-ink));
+  content: '';
+  pointer-events: none;
+  transform: scale(0);
+  transform-origin: var(--button-hover-x, 50%) var(--button-hover-y, 50%);
+  transition: transform var(--button-hover-duration) var(--button-hover-ease), background-color .22s ease;
+}
+
+[data-button-hover-active]:not(:where(.chip-scale-host, :disabled, [aria-disabled='true'], [data-button-hover='off'], [data-button-hover-proxy])) {
+  color: var(--button-hover-color, var(--palette-milk)) !important;
+}
+
+[data-button-hover-active]:not(:where(.chip-scale-host, :disabled, [aria-disabled='true'], [data-button-hover='off'], [data-button-hover-proxy]))::before {
+  transform: scale(1);
+}

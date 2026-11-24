@@ -39,17 +39,6 @@ const { t } = useI18n()
   transition: color 0.3s var(--motion-ease, ease);
 }
 
-.ambient-sound::before {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  background: var(--palette-ink);
-  content: '';
-  transform: scale(0);
-  transition: transform 0.36s var(--motion-ease, ease);
-}
-
 .ambient-sound__meter {
   position: relative;
   z-index: 1;
@@ -109,18 +98,6 @@ const { t } = useI18n()
     padding: 10px;
   }
 
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .ambient-sound:not([aria-disabled='true']):hover,
-  .ambient-sound:not([aria-disabled='true']):focus-visible {
-    color: var(--palette-milk, #f5f1e8);
-  }
-
-  .ambient-sound:not([aria-disabled='true']):hover::before,
-  .ambient-sound:not([aria-disabled='true']):focus-visible::before {
-    transform: scale(1);
-  }
 }
 
 @keyframes ambient-meter {

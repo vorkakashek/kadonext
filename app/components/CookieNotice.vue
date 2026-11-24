@@ -43,17 +43,18 @@ onMounted(() => {
             class="cookie-notice__title-line"
           >{{ line }}</span>
         </h2>
+        <span class="cookie-notice__mobile-cookie" aria-hidden="true">🍪</span>
         <div class="cookie-notice__text">
-          <p>{{ t('cookieNotice.text') }}</p>
-          <p class="cookie-notice__note">
-            {{ t('cookieNotice.note') }}
+          <p>
+            {{ t('cookieNotice.text') }}
             <NuxtLink :to="localePath('/privacy')" no-prefetch>{{ t('cookieNotice.details') }}</NuxtLink>
           </p>
         </div>
       </div>
 
       <button class="cookie-notice__button" type="button" @click="dismiss">
-        {{ t('cookieNotice.accept') }}
+        <span class="cookie-notice__button-label cookie-notice__button-label--desktop">{{ t('cookieNotice.accept') }}</span>
+        <span class="cookie-notice__button-label cookie-notice__button-label--mobile">{{ t('cookieNotice.acceptMobile') }}</span>
       </button>
     </aside>
   </Transition>
@@ -68,14 +69,14 @@ onMounted(() => {
   z-index: 9999;
   display: grid;
   width: min(42rem, calc(100vw - var(--layout-margin) * 2));
-  padding: clamp(1.25rem, 2vw, 1.75rem);
+  padding: 0.75rem;
   border: 1px solid color-mix(in srgb, var(--palette-ink) 18%, transparent);
   border-radius: var(--radius-surface);
   background: color-mix(in srgb, var(--palette-milk) 96%, transparent);
   box-shadow: 0 1.25rem 4rem color-mix(in srgb, var(--palette-ink) 14%, transparent);
   color: var(--palette-ink);
   font-family: "Fixel Critical", ui-sans-serif, system-ui, sans-serif;
-  gap: clamp(1.25rem, 2vw, 2rem);
+  gap: 0.75rem;
   outline: none;
   backdrop-filter: blur(16px);
 }
@@ -91,11 +92,11 @@ onMounted(() => {
 }
 
 .cookie-notice h2 {
-  max-width: 19ch;
-  font-size: clamp(1.45rem, 1.8vw, 1.85rem);
+  font-size: clamp(1rem, 1.6vw, 1.25rem);
   font-weight: 500;
   letter-spacing: -0.045em;
-  line-height: 1;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .cookie-notice h2 span {
@@ -105,17 +106,13 @@ onMounted(() => {
 .cookie-notice__text {
   display: grid;
   max-width: 55ch;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   letter-spacing: -0.015em;
-  line-height: 1.42;
+  line-height: 1.3;
 }
 
 .cookie-notice__text p {
   margin: 0;
-}
-
-.cookie-notice__note {
-  display: block;
 }
 
 .cookie-notice__text a {
@@ -123,22 +120,38 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.cookie-notice__mobile-cookie {
+  display: none;
+}
+
 .cookie-notice__button {
+  --button-hover-fill: var(--palette-forest);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   justify-self: start;
-  min-width: 7rem;
-  min-height: 3rem;
-  padding: 0.75rem 1rem;
+  min-width: 6rem;
+  min-height: 2.5rem;
+  padding: 0.6rem 0.9rem;
   border: 1px solid var(--palette-ink);
   border-radius: 999px;
   background: var(--palette-ink);
   color: var(--palette-milk);
   cursor: pointer;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.15;
   transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+
+.cookie-notice__button-label {
+  transform: translateY(calc(0.08em + 1px));
+}
+
+.cookie-notice__button-label--mobile {
+  display: none;
 }
 
 .cookie-notice__button:focus-visible {
@@ -153,7 +166,6 @@ onMounted(() => {
 
   .cookie-notice__button:hover {
     border-color: var(--palette-forest);
-    background: var(--palette-forest);
     color: var(--palette-milk);
   }
 }
@@ -185,43 +197,36 @@ onMounted(() => {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     width: 100%;
-    padding-block: clamp(1rem, 1.5vw, 1.35rem) max(1rem, var(--safe-bottom));
+    padding-block: 0.65rem max(0.65rem, var(--safe-bottom));
     padding-inline: max(var(--layout-margin-content), var(--safe-left))
       max(var(--layout-margin-content), var(--safe-right));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
     border-radius: 0;
-    gap: clamp(2rem, 5vw, 6rem);
+    gap: clamp(1.25rem, 3vw, 3rem);
   }
 
   .cookie-notice__copy {
-    grid-template-columns: minmax(13rem, 0.55fr) minmax(0, 1.45fr);
+    grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
-    gap: clamp(2rem, 5vw, 6rem);
+    gap: clamp(1.25rem, 3vw, 3rem);
   }
 
   .cookie-notice__text {
     display: block;
     max-width: none;
+    font-size: var(--type-case-body-small);
+    line-height: 1.3;
   }
 
   .cookie-notice__text p {
     display: inline;
   }
 
-  .cookie-notice__text p + p::before {
-    content: " ";
-  }
-
-  .cookie-notice__note {
-    display: inline;
-    margin-left: 0;
-  }
-
   .cookie-notice__button {
     justify-self: end;
-    font-size: 1.125rem;
+    font-size: calc((var(--type-nav) + var(--type-lead)) * 0.3);
   }
 }
 
@@ -230,9 +235,11 @@ onMounted(() => {
     right: 0;
     bottom: 0;
     left: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     width: 100%;
-    padding: 1.25rem max(1.25rem, var(--safe-right))
-      max(1.25rem, var(--safe-bottom)) max(1.25rem, var(--safe-left));
+    padding: 0.65rem max(0.875rem, var(--safe-right))
+      max(0.65rem, var(--safe-bottom)) max(0.875rem, var(--safe-left));
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -241,15 +248,53 @@ onMounted(() => {
        continuously rendered WebGL scene underneath it. */
     background: var(--palette-milk);
     backdrop-filter: none;
-    gap: 1.25rem;
+    gap: 0.65rem;
+  }
+
+  .cookie-notice__copy {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.55rem;
   }
 
   .cookie-notice h2 {
-    font-size: clamp(1.35rem, 6.4vw, 1.65rem);
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .cookie-notice__text {
+    font-size: clamp(0.7rem, 2.85vw, 0.8rem);
+    line-height: 1.25;
+  }
+
+  .cookie-notice__mobile-cookie {
+    display: block;
+    font-size: 1.1rem;
+    line-height: 1;
   }
 
   .cookie-notice__button {
-    width: 100%;
+    min-width: 3rem;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  .cookie-notice__button-label--desktop {
+    display: none;
+  }
+
+  .cookie-notice__button-label--mobile {
+    display: inline;
+    transform: none;
   }
 }
 

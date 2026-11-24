@@ -4,8 +4,13 @@ import sharp from 'sharp'
 
 const root = process.cwd()
 const publicRoot = resolve(root, 'public')
-const outputRoot = resolve(publicRoot, 'og')
+// Version the externally cached card URLs whenever their delivery/encoding
+// contract changes. Social platforms can retain a failed image fetch even
+// after the bytes at the old URL are replaced.
+const outputRoot = resolve(publicRoot, 'og', 'v2')
 const russianOutputRoot = resolve(outputRoot, 'ru')
+const pngOutputRoot = resolve(publicRoot, 'og', 'v3')
+const russianPngOutputRoot = resolve(pngOutputRoot, 'ru')
 const structure = JSON.parse(await readFile(resolve(root, 'app/data/homeCases.json'), 'utf8'))
 const details = JSON.parse(await readFile(resolve(root, 'app/data/projectCaseDetails.json'), 'utf8'))
 const copy = JSON.parse(await readFile(resolve(root, 'content/locales/ru.json'), 'utf8'))
@@ -23,22 +28,31 @@ function canvas(content) {
 
 await mkdir(outputRoot, { recursive: true })
 await mkdir(russianOutputRoot, { recursive: true })
-// Keep the approved image artwork as a versioned source. Never replace it with
-// the old text-only slide during a subsequent production build.
+await mkdir(pngOutputRoot, { recursive: true })
+await mkdir(russianPngOutputRoot, { recursive: true })
+// Keep the approved image artwork as a versioned source. Mirror the generated
+// cards to the legacy paths as well: social crawlers can retain an old
+// og:image URL long after the page starts emitting the versioned URL.
 await sharp(resolve(root, 'content/og/home-keycap.png'))
   .resize(1200, 630, { fit: 'cover', position: 'centre' })
-  .jpeg({ quality: 90, mozjpeg: true }).toFile(resolve(outputRoot, 'home.jpg'))
+  .jpeg({ quality: 90, progressive: false, mozjpeg: false }).toFile(resolve(outputRoot, 'home.jpg'))
 await sharp(resolve(root, 'content/og/home-keycap-ru.png'))
   .resize(1200, 630, { fit: 'cover', position: 'centre' })
-  .jpeg({ quality: 90, mozjpeg: true }).toFile(resolve(russianOutputRoot, 'home.jpg'))
+  .jpeg({ quality: 90, progressive: false, mozjpeg: false }).toFile(resolve(russianOutputRoot, 'home.jpg'))
+await sharp(resolve(root, 'content/og/home-keycap.png'))
+  .resize(1200, 630, { fit: 'cover', position: 'centre' })
+  .png({ compressionLevel: 9 }).toFile(resolve(pngOutputRoot, 'home.png'))
+await sharp(resolve(root, 'content/og/home-keycap-ru.png'))
+  .resize(1200, 630, { fit: 'cover', position: 'centre' })
+  .png({ compressionLevel: 9 }).toFile(resolve(russianPngOutputRoot, 'home.png'))
 
 const tilePositions = [{ left: 568, top: 32 }, { left: 884, top: 32 }, { left: 568, top: 324 }, { left: 884, top: 324 }]
-const tiles = await Promise.all(structure.map(async (project, index) => ({
+const tiles = await Promise.all(structure.slice(0, tilePositions.length).map(async (project, index) => ({
   input: await sharp(resolve(publicRoot, project.media.src.slice(1))).resize(284, 274, { fit: 'cover' }).toBuffer(),
   ...tilePositions[index],
 })))
 await sharp(canvas(lines(['Selected work'], 72, 302, 52) + lines(['Web design, development', 'and motion'], 72, 374, 28)))
-  .composite(tiles).jpeg({ quality: 88, mozjpeg: true }).toFile(resolve(outputRoot, 'projects.jpg'))
+  .composite(tiles).jpeg({ quality: 88, progressive: false, mozjpeg: false }).toFile(resolve(outputRoot, 'projects.jpg'))
 
 for (const [index, project] of structure.entries()) {
   const item = copy.projects.items[index]
@@ -49,8 +63,22 @@ for (const [index, project] of structure.entries()) {
   const title = project.id === 'baltika' ? 'Baltika Brew' : item.title
   await sharp(canvas(lines([title], 72, 302, 44) + lines(tags, 72, 366, 27)))
     .composite([{ input: cover, left: 580, top: 0 }])
-    .jpeg({ quality: 88, mozjpeg: true }).toFile(resolve(outputRoot, `${project.id}.jpg`))
+    .jpeg({ quality: 88, progressive: false, mozjpeg: false }).toFile(resolve(outputRoot, `${project.id}.jpg`))
 }
+
+const legacyCardNames = ['home', 'projects', ...structure.map(project => project.id)]
+// Buffer the small cards rather than using Windows CopyFile on files that the
+// image pipeline or the running dev server may still have open.
+async function mirrorCard(source, destination) {
+  await writeFile(destination, await readFile(source))
+}
+await Promise.all([
+  ...legacyCardNames.map(name => mirrorCard(
+    resolve(outputRoot, `${name}.jpg`),
+    resolve(publicRoot, 'og', `${name}.jpg`),
+  )),
+  mirrorCard(resolve(russianOutputRoot, 'home.jpg'), resolve(publicRoot, 'og', 'ru', 'home.jpg')),
+])
 
 const logoSource = await readFile(resolve(publicRoot, 'brand/kado-logo.svg'))
 const logoRaster = await sharp(logoSource).resize(420, 140).png().toBuffer()

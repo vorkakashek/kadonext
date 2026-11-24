@@ -42,11 +42,19 @@ let frame = 0
 let lastPaintTime = 0
 let previewWidth = 0
 let previewHeight = 0
-let targetX = 0
-let targetY = 0
+let anchorX = 0
+let anchorY = 0
+let previewRightLimit = Number.POSITIVE_INFINITY
 let currentX = 0
 let currentY = 0
-const previewFollowResponseMs = 50
+let impulseX = 0
+let impulseY = 0
+let lastPointerX: number | null = null
+let lastPointerY: number | null = null
+let lastPointerMoveTime = 0
+const previewFollowResponseMs = 180
+const previewReturnDelayMs = 500
+const previewReturnResponseMs = 320
 const previewLoadPromises = new Map<string, Promise<void>>()
 let previewActivationId = 0
 
@@ -107,12 +115,41 @@ function measurePreview() {
   previewHeight = box.height
 }
 
-function resolvePreviewPosition(clientX: number, clientY: number) {
-  const width = previewWidth || Math.min(window.innerWidth * 0.28, 512)
+function activeRow(index = activeIndex.value) {
+  const list = listEl.value
+  const row = list?.children.item(index)
+  return row instanceof HTMLElement ? row : null
+}
+
+function resolvePreviewAnchor(index = activeIndex.value) {
+  const row = activeRow(index)
+  if (!row) return { x: anchorX, y: anchorY, rightLimit: previewRightLimit }
+
+  const bounds = row.getBoundingClientRect()
+  const width = previewWidth || Math.max(272, Math.min(window.innerWidth * 0.26, 464)) * 1.2
   const height = previewHeight || width
+  const rowStyle = getComputedStyle(row)
+  const gutter = Math.max(
+    20,
+    Number.parseFloat(rowStyle.columnGap) || 0,
+  )
+  const inset = Math.max(gutter, Number.parseFloat(rowStyle.paddingRight) || 0)
+
   return {
-    x: clientX - width / 2,
-    y: clientY - height / 2,
+    x: bounds.right - width - inset,
+    y: bounds.top + (bounds.height - height) / 2,
+    rightLimit: bounds.right - width - gutter,
+  }
+}
+
+function setPreviewAnchor(index = activeIndex.value, snap = false) {
+  const position = resolvePreviewAnchor(index)
+  anchorX = position.x
+  anchorY = position.y
+  previewRightLimit = position.rightLimit
+  if (snap) {
+    currentX = anchorX
+    currentY = anchorY
   }
 }
 
@@ -135,14 +172,29 @@ function paintPreview(timestamp: number) {
     ? Math.min(timestamp - lastPaintTime, 32)
     : 1000 / 60
   const follow = 1 - Math.exp(-elapsedMs / previewFollowResponseMs)
+  // Hold the offset while the pointer moves and for half a second afterwards.
+  const returnElapsedMs = Math.min(
+    elapsedMs,
+    Math.max(0, timestamp - lastPointerMoveTime - previewReturnDelayMs),
+  )
+  const returnToAnchor = Math.exp(-returnElapsedMs / previewReturnResponseMs)
   lastPaintTime = timestamp
 
+  impulseX *= returnToAnchor
+  impulseY *= returnToAnchor
+  const targetX = Math.min(anchorX + impulseX, previewRightLimit)
+  const targetY = anchorY + impulseY
   currentX += (targetX - currentX) * follow
   currentY += (targetY - currentY) * follow
   el.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`
   syncContrastOverlay()
 
-  if (Math.abs(targetX - currentX) > 0.2 || Math.abs(targetY - currentY) > 0.2) {
+  if (
+    Math.abs(targetX - currentX) > 0.2
+    || Math.abs(targetY - currentY) > 0.2
+    || Math.abs(impulseX) > 0.2
+    || Math.abs(impulseY) > 0.2
+  ) {
     frame = requestAnimationFrame(paintPreview)
   }
   else {
@@ -154,14 +206,27 @@ function schedulePreviewPaint() {
   if (!frame) frame = requestAnimationFrame(paintPreview)
 }
 
-function setPointerTarget(event: PointerEvent, snap = false) {
-  const position = resolvePreviewPosition(event.clientX, event.clientY)
-  targetX = position.x
-  targetY = position.y
-  if (snap) {
-    currentX = targetX
-    currentY = targetY
+function applyPointerImpulse(event: PointerEvent) {
+  setPreviewAnchor()
+  lastPointerMoveTime = performance.now()
+  if (lastPointerX == null || lastPointerY == null) {
+    lastPointerX = event.clientX
+    lastPointerY = event.clientY
+    schedulePreviewPaint()
+    return
   }
+
+  const row = activeRow()
+  const bounds = row?.getBoundingClientRect()
+  const maxX = bounds ? Math.max(28, Math.min(bounds.width * 0.12, 108)) : 80
+  const maxY = bounds ? Math.max(22, bounds.height * 0.38) : 56
+  const dx = event.clientX - lastPointerX
+  const dy = event.clientY - lastPointerY
+  lastPointerX = event.clientX
+  lastPointerY = event.clientY
+  const maxRightImpulse = Math.max(0, Math.min(maxX, previewRightLimit - anchorX))
+  impulseX = Math.max(-maxX, Math.min(maxRightImpulse, impulseX + dx * 0.2))
+  impulseY = Math.max(-maxY, Math.min(maxY, impulseY + dy * 0.8))
   schedulePreviewPaint()
 }
 
@@ -173,16 +238,22 @@ async function activate(index: number, event?: PointerEvent) {
   const selected = formats.value[index]
   if (!selected) return
 
+  activeIndex.value = index
   const selectedReady = warmFormatPreviews(index)
   if (!wasVisible) previewVisible.value = false
 
   await nextTick()
   measurePreview()
-  if (event) setPointerTarget(event, !wasVisible)
+  setPreviewAnchor(index, !wasVisible)
+  lastPointerX = event?.clientX ?? null
+  lastPointerY = event?.clientY ?? null
+  impulseX = 0
+  impulseY = 0
+  lastPointerMoveTime = 0
+  schedulePreviewPaint()
   await selectedReady
 
   if (activationId !== previewActivationId || !hoverPreviewEnabled.value) return
-  activeIndex.value = index
   await nextTick()
   previewVisible.value = true
   schedulePreviewPaint()
@@ -190,27 +261,21 @@ async function activate(index: number, event?: PointerEvent) {
 
 function onPointerMove(event: PointerEvent) {
   if (!hoverPreviewEnabled.value) return
-  setPointerTarget(event)
+  applyPointerImpulse(event)
 }
 
-function onPointerLeave(event?: PointerEvent) {
+function onPointerLeave() {
+  hidePreview()
+}
+
+function hidePreview() {
   previewActivationId += 1
   previewVisible.value = false
-
-  const list = event?.currentTarget
-  if (list instanceof HTMLElement) {
-    if (!event) return
-    const bounds = list.getBoundingClientRect()
-    const position = resolvePreviewPosition(
-      Math.min(bounds.right, Math.max(bounds.left, event.clientX)),
-      Math.min(bounds.bottom, Math.max(bounds.top, event.clientY)),
-    )
-    targetX = position.x
-    targetY = position.y
-    schedulePreviewPaint()
-    return
-  }
-
+  lastPointerX = null
+  lastPointerY = null
+  lastPointerMoveTime = 0
+  impulseX = 0
+  impulseY = 0
   if (frame) cancelAnimationFrame(frame)
   frame = 0
   lastPaintTime = 0
@@ -223,18 +288,27 @@ function onFocus(index: number) {
 function onBlur(event: FocusEvent) {
   const next = event.relatedTarget
   if (!(next instanceof Node) || !rootEl.value?.contains(next)) {
-    previewActivationId += 1
-    previewVisible.value = false
+    hidePreview()
   }
 }
 
 function onViewportScroll() {
-  if (previewVisible.value) schedulePreviewPaint()
+  if (!previewVisible.value) return
+  const bounds = rootEl.value?.getBoundingClientRect()
+  if (bounds && (bounds.bottom <= 0 || bounds.top >= window.innerHeight)) {
+    hidePreview()
+    return
+  }
+  setPreviewAnchor()
+  schedulePreviewPaint()
 }
 
 function onViewportResize() {
   measurePreview()
-  if (previewVisible.value) schedulePreviewPaint()
+  if (previewVisible.value) {
+    setPreviewAnchor()
+    schedulePreviewPaint()
+  }
 }
 
 let hoverMedia: MediaQueryList | null = null
@@ -400,8 +474,7 @@ function syncHoverPreviewMode() {
   hoverPreviewEnabled.value = !!hoverMedia?.matches
   mobileThumbsEnabled.value = !!mobileThumbMedia?.matches
   if (!hoverPreviewEnabled.value) {
-    previewActivationId += 1
-    previewVisible.value = false
+    hidePreview()
   }
 }
 
@@ -414,16 +487,16 @@ async function onMotionMediaChange() {
 watch(
   () => pageCanvasOpen.value || pageCanvasBusy.value,
   (navigationActive) => {
-    if (navigationActive) onPointerLeave()
+    if (navigationActive) hidePreview()
   },
 )
 
 onBeforeRouteLeave(() => {
-  onPointerLeave()
+  hidePreview()
 })
 
 onDeactivated(() => {
-  onPointerLeave()
+  hidePreview()
 })
 
 onMounted(async () => {
@@ -620,6 +693,7 @@ onUnmounted(() => {
 
 <style scoped>
 .work-formats {
+  --work-formats-preview-size: calc(clamp(17rem, 26vw, 29rem) * 1.2);
   min-height: var(--app-screen);
   padding: var(--space-section) var(--layout-margin-content)
     calc(var(--space-section) * 0.5);
@@ -746,7 +820,7 @@ onUnmounted(() => {
 }
 
 .work-formats__list.has-active .work-formats__item:not(.is-active):not(:focus-within) {
-  color: color-mix(in srgb, var(--palette-ink) 42%, var(--palette-sand));
+  color: color-mix(in srgb, var(--palette-ink) 62%, var(--palette-sand));
 }
 
 /* While the preview is visible, the real rows stay below the photo. Only the
@@ -831,6 +905,7 @@ onUnmounted(() => {
 
 .work-formats__name-text {
   display: inline-block;
+  white-space: pre-line;
 }
 
 .work-formats__number {
@@ -850,7 +925,7 @@ onUnmounted(() => {
 }
 
 .work-formats__description {
-  max-width: 58rem;
+  max-width: 38ch;
   font-size: var(--type-body);
   font-weight: 400;
   letter-spacing: -0.02em;
@@ -862,7 +937,7 @@ onUnmounted(() => {
   z-index: 30;
   top: 0;
   left: 0;
-  width: clamp(20.48rem, 32vw, 37.12rem);
+  width: var(--work-formats-preview-size);
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: var(--radius-surface);
@@ -943,8 +1018,20 @@ onUnmounted(() => {
     grid-column: 3 / span 8;
   }
 
+  .work-formats__trigger {
+    grid-template-columns: max-content minmax(0, 42%) minmax(0, 1fr);
+    column-gap: var(--space-3);
+    padding-inline-end: var(--space-5);
+  }
+
+  .work-formats__copy {
+    grid-column: 2;
+    max-width: 38ch;
+    gap: clamp(1.05rem, 1.4vw, 1.4rem);
+  }
+
   .work-formats__description {
-    font-size: var(--type-lead);
+    font-size: calc(var(--type-lead) * 0.85);
   }
 
   .work-formats__item.is-active .work-formats__number,
@@ -956,8 +1043,40 @@ onUnmounted(() => {
 
   .work-formats__surface {
     /* The live FlowSurface occupies this slot after its first committed paint. */
+    width: calc(var(--layout-span-4) * 0.6);
   }
 
+}
+
+@media (min-width: 1280px) {
+  .work-formats__body {
+    padding-block: var(--space-5);
+    grid-column: 3 / -1;
+  }
+
+  .work-formats__trigger {
+    min-height: clamp(9rem, 11vw, 13rem);
+    grid-template-columns: max-content minmax(0, 1fr) var(--work-formats-preview-size);
+  }
+
+  .work-formats__item:last-child .work-formats__trigger,
+  .work-formats__contrast-item:last-child .work-formats__trigger {
+    min-height: 0;
+  }
+
+  .work-formats__copy {
+    display: grid;
+    max-width: none;
+    padding-inline-end: var(--space-5);
+    grid-template-columns: minmax(0, min(38%, calc(var(--type-slogan) * 9))) minmax(0, 1fr);
+    column-gap: var(--space-3);
+    align-items: start;
+  }
+
+  .work-formats__description {
+    padding-top: 0.2em;
+    text-wrap: pretty;
+  }
 }
 
 @media (max-width: 767.98px) {
@@ -967,7 +1086,7 @@ onUnmounted(() => {
   }
 
   .work-formats__title {
-    --work-formats-title-size: clamp(3.5rem, 17vw, 5.75rem);
+    --work-formats-title-size: clamp(3.15rem, 15.3vw, 5.175rem);
   }
 
   .work-formats__body {

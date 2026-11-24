@@ -581,5 +581,100 @@
       "avifSrcset": "/home/cases/schmidt/schmidt-end-480.avif 480w, /home/cases/schmidt/schmidt-end-960.avif 960w, /home/cases/schmidt/schmidt-end-1440.avif 1440w, /home/cases/schmidt/schmidt-end-1920.avif 1920w",
       "sizes": "100vw"
     }
+  },
+  "sidequest": {
+    "interactivePath": "/projects/sidequest/interactive",
+    "headerMedia": {
+      "src": "/home/cases/sidequest/scene.webp",
+      "width": 1920,
+      "height": 1080
+    },
+    "blocks": [
+      {
+        "type": "story",
+        "id": "sidequest-idea",
+        "layout": "intro",
+        "media": [
+          {
+            "src": "/home/cases/sidequest/scene.webp",
+            "width": 1920,
+            "height": 1080,
+            "shape": "wide"
+          }
+        ]
+      },
+      {
+        "type": "disclosure-media",
+        "id": "sidequest-pathfinding",
+        "media": {
+          "src": "/home/cases/sidequest/route.webp",
+          "width": 1920,
+          "height": 1080,
+          "shape": "wide"
+        }
+      },
+      {
+        "type": "intro-rail",
+        "id": "sidequest-buttons-radio",
+        "media": [
+          {
+            "src": "/home/cases/sidequest/buttons.webp",
+            "width": 1920,
+            "height": 1080,
+            "shape": "wide"
+          },
+          {
+            "src": "/home/cases/sidequest/radio.webp",
+            "width": 1920,
+            "height": 1080,
+            "shape": "wide"
+          }
+        ]
+      },
+      {
+        "type": "story",
+        "id": "sidequest-discovery",
+        "layout": "gallery",
+        "media": [
+          {
+            "src": "/home/cases/sidequest/book.webp",
+            "width": 1920,
+            "height": 1080,
+            "shape": "wide"
+          },
+          {
+            "src": "/home/cases/sidequest/fall.webp",
+            "width": 1920,
+            "height": 1080,
+            "shape": "wide"
+          }
+        ]
+      },
+      {
+        "type": "disclosure-media",
+        "id": "sidequest-application",
+        "media": {
+          "src": "/home/cases/sidequest/applications.webp",
+          "width": 1920,
+          "height": 1080,
+          "shape": "wide"
+        }
+      },
+      {
+        "type": "final",
+        "id": "sidequest-final",
+        "variant": "interactive",
+        "action": {
+          "to": "/projects/sidequest/interactive",
+          "external": true
+        }
+      }
+    ],
+    "closing": {
+      "src": "/home/cases/sidequest/scene.webp",
+      "width": 1920,
+      "height": 1080,
+      "shape": "wide"
+    }
   }
 }

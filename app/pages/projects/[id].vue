@@ -341,8 +341,21 @@ async function setupDetailReveals() {
   const { ScrollTrigger } = await import('gsap/ScrollTrigger')
   gsap.registerPlugin(ScrollTrigger)
 
+  if (detailPageUnmounted || !root.isConnected) return
   detailRevealCtx?.revert()
-  detailRevealCtx = gsap.context(() => {
+  const revealMedia = gsap.matchMedia()
+  detailRevealCtx = revealMedia
+  revealMedia.add({
+    desktop: '(min-width: 768px)',
+    mobile: '(max-width: 767.98px)',
+  }, (context) => {
+    // Desktop fades occupy the outer 20% at each viewport edge.
+    // Keep the mobile corridors independent of this desktop pacing change.
+    const desktop = context.conditions?.desktop
+    const enterStart = desktop ? 'top 100%' : 'top 96%'
+    const enterEnd = desktop ? 'top 80%' : 'top 84%'
+    const leaveStart = desktop ? 'bottom 20%' : 'bottom 45%'
+    const leaveEnd = desktop ? 'bottom 0%' : 'bottom 20%'
     const addReveal = (target: HTMLElement, media: boolean) => {
       // The shared media shader must not replace a target while GSAP owns its
       // opacity or transform during the scroll reveal/leave corridor.
@@ -367,8 +380,8 @@ async function setupDetailReveals() {
           ease: 'none',
           scrollTrigger: {
             trigger: target,
-            start: 'top 96%',
-            end: 'top 84%',
+            start: enterStart,
+            end: enterEnd,
             scrub: 0.65,
             invalidateOnRefresh: true,
           },
@@ -380,8 +393,8 @@ async function setupDetailReveals() {
           ease: 'none',
           scrollTrigger: {
             trigger: target,
-            start: 'top 96%',
-            end: 'top 84%',
+            start: enterStart,
+            end: enterEnd,
             scrub: 0.65,
             invalidateOnRefresh: true,
           },
@@ -405,8 +418,8 @@ async function setupDetailReveals() {
           immediateRender: false,
           scrollTrigger: {
             trigger: target,
-            start: 'bottom 45%',
-            end: 'bottom 20%',
+            start: leaveStart,
+            end: leaveEnd,
             scrub: 0.65,
             invalidateOnRefresh: true,
           },
@@ -421,8 +434,8 @@ async function setupDetailReveals() {
           immediateRender: false,
           scrollTrigger: {
             trigger: target,
-            start: 'bottom 45%',
-            end: 'bottom 20%',
+            start: leaveStart,
+            end: leaveEnd,
             scrub: 0.65,
             invalidateOnRefresh: true,
           },
@@ -454,8 +467,8 @@ async function setupAudienceTextFill() {
 
   audienceTextFillCtx?.revert()
   const hostInks = hosts.map((host) => {
-    const paragraphs = host.matches('p')
-      ? [host as HTMLParagraphElement]
+    const paragraphs = host.matches('p, h2')
+      ? [host]
       : Array.from(host.querySelectorAll('p'))
     const inks: HTMLElement[] = []
     for (const paragraph of paragraphs) {
@@ -846,7 +859,7 @@ if (!item.value) {
                 <p class="case-detail__eyebrow">{{ t('projects.detail.links') }}</p>
                 <a
                   class="case-detail__project-link"
-                  :href="item.projectUrl"
+                  :href="item.projectUrl.startsWith('/') ? localePath(item.projectUrl) : item.projectUrl"
                   target="_blank"
                   rel="noopener noreferrer"
                   @mouseenter="onNavWaveEnter"
@@ -1117,6 +1130,10 @@ h1 {
   letter-spacing: -0.05em;
   line-height: 0.95;
   transition: opacity 2.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 768px) {
+  h1 { font-size: calc(var(--type-case-title) * .9); }
 }
 
 .case-detail__summary {

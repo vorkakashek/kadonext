@@ -85,6 +85,7 @@ const homeIntroContentReady = useState<boolean>('home-intro-content-ready', () =
 const simpleHomeIntroReady = useState<boolean>('home-simple-intro-ready', () => false)
 const heroIntroSettled = useState('home-hero-intro-settled', () => false)
 const criticalFontReady = useState<boolean>('home-critical-font-ready', () => false)
+const heroWebglLit = useState<boolean>('home-hero-webgl-lit', () => false)
 const focusEl = ref<HTMLElement | null>(null)
 const sceneEntryEl = ref<HTMLElement | null>(null)
 const mediaEl = ref<HTMLElement | null>(null)
@@ -131,11 +132,13 @@ function titleCharGroups(mobileLayout: boolean): HTMLElement[][] {
     .sort(([a], [b]) => a - b)
     .map(([, chars]) => chars)
 }
-const descEls = computed(() =>
-  props.sectionEl
-    ? Array.from(props.sectionEl.querySelectorAll<HTMLElement>('[data-hero-description-line]'))
-    : [],
-)
+const descEls = computed(() => {
+  if (!props.sectionEl) return []
+  const set = isNarrowViewport() ? 'mobile' : 'desktop'
+  return Array.from(props.sectionEl.querySelectorAll<HTMLElement>(
+    `[data-hero-description-set="${set}"] [data-hero-description-line]`,
+  ))
+})
 const introPending = useState<boolean>('home-hero-intro-pending', () => true)
 
 const mobileLite = ref(false)
@@ -695,12 +698,12 @@ function scheduleSwarmMount(
   // warming in preloadHomeSceneAssets without hiding the finished experience.
   const constrained = Boolean(connection?.saveData)
   if (plainColdHome && !constrained) {
-    // Start the scene as soon as the critical font has committed. Mobile copy
-    // is allowed to reveal in parallel; desktop retains the proven lit-scene
-    // handoff because its cold GPU path completes inside the first beat.
+    // Desktop runs Three/HDR/PMREM on the main thread, so begin before the font
+    // gate and finish under the cold-runtime lock. Mobile keeps its established
+    // worker handoff tied to the critical-font frame.
     if (!workerRendererReady.value) void preloadThreeBundle()
     const startVisibleMount = () => requestAnimationFrame(mount)
-    if (simpleHomeIntroReady.value) startVisibleMount()
+    if (!mobileLite.value || simpleHomeIntroReady.value) startVisibleMount()
     else {
       const stop = watch(simpleHomeIntroReady, (ready) => {
         if (!ready) return
@@ -860,6 +863,7 @@ const swarmCoverUp = computed(
 
 function onSwarmLit() {
   swarmLit.value = true
+  heroWebglLit.value = true
 }
 
 function onSwarmBooted() {
@@ -946,6 +950,7 @@ async function startSceneEntryReveal() {
 
 function onWorkerRendererFailed() {
   workerRendererReady.value = false
+  heroWebglLit.value = false
   void preloadThreeBundle()
 }
 

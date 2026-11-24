@@ -13,7 +13,8 @@
       "width": 3712,
       "height": 4608,
       "orientation": "portrait"
-    }
+    },
+    "type": "commercial"
   },
   {
     "id": "keys-store",
@@ -29,7 +30,8 @@
       "mobileWidth": 1440,
       "mobileHeight": 1800,
       "orientation": "portrait"
-    }
+    },
+    "type": "commercial"
   },
   {
     "id": "baltika",
@@ -48,7 +50,8 @@
       "mobileWidth": 1440,
       "mobileHeight": 1800,
       "orientation": "landscape"
-    }
+    },
+    "type": "commercial"
   },
   {
     "id": "schmidt",
@@ -66,6 +69,21 @@
       "mobileWidth": 1440,
       "mobileHeight": 1800,
       "orientation": "landscape"
-    }
+    },
+    "type": "commercial"
+  },
+  {
+    "id": "sidequest",
+    "year": "2026",
+    "featured": false,
+    "projectUrl": "/projects/sidequest/interactive",
+    "wash": "#e8f4b4",
+    "media": {
+      "src": "/home/cases/sidequest/cover-card.webp",
+      "width": 1200,
+      "height": 1500,
+      "orientation": "portrait"
+    },
+    "type": "concept"
   }
 ]

@@ -312,12 +312,18 @@ function hideCanvasSurface() {
   )
 }
 
-function frameIsCurrent(frame: SiteNavFrame) {
+function frameIsDestination(frame: SiteNavFrame) {
   const routePath = stripLocalePrefix(route.path).replace(/\/+$/, '') || '/'
   const framePath = frame.to.replace(/\/+$/, '') || '/'
   if (routePath !== framePath) return false
   if (framePath !== '/') return true
   return activeSection.value === (frame.section ?? 'home')
+}
+
+function frameIsCurrent(frame: SiteNavFrame) {
+  if (frameIsDestination(frame)) return true
+  const path = stripLocalePrefix(route.path).replace(/\/+$/, '') || '/'
+  return !frame.section && frame.to !== '/' && path.startsWith(`${frame.to}/`)
 }
 
 function frameShot(frame: SiteNavFrame) {
@@ -1072,7 +1078,7 @@ async function goToFrame(frame: SiteNavFrame) {
     return
   }
 
-  if (frameIsCurrent(frame)) {
+  if (frameIsDestination(frame)) {
     closeCanvas()
     return
   }
@@ -1364,7 +1370,7 @@ onUnmounted(() => {
                   'pc-link--hot': linkIsHot(frame),
                 }"
                 :tabindex="open ? 0 : -1"
-                :aria-current="frameIsCurrent(frame) ? 'page' : undefined"
+                  :aria-current="frameIsCurrent(frame) ? (frameIsDestination(frame) ? 'page' : 'true') : undefined"
                 @click="goToFrame(frame)"
                 @focusin="onLinkFocus(frame, $event)"
                 @focusout="onLinkFocusOut($event)"

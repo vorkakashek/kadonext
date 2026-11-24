@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#d8ed82">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="SIDEQUEST — интерактивный концепт. Маленький герой исследует интерфейс и нажимает кнопки за вас.">
+  <title>SIDEQUEST — у каждого клика есть свой герой</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./playthings.css">
+</head>
+<body>
+  <div class="world" id="world">
+    <div class="floor" aria-hidden="true"></div>
+    <header class="header">
+      <a class="brand solid" href="#" data-action="home" data-solid aria-label="SIDEQUEST — на старт"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 4h10v10H4zm14 0h10v10H18zM4 18h10v10H4zm14 0h10v10H18z"/></svg>SIDEQUEST<span>®</span></a>
+      <nav aria-label="Навигация">
+        <button class="nav-button solid" data-solid data-action="mission">Миссия <span>01</span></button>
+        <button class="nav-button solid" data-solid data-action="guide">Как играть <span>↗</span></button>
+      </nav>
+      <button class="button menu-button solid" data-solid data-action="menu" aria-label="Открыть меню" aria-expanded="false"><span class="menu-lines" aria-hidden="true"></span></button>
+    </header>
+
+    <main class="hero">
+      <div class="eyebrow solid" data-solid="ink"><span class="live-dot"></span> ИНТЕРНЕТ — ЭТО ИГРОВАЯ ПЛОЩАДКА</div>
+      <h1><span class="title-line solid" data-solid="ink">Маленький герой.</span><span class="title-line solid" data-solid="ink">Большой мир<span class="period">.</span></span></h1>
+      <p class="description solid" data-solid="ink">Иногда для нового приключения достаточно<br>просто сдвинуть курсор. Твой напарник уже здесь.</p>
+      <div class="hero-actions">
+        <button class="button primary solid" data-solid data-action="start"><span>Начать приключение</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
+        <button class="button secondary solid" data-solid data-action="guide"><span>Что тут происходит?</span><span aria-hidden="true">?</span></button>
+      </div>
+      <div class="hero-caption" data-solid="ink"><span>ОДИН ЭКРАН.</span><span>НЕСКОЛЬКО ПОБОЧНЫХ КВЕСТОВ.</span></div>
+    </main>
+
+    <button class="radio prop solid" id="radio" data-solid data-action="radio" aria-label="Включить радио" aria-pressed="false">
+      <span class="radio-top"><span>FIELD RADIO</span><span>FM 108</span></span>
+      <span class="radio-face"><span class="speaker"></span><span class="radio-controls"><span class="dial"></span><i></i><i></i></span></span>
+      <span class="radio-bottom"><span id="radio-label">НАСТРОИТЬ ВОЛНУ</span><span class="radio-led" aria-hidden="true"></span></span>
+      <span class="sound-waves" aria-hidden="true"><i></i><i></i><i></i></span>
+    </button>
+    <button class="book prop solid" id="book" data-solid data-action="book" aria-label="Открыть книжку «Вне плана»" aria-expanded="false">
+      <span class="book-underlay" aria-hidden="true"></span>
+      <span class="book-cover"><span class="book-kicker">ПОЛЕВОЙ БЛОКНОТ / 01</span><span class="book-title">ВНЕ<br>ПЛАНА.</span><span class="book-cover-line"></span><span class="book-cover-caption">Маленькие заметки<br>о больших прогулках.</span><span class="book-cover-index">SQ — 001 <span>↗</span></span></span>
+      <span class="book-spread" aria-hidden="true"><span class="book-page page-left"><span class="page-kicker">ВНЕ ПЛАНА</span><span class="page-doodle" id="book-doodle">↗</span><span class="page-number" id="book-left-number">01</span></span><span class="book-page page-right"><span class="page-heading" id="book-heading">Сверни с маршрута.</span><span class="page-copy" id="book-copy">Самые интересные места редко стоят первыми в списке.</span><span class="page-number" id="book-right-number">02</span></span></span>
+      <span class="turning-page" aria-hidden="true"></span>
+      <span class="book-hint" id="book-hint">ОТКРЫТЬ ↗</span>
+    </button>
+    <div class="litter" id="litter" aria-hidden="true">
+      <svg class="banana-peel peel-one" data-hazard viewBox="0 0 60 60">
+        <defs>
+          <g id="banana-peel-shape" stroke="#65502b" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">
+            <ellipse cx="31" cy="37" rx="23" ry="13" fill="#20231e20" stroke="none"/>
+            <path d="M28 30C19 28 10 20 8 9C3 12 4 24 11 33C16 39 23 41 30 36Z" fill="#efc646"/>
+            <path d="M29 31C34 22 45 20 53 10C58 20 48 35 34 38Z" fill="#f8dc67"/>
+            <path d="M29 32C20 38 18 49 23 55C33 56 39 45 35 35Z" fill="#f5d254"/>
+            <path d="M9 12C12 24 20 30 28 32M51 14C46 25 37 28 32 33M30 37C26 44 26 49 25 52" fill="none" stroke="#fff0a1" stroke-width="2"/>
+            <path d="M27 32L27 25Q30 22 33 25L34 34Z" fill="#f9e89a"/>
+            <path d="M27 25Q30 22 33 25L32 21L28 21Z" fill="#806039"/>
+            <path d="M8 10L8 14M52 11L51 15M23 53L27 54" fill="none" stroke="#8d6536" stroke-width="2.5"/>
+            <path d="M13 28L14 29M43 27L44 26M30 46L30 47" stroke="#b08a35" stroke-width="2"/>
+          </g>
+        </defs>
+        <use href="#banana-peel-shape"/>
+      </svg>
+      <span class="paper-pile" data-hazard><span class="paper-scrap"></span><span class="paper-corner"></span><span class="litter-speck"></span></span>
+      <svg class="banana-peel peel-two" data-hazard viewBox="0 0 60 60"><use href="#banana-peel-shape"/></svg>
+    </div>
+    <div class="floor-mark mark-one" aria-hidden="true">+</div><div class="floor-mark mark-two" aria-hidden="true">+</div>
+    <div class="coordinates" aria-hidden="true">X <span id="coord-x">000</span> &nbsp; Y <span id="coord-y">000</span></div>
+
+    <section class="panel" id="panel" hidden aria-labelledby="panel-title">
+      <span class="panel-index" id="panel-index">ПОЛЕВОЙ СПРАВОЧНИК / 01</span>
+      <h2 id="panel-title">Двигай курсор.<br>Я за тобой.</h2>
+      <p id="panel-copy">Тексты и предметы — настоящие препятствия. Наведи курсор на кнопку: напарник подбежит и возьмётся за её край. Кликни — и он нажмёт её за тебя.</p>
+      <button class="button panel-close" id="panel-close">Понятно, погнали <span>↗</span></button>
+    </section>
+
+    <footer class="footer">
+      <div class="companion-status" data-solid="ink"><span class="live-dot"></span><span id="status">НАПАРНИК НА СВЯЗИ</span></div>
+      <div class="instruction" data-solid="ink"><svg viewBox="0 0 20 24" aria-hidden="true"><path d="m4 2 12 11-6 1-3 6z"/></svg><span>Води курсором. Остальное — за мной.</span></div>
+      <button class="debug-toggle" id="debug" data-action="debug" data-solid aria-pressed="false" aria-label="Показать маршруты и препятствия">КАРТА ПУТИ <span>↗</span></button>
+    </footer>
+    <canvas id="scene" aria-hidden="true"></canvas>
+    <div class="speech" id="speech" role="status" aria-live="polite"></div>
+    <div class="desktop-note">Этот маленький мир создан для мыши.<br>Загляни с компьютера.</div>
+    <noscript><div class="no-script">Для напарника нужен JavaScript. Дизайн можно посмотреть и так.</div></noscript>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

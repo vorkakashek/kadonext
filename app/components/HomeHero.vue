@@ -57,6 +57,10 @@ const heroDescriptionLines = computed(() => {
   locale.value
   return tm('home.hero.descriptionLines') as string[]
 })
+const heroMobileDescriptionLines = computed(() => {
+  locale.value
+  return tm('home.hero.mobileDescriptionLines') as string[]
+})
 
 const heroIntroPending = useState<boolean>('home-hero-intro-pending', () => true)
 const heroIntroSettled = useState<boolean>('home-hero-intro-settled', () => false)
@@ -309,18 +313,42 @@ defineExpose({ section, surfaceSlot })
           class="home-hero__desc-lines"
         >
           <div
-            v-for="(line, lineIndex) in heroDescriptionLines"
-            :key="lineIndex"
-            class="home-hero__desc-mask"
+            data-hero-description-set="desktop"
+            class="home-hero__desc-set home-hero__desc-set--desktop"
           >
-            <p
-              data-hero-description-line
-              class="home-hero__desc"
-              :data-hero-intro-sentinel="lineIndex === heroDescriptionLines.length - 1 ? 'description' : undefined"
-              :style="{ '--home-hero-desc-index': lineIndex }"
+            <div
+              v-for="(line, lineIndex) in heroDescriptionLines"
+              :key="lineIndex"
+              class="home-hero__desc-mask"
             >
-              {{ line }}
-            </p>
+              <p
+                data-hero-description-line
+                class="home-hero__desc"
+                :data-hero-intro-sentinel="lineIndex === heroDescriptionLines.length - 1 ? 'description' : undefined"
+                :style="{ '--home-hero-desc-index': lineIndex }"
+              >
+                {{ line }}
+              </p>
+            </div>
+          </div>
+          <div
+            data-hero-description-set="mobile"
+            class="home-hero__desc-set home-hero__desc-set--mobile"
+          >
+            <div
+              v-for="(line, lineIndex) in heroMobileDescriptionLines"
+              :key="lineIndex"
+              class="home-hero__desc-mask"
+            >
+              <p
+                data-hero-description-line
+                class="home-hero__desc"
+                :data-hero-intro-sentinel="lineIndex === heroMobileDescriptionLines.length - 1 ? 'description' : undefined"
+                :style="{ '--home-hero-desc-index': lineIndex }"
+              >
+                {{ line }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -451,6 +479,10 @@ defineExpose({ section, surfaceSlot })
   overflow: hidden;
 }
 
+.home-hero__desc-set--mobile {
+  display: none;
+}
+
 .home-hero__desc {
   margin: 0;
   color: var(--palette-ink);
@@ -499,6 +531,18 @@ defineExpose({ section, surfaceSlot })
 
   .home-hero__title-line-mask--mobile {
     display: flex;
+  }
+
+  .home-hero__desc-set--desktop {
+    display: none;
+  }
+
+  .home-hero__desc-set--mobile {
+    display: block;
+  }
+
+  .home-hero__desc {
+    white-space: nowrap;
   }
 
   .home-hero__title-word-mask {

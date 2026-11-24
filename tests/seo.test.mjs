@@ -10,6 +10,9 @@ const json = path => JSON.parse(readFileSync(resolve(path), 'utf8'))
 const structure = json('app/data/homeCases.json')
 const details = json('app/data/projectCaseDetails.json')
 const messages = json('content/locales/ru.json')
+const serviceRoutes = json('app/data/serviceRoutes.json')
+const serviceCopy = json('content/services/ru.json')
+messages.seo.services = Object.fromEntries(Object.entries(serviceCopy.pages).map(([id, page]) => [id, page.seo]))
 const projects = structure.map((project, index) => ({ ...project, ...messages.projects.items[index], media: { ...project.media, ...messages.projects.items[index].media } }))
 
 // Execute the actual composable with Vue reactivity and isolated Nuxt head sinks.
@@ -33,6 +36,7 @@ const routing = loadTs('app/utils/localeRouting.ts')
 const seo = loadTs('app/utils/siteSeo.ts', {}, {
   './homeCases': { homeCaseIds: structure.map(project => project.id) },
   './localeRouting': routing,
+  '../data/serviceRoutes.json': serviceRoutes,
 })
 const plain = value => JSON.parse(JSON.stringify(value))
 const lookup = key => key.split('.').reduce((value, part) => value?.[part], messages)
@@ -48,7 +52,7 @@ function setup(initialPath = '/', indexable = true, initialLocale = 'ru') {
     useI18n: () => ({ locale: ref(initialLocale), tm: lookup, t: lookup }),
     useSeoMeta: value => { meta = value; calls += 1 },
     useHead: value => { head = value },
-  }, { '~/utils/siteSeo': seo, '~/utils/localeRouting': routing })
+  }, { '~/utils/siteSeo': seo, '~/utils/localeRouting': routing, '~/data/serviceRoutes.json': serviceRoutes })
   useSiteSeo()
   return {
     route, config,
@@ -92,11 +96,11 @@ test('one head owner updates every page and restores home after kept-alive navig
     const graph = app.graph()
     assert.equal(graph.find(node => node['@id'] === `${localizedUrl}#webpage`).name, expected.title)
     if (project) {
-      assert.equal(app.meta('ogImage'), `https://cdn.example.test/og/${project.id}.jpg`)
+      assert.equal(app.meta('ogImage'), `https://kadonext.com/og/v2/${project.id}.jpg`)
       assert.equal(graph.find(node => node['@type'] === 'CreativeWork').name, project.title)
       assert.equal(graph.find(node => node['@type'] === 'BreadcrumbList').itemListElement.at(-1).item, localizedUrl)
     } else if (cleanPath === '/') {
-      assert.equal(app.meta('ogImage'), 'https://cdn.example.test/og/ru/home.jpg')
+      assert.equal(app.meta('ogImage'), 'https://kadonext.com/og/v2/ru/home.jpg')
       assert.equal(graph.filter(node => node['@type'] === 'Service').length, 4)
       assert.ok(!graph.some(node => node['@type'] === 'BreadcrumbList'))
     }
@@ -105,8 +109,27 @@ test('one head owner updates every page and restores home after kept-alive navig
 })
 
 test('home share card follows the active locale', () => {
-  assert.equal(setup('/ru/').meta('ogImage'), 'https://cdn.example.test/og/ru/home.jpg')
-  assert.equal(setup('/en/', true, 'en').meta('ogImage'), 'https://cdn.example.test/og/home.jpg')
+  assert.equal(setup('/ru/').meta('ogImage'), 'https://kadonext.com/og/v2/ru/home.jpg')
+  assert.equal(setup('/en/', true, 'en').meta('ogImage'), 'https://kadonext.com/og/v2/home.jpg')
+})
+
+test('service navigation keeps metadata, service identity and parent breadcrumbs in sync', () => {
+  const app = setup('/ru/services')
+  for (const service of serviceRoutes) {
+    app.route.path = `/ru${service.path}`
+    assert.equal(app.meta('title'), serviceCopy.pages[service.id].seo.title)
+    assert.equal(app.meta('description'), serviceCopy.pages[service.id].seo.description)
+    assert.match(app.meta('robots'), /^index, follow/)
+    const graph = app.graph()
+    const node = graph.find(item => item['@type'] === 'Service')
+    assert.equal(node.url, `https://kadonext.com/ru${service.path}`)
+    const crumbs = graph.find(item => item['@type'] === 'BreadcrumbList').itemListElement
+    assert.equal(crumbs.length, service.id === 'index' ? 2 : 3)
+    if (service.id !== 'index') assert.equal(crumbs[1].item, 'https://kadonext.com/ru/services')
+  }
+  app.route.path = '/ru/services/unknown'
+  assert.equal(app.meta('robots'), 'noindex, follow')
+  assert.deepEqual(app.head().link, [])
 })
 
 test('unknown routes remove canonical and structured data; returning restores them', () => {
@@ -144,10 +167,10 @@ test('boolean and string configuration are consistent in HTML, robots and sitema
     assert.match(robots, /^Allow: \/$/m)
     assert.doesNotMatch(robots, /^Disallow: \/$/m)
     assert.equal(robots.includes('Sitemap:'), indexable)
-    assert.equal([...sitemap.matchAll(/<loc>/g)].length, indexable ? 16 : 0)
+    assert.equal([...sitemap.matchAll(/<loc>/g)].length, indexable ? seo.LOCALIZED_SITE_PATHS.length : 0)
     if (indexable) {
       assert.ok(sitemap.includes('<image:loc>https://kadonext.com/home/me-1024.webp</image:loc>'))
-      assert.equal([...sitemap.matchAll(/hreflang="x-default"/g)].length, 16)
+      assert.equal([...sitemap.matchAll(/hreflang="x-default"/g)].length, seo.LOCALIZED_SITE_PATHS.length)
       assert.ok(sitemap.includes('<xhtml:link rel="alternate" hreflang="x-default" href="https://kadonext.com/en/"/>'))
       assert.doesNotMatch(sitemap, /<lastmod>|#contact|\/200.html|\/404.html/)
     }

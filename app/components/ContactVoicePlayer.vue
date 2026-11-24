@@ -96,6 +96,7 @@ onBeforeUnmount(() => {
     <span class="voice-player__time">{{ voiceTime(playing || current > 0 ? current : clip.seconds) }}</span>
     <div class="voice-player__actions">
     <slot name="actions"><a
+      data-button-hover
       class="voice-player__download"
       :href="clip.url"
       :download="`${label}.${voiceExtension(clip.blob.type)}`"
@@ -112,9 +113,8 @@ onBeforeUnmount(() => {
 .voice-player { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto auto; align-items: center; gap: clamp(0.7rem, 1.8cqi, 1.25rem); }
 .voice-player__actions { display: flex; align-items: center; gap: 0.5rem; margin-left: clamp(0rem, 1.5cqi, 1rem); }
 .voice-player__play, .voice-player__download { display: grid; width: 2.75rem; height: 2.75rem; place-items: center; border: 1px solid color-mix(in srgb, var(--palette-forest) 25%, transparent); border-radius: 50%; color: var(--palette-forest); background: transparent; cursor: pointer; transition: background 0.2s, color 0.2s; }
-.voice-player__play:hover { color: var(--palette-sand); background: var(--palette-forest); }
+.voice-player__play, .voice-player__download { --button-hover-fill: var(--palette-forest); }
 .voice-player__download { width: 2.75rem; height: 2.75rem; }
-.voice-player__download:hover { background: color-mix(in srgb, var(--palette-forest) 8%, transparent); }
 .voice-player__timeline { position: relative; min-width: 0; height: 2.75rem; }
 .voice-player__wave { display: flex; height: 100%; gap: 3px; align-items: center; overflow: hidden; }
 .voice-player__wave span { flex: 1; height: 70%; min-width: 1px; background: color-mix(in srgb, var(--palette-forest) 27%, transparent); transform-origin: center; }

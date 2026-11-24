@@ -26,6 +26,7 @@ function handleTransition(event: TransitionEvent) {
   <div
     class="case-disclosure"
     role="button"
+    data-button-hover-proxy
     tabindex="0"
     :aria-expanded="open"
     :aria-controls="disclosureId"
@@ -51,7 +52,7 @@ function handleTransition(event: TransitionEvent) {
       class="case-disclosure__trigger"
       aria-hidden="true"
     >
-      <span class="case-disclosure__pill">
+      <span class="case-disclosure__pill" data-button-hover-surface>
         <span class="case-disclosure__pill-label">{{ open ? t('projects.detail.disclosureCollapse') : t('projects.detail.disclosureRead') }}</span>
         <SiteIcon :name="open ? 'minus' : 'plus'" :size="18" />
       </span>
@@ -112,7 +113,6 @@ function handleTransition(event: TransitionEvent) {
 .case-disclosure:hover .case-disclosure__pill,
 .case-disclosure:focus-visible .case-disclosure__pill {
   width: 7.6rem;
-  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .case-disclosure:not([aria-expanded='true']):hover .case-disclosure__pill,

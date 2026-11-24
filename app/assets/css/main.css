@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./colors.css";
 @import "./fluid.generated.css";
+@import "./button-hover.css";
 
 @theme {
   --font-sans: "Fixel", ui-sans-serif, system-ui, sans-serif;
@@ -165,7 +166,7 @@
   pointer-events: none;
   transform: scale(0);
   transform-origin: var(--chip-bg-x, 50%) var(--chip-bg-y, 50%);
-  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--button-hover-duration) var(--button-hover-ease);
 }
 
 .chip-scale-bg__fill {

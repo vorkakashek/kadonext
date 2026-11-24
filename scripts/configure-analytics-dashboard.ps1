@@ -1,15 +1,8 @@
 param(
-  [Parameter(Mandatory = $true)]
-  [string]$AllowedIp,
   [string]$RemoteHost = 'root@185.240.103.224'
 )
 
 $ErrorActionPreference = 'Stop'
-
-$parsedIp = $null
-if (-not [System.Net.IPAddress]::TryParse($AllowedIp, [ref]$parsedIp) -or $parsedIp.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
-  throw "AllowedIp must be one IPv4 address, received: $AllowedIp"
-}
 
 $repositoryRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $sshKey = Join-Path $env:USERPROFILE '.ssh\kado_codex_ed25519'
@@ -49,12 +42,17 @@ foreach ($upload in $uploads) {
 
 $remoteScript = @'
 set -euo pipefail
-allowed_ip='__ALLOWED_IP__'
 stamp='__STAMP__'
 config='/etc/nginx/sites-enabled/kadonext'
 backup="/tmp/kadonext-nginx-${stamp}.backup"
 candidate="/tmp/kado-nginx-${stamp}.conf"
 
+exec 9>/run/lock/kadonext-nginx.lock
+flock -x 9
+if ! test -s /etc/nginx/kado-analytics.htpasswd; then
+  echo 'Set the dashboard password with npm run analytics:dashboard:password first.' >&2
+  exit 1
+fi
 cp "$config" "$backup"
 rollback() {
   cp "$backup" "$config"
@@ -62,10 +60,8 @@ rollback() {
 }
 trap rollback ERR
 
-install -d -o root -g root -m 0755 /etc/nginx/snippets /usr/local/lib/kado-analytics
+install -d -o root -g root -m 0755 /usr/local/lib/kado-analytics
 install -d -o root -g www-data -m 0750 /var/lib/kado-analytics/www/analytics
-printf 'allow %s;\ndeny all;\n' "$allowed_ip" > "/tmp/kado-analytics-access-${stamp}.conf"
-install -o root -g root -m 0644 "/tmp/kado-analytics-access-${stamp}.conf" /etc/nginx/snippets/kado-analytics-access.conf
 install -o root -g root -m 0644 "/tmp/kado-reporter-${stamp}.mjs" /usr/local/lib/kado-analytics/report-analytics.mjs
 install -o root -g root -m 0755 "/tmp/kado-dashboard-update-${stamp}" /usr/local/sbin/kado-update-analytics-dashboard
 install -o root -g root -m 0644 "/tmp/kado-dashboard-${stamp}.service" /etc/systemd/system/kado-analytics-dashboard.service
@@ -86,14 +82,15 @@ nginx -t
 systemctl reload nginx
 
 trap - ERR
-rm -f "$backup" "/tmp/kado-analytics-access-${stamp}.conf" \
+rm -f "$backup" \
   "/tmp/kado-reporter-${stamp}.mjs" "/tmp/kado-dashboard-update-${stamp}" \
   "/tmp/kado-dashboard-${stamp}.service" "/tmp/kado-dashboard-${stamp}.timer" \
   "/tmp/kado-dashboard-${stamp}.html" "/tmp/kado-dashboard-${stamp}.css" \
   "/tmp/kado-dashboard-${stamp}.js" "$candidate"
+exit 0
 '@
-$remoteScript = $remoteScript.Replace('__ALLOWED_IP__', $AllowedIp).Replace('__STAMP__', $stamp)
-$remoteScript | & ssh @sshArguments $RemoteHost 'bash -se'
+$remoteScript = $remoteScript.Replace('__STAMP__', $stamp)
+$remoteScript.Replace("`r`n", "`n") | & ssh @sshArguments $RemoteHost 'bash -se'
 if ($LASTEXITCODE -ne 0) { throw "Could not configure the analytics dashboard (exit code $LASTEXITCODE)." }
 
-Write-Host "Analytics dashboard configured for $AllowedIp at https://kadonext.com/analytics/"
+Write-Host 'Analytics dashboard configured at https://kadonext.com/analytics/'

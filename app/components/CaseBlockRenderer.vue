@@ -44,6 +44,8 @@ const emit = defineEmits<{
     v-else-if="block.type === 'final'"
     :text="block.text"
     :variant="block.variant"
+    :description="block.description"
+    :action="block.action"
     :class="{ 'case-block--first': props.first }"
   />
 </template>

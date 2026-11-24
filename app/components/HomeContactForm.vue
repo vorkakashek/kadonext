@@ -736,7 +736,7 @@ function focusConfirmation() {
   cursor: pointer;
 }
 .contact-form__mode-button :deep(svg) { grid-area: 1 / 1; }
-.contact-form__mode-button:hover:not(:disabled) { background: var(--palette-moss); }
+.contact-form__mode-button { --button-hover-fill: var(--palette-moss); }
 .contact-form__mode-button:disabled { opacity: 0.35; cursor: default; }
 .contact-form__mode-button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .contact-form__mode-hint {
@@ -977,6 +977,7 @@ function focusConfirmation() {
 }
 
 .contact-form__submit {
+  --button-hover-fill: var(--palette-forest);
   position: relative;
   display: flex;
   align-items: center;
@@ -1003,8 +1004,7 @@ function focusConfirmation() {
 }
 
 .contact-form__submit:hover:not(:disabled) {
-  background: var(--palette-moss);
-  border-color: var(--palette-moss);
+  border-color: var(--palette-forest);
 }
 
 .contact-form__submit:focus-visible {

@@ -559,7 +559,7 @@ onUnmounted(() => {
   .home-about__title {
     margin-top: clamp(3.5rem, 17vw, 5rem);
     grid-column: 1 / -1;
-    font-size: clamp(2rem, 9.4vw, 3.2rem);
+    font-size: clamp(1.8rem, 8.46vw, 2.88rem);
     line-height: 0.94;
   }
 

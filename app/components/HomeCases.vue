@@ -20,7 +20,8 @@ import { onNavWaveEnter, onNavWaveLeave } from '~/utils/navWaveHover'
 
 const { t } = useI18n()
 const localePath = useLocalePath()
-const homeCases = useHomeCases()
+const allCases = useHomeCases()
+const homeCases = computed(() => allCases.value.filter(item => item.featured !== false))
 
 const rootEl = ref<HTMLElement | null>(null)
 const introEl = ref<HTMLElement | null>(null)
@@ -1383,6 +1384,7 @@ onBeforeUnmount(() => {
       'home-cases--mobile': mobileCases,
     }"
     :data-case-id="activeCase?.id"
+    :data-lenis-horizontal-rail="mobileCases ? '' : undefined"
     :aria-label="t('home.cases.sectionLabel', { title: activeCase?.title ?? '' })"
     :style="mobileCasesHeight ? { '--cases-mobile-h': `${mobileCasesHeight}px` } : undefined"
     @pointerdown="onCaseStagePointerDown"
@@ -1775,7 +1777,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 767.98px) {
   .cases-intro {
-    --cases-intro-title-size: clamp(3.5rem, 17vw, 5.75rem);
+    --cases-intro-title-size: clamp(3.15rem, 15.3vw, 5.175rem);
     display: flex;
     flex-direction: column;
     gap: 1.5rem;

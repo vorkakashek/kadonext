@@ -17,6 +17,16 @@
 - Beauty must not trade away legibility, navigation, accessibility, performance, search visibility or a clear next step. Motion supports hierarchy and transitions; it must never make the interface slower or less understandable.
 - Default delivery approach is SSG-first. A persistent server/SSR is an exception justified by real runtime requirements; explain this as speed, simplicity, security and predictable ownership cost, not as a trend.
 
+## Writing quality
+
+- Write from facts, context and a clear point of view. Prefer concrete subjects, actions, constraints and outcomes over generic claims, inflated significance or vague appeals to "experts", "the market" and "many studies".
+- Avoid recurring LLM mannerisms: canned openings, rhetorical questions used as hooks, "not X but Y" contrasts, automatic groups of three, false "from X to Y" ranges, decorative summaries and restating the conclusion.
+- Do not default to polished promotional vocabulary such as "ключевой", "уникальный", "комплексный", "инновационный", "важно отметить", "подчёркивает" or "является свидетельством". Use such words only when they carry precise, defensible meaning.
+- Vary sentence length and structure naturally. Use headings, lists, bold text and emoji only when they improve comprehension; avoid mechanical `label: explanation` bullet lists.
+- End when the thought is complete. Do not append an upbeat recap, generic call to action or offer of further help unless the context requires it.
+- Preserve the author's real voice and degree of informality. Never fabricate personal experience, slang, typos or roughness merely to make text appear human.
+- Before delivering editorial or marketing copy, silently remove filler, unsupported praise, duplicated meaning and templated transitions. Do not sacrifice accuracy or clarity to evade AI detection.
+
 ## Current implementation
 
 - Nuxt 4 / Vue 3 / TypeScript, Tailwind 4, GSAP/ScrollTrigger, Three.js and Lenis 1.3.26. Static output (`nitro.preset: static`, prerendered routes).
@@ -44,6 +54,7 @@
 
 ## Non-negotiable engineering constraints
 
+- Buttons share the entry-point fill and cursor-hide interaction in `app/utils/buttonHover.ts` and `app/assets/css/button-hover.css`. Native `<button>` / `[role="button"]` elements inherit it automatically; add `data-button-hover` to button-shaped links. Customize `--button-hover-fill` / `--button-hover-color` instead of creating separate hover animations. Composite controls can use `data-button-hover-proxy` with an inner `data-button-hover-surface`.
 - Performance comes before decorative richness. Target stable 60 fps on real mobile Safari/Chrome; desktop smoothness is not sufficient evidence.
 - `experimental.payloadExtraction: false` is safe only while routes have no payload state from `useAsyncData` / `useFetch`. At the first introduction of either API, reviewing this setting is mandatory; for the SSG site, prefer switching it to `'client'` unless measurements justify another mode. Nuxt mode semantics: https://nuxt.com/docs/4.x/getting-started/prerendering#payload-extraction.
 - Avoid full-surface SVG `feTurbulence`, stacked expensive live effects and unnecessary per-frame DOM/layout reads. Prefer baked textures/assets, instancing and transform/opacity animation.

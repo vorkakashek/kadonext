@@ -9,6 +9,13 @@ const {
 const { t } = useI18n()
 const localePath = useLocalePath()
 const homeCases = useHomeCases()
+type ProjectFilter = 'all' | HomeCase['type']
+const projectFilter = useState<ProjectFilter>('projects-catalog-filter', () => 'all')
+const projectFilters: ProjectFilter[] = ['all', 'commercial', 'concept']
+const filteredCases = computed(() => homeCases.value.filter(item => projectFilter.value === 'all' || item.type === projectFilter.value))
+function filterCount(filter: ProjectFilter) {
+  return filter === 'all' ? homeCases.value.length : homeCases.value.filter(item => item.type === filter).length
+}
 const projectsCatalogTitle = computed(() => t('projects.catalog.title'))
 const {
   pageIrisLive,
@@ -22,6 +29,7 @@ const projectsGridEl = ref<HTMLElement | null>(null)
 let catalogRevealCtx: { revert: () => void } | null = null
 let initialRevealTimelines: Array<{ play: () => unknown }> = []
 let initialRevealPlayed = false
+let catalogMotionRevision = 0
 
 const pageRevealReady = computed(() => (
   !pageIrisLive.value
@@ -41,7 +49,8 @@ watch(pageRevealReady, (ready) => {
   if (ready) playInitialCardReveal()
 }, { flush: 'post' })
 
-async function setupCatalogRevealMotion() {
+async function setupCatalogRevealMotion(animateEntrance = true) {
+  const revision = ++catalogMotionRevision
   const catalog = projectsCatalogEl.value
   const header = projectsHeaderEl.value
   const surface = projectsSurfaceEl.value
@@ -52,7 +61,7 @@ async function setupCatalogRevealMotion() {
     import('gsap'),
     import('gsap/ScrollTrigger'),
   ])
-  if (!grid.isConnected) return
+  if (!grid.isConnected || revision !== catalogMotionRevision) return
 
   gsap.registerPlugin(ScrollTrigger)
   catalogRevealCtx?.revert()
@@ -66,29 +75,36 @@ async function setupCatalogRevealMotion() {
       ? Math.min(3, cards.length)
       : Math.min(1, cards.length)
 
-    gsap.set([...headerTitleChars, ...headerDetails], { yPercent: 115 })
-    const headerTimeline = gsap.timeline({
-      paused: true,
-      defaults: { ease: 'power3.out' },
-    })
-    if (headerTitleChars.length) {
-      headerTimeline.to(headerTitleChars, {
-        yPercent: 0,
-        duration: 1.1,
-        stagger: 0.055,
-        ease: 'power4.out',
-      }, 0)
+    // The title mask keeps .16em of bottom space for glyphs in browsers without
+    // text-box-trim. At 115% the top bar of the Cyrillic "П" can still peek
+    // through that extra clipping area before the reveal starts.
+    if (animateEntrance) {
+      gsap.set(headerTitleChars, { yPercent: 130 })
+      gsap.set(headerDetails, { yPercent: 115 })
+      const headerTimeline = gsap.timeline({
+        paused: true,
+        defaults: { ease: 'power3.out' },
+      })
+      if (headerTitleChars.length) {
+        headerTimeline.to(headerTitleChars, {
+          yPercent: 0,
+          duration: 1.1,
+          stagger: 0.055,
+          ease: 'power4.out',
+        }, 0)
+      }
+      if (headerDetails.length) {
+        headerTimeline.to(headerDetails, {
+          yPercent: 0,
+          duration: 0.82,
+          stagger: 0.04,
+        }, 0.24)
+      }
+      initialRevealTimelines.push(headerTimeline)
     }
-    if (headerDetails.length) {
-      headerTimeline.to(headerDetails, {
-        yPercent: 0,
-        duration: 0.82,
-        stagger: 0.04,
-      }, 0.24)
-    }
-    initialRevealTimelines.push(headerTimeline)
 
     cards.forEach((card, index) => {
+      if (!animateEntrance) return
       const image = card.querySelector<HTMLImageElement>('.projects-card__cover img')
       const titleChars = Array.from(card.querySelectorAll<HTMLElement>('.projects-card__title-char'))
       const details = Array.from(card.querySelectorAll<HTMLElement>('.projects-card__detail-motion'))
@@ -177,6 +193,24 @@ type ProjectCardMotion = {
 }
 
 const projectCardMotions = new Map<HTMLElement, ProjectCardMotion>()
+function clearProjectCardMotions() {
+  projectCardMotions.forEach((motion) => {
+    if (motion.frame) cancelAnimationFrame(motion.frame)
+    motion.image.style.removeProperty('transform')
+    motion.image.style.removeProperty('will-change')
+  })
+  projectCardMotions.clear()
+}
+watch(projectFilter, async (_, __, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => { cancelled = true })
+  catalogMotionRevision++
+  catalogRevealCtx?.revert()
+  catalogRevealCtx = null
+  clearProjectCardMotions()
+  await nextTick()
+  if (!cancelled) void setupCatalogRevealMotion(false)
+})
 const PROJECT_CARD_HOVER_SCALE = 1.075
 const PROJECT_CARD_ZOOM_IN_MS = 400
 const PROJECT_CARD_POSITION_BLEND_IN_MS = 1800
@@ -308,19 +342,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  catalogMotionRevision++
   catalogRevealCtx?.revert()
   catalogRevealCtx = null
   initialRevealTimelines = []
   initialRevealPlayed = false
-  projectCardMotions.forEach((motion) => {
-    if (motion.frame) cancelAnimationFrame(motion.frame)
-    motion.image.style.removeProperty('transform')
-    motion.image.style.removeProperty('will-change')
-  })
-  projectCardMotions.clear()
+  clearProjectCardMotions()
 })
 
 function openCase(item: HomeCase, event: MouseEvent) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   const card = event.currentTarget as HTMLElement | null
   const cover = card?.querySelector<HTMLElement>('[data-case-cover]')
   const rect = cover?.getBoundingClientRect()
@@ -369,14 +400,26 @@ function openCase(item: HomeCase, event: MouseEvent) {
             aria-hidden="true"
           >{{ char }}</span>
         </h1>
-        <p class="projects-catalog__count" :aria-label="String(homeCases.length)">
-          <span class="projects-catalog__header-motion" aria-hidden="true">{{ homeCases.length }}</span>
+        <p class="projects-catalog__count" role="status" aria-live="polite" :aria-label="t('projects.catalog.resultCount', { count: filteredCases.length })">
+          <span class="projects-catalog__header-motion" aria-hidden="true">{{ filteredCases.length }}</span>
         </p>
       </header>
     </div>
     <div ref="projectsSurfaceEl" class="projects-catalog__surface">
+      <div class="projects-catalog__filters" role="group" :aria-label="t('projects.catalog.filterLabel')">
+        <button
+          v-for="filter in projectFilters"
+          :key="filter"
+          type="button"
+          :aria-pressed="projectFilter === filter"
+          @click="projectFilter = filter"
+        >
+          {{ t(`projects.catalog.filters.${filter}`) }}
+          <span aria-hidden="true">{{ filterCount(filter) }}</span>
+        </button>
+      </div>
       <ul ref="projectsGridEl" class="projects-catalog__grid">
-        <li v-for="(item, index) in homeCases" :key="item.id">
+        <li v-for="(item, index) in filteredCases" :key="item.id">
           <a
             :href="localePath(homeCaseDetailPath(item))"
             class="projects-card"
@@ -407,7 +450,7 @@ function openCase(item: HomeCase, event: MouseEvent) {
             </div>
             <div class="projects-card__meta">
               <span class="projects-card__detail-mask">
-                <span class="projects-card__number projects-card__detail-motion">{{ String(index + 1).padStart(3, '0') }}</span>
+                <span class="projects-card__number projects-card__detail-motion">{{ String(homeCases.findIndex(project => project.id === item.id) + 1).padStart(3, '0') }}</span>
               </span>
               <span class="projects-card__title" :aria-label="item.title">
                 <span class="sr-only">{{ item.title }}</span>
@@ -430,6 +473,12 @@ function openCase(item: HomeCase, event: MouseEvent) {
 </template>
 
 <style scoped>
+.projects-catalog__filters { display: flex; flex-wrap: wrap; gap: .5rem; width: min(var(--layout-content-max), calc(100% - 2 * var(--layout-margin-content))); margin-inline: auto; padding-top: var(--layout-margin-content); }
+.projects-catalog__filters button { display: inline-flex; min-height: 44px; align-items: center; gap: .8em; padding: .6em 1em; border: 1px solid color-mix(in srgb, var(--palette-ink) 24%, transparent); border-radius: 999px; background: transparent; color: var(--palette-ink); font: inherit; font-size: var(--type-nav); cursor: pointer; }
+.projects-catalog__filters button[aria-pressed='true'] { border-color: var(--palette-forest); background: var(--palette-forest); color: var(--palette-milk); }
+.projects-catalog__filters button:hover { border-color: var(--palette-forest); }
+.projects-catalog__filters button:focus-visible { outline: 2px solid var(--palette-forest); outline-offset: 3px; }
+.projects-catalog__filters button span { opacity: .6; font-size: .75em; font-variant-numeric: tabular-nums; }
 .projects-catalog { min-height: var(--app-screen); padding-top: calc(var(--layout-surface-top) + var(--space-section)); background-color: var(--semantic-bg-surface); }
 .projects-catalog__inner { width: min(var(--layout-content-max), calc(100% - 2 * var(--layout-margin-content))); margin: 0 auto; }
 .projects-catalog__header { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--layout-gutter); align-items: start; }

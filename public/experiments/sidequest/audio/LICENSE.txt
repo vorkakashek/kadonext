@@ -1,0 +1,18 @@
+SIDEQUEST field radio
+
+Source: "Lofi again" by omfgdude (OMF-Games), 2019-02-26.
+Author and download page: https://opengameart.org/content/lofi-again
+Original file: https://opengameart.org/sites/default/files/lofiagain.ogg
+License offered by the author: CC0 1.0 Universal (public-domain dedication).
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Downloaded: 2026-10-18.
+Original SHA-256: D3B3410A186D45DADBCF87A8072B5A7F3B3F5A11FE38D9A7E9BDB3F66D5D86FA
+
+Files:
+- lofi-again-original.ogg: author's original, retained for provenance.
+- field-radio.mp3: local 128 kbps MP3 conversion of the original.
+
+The app applies high/low-pass filtering, quiet generated hiss/crackle and
+subtle pitch wobble live using Web Audio. These effects are original code.
+No external audio streams, tracking, accounts or subscriptions are used.

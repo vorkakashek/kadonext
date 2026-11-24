@@ -44,10 +44,6 @@ function clearField(event: MouseEvent) {
   transform: translateY(-50%);
 }
 
-.field-clear:hover {
-  background: color-mix(in srgb, var(--palette-forest) 8%, transparent);
-}
-
 .field-clear:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;

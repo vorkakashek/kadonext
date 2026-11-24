@@ -56,6 +56,9 @@ function captureSwitcherProxy() {
   if (!button) return
   const box = button.getBoundingClientRect()
   const styles = getComputedStyle(button)
+  const hoverFill = button.hasAttribute('data-button-hover-active')
+    ? getComputedStyle(button, '::before').backgroundColor
+    : null
   proxyStyle.value = {
     left: `${box.left}px`,
     top: `${box.top}px`,
@@ -69,7 +72,7 @@ function captureSwitcherProxy() {
     letterSpacing: styles.letterSpacing,
     lineHeight: styles.lineHeight,
     textTransform: styles.textTransform,
-    background: styles.background,
+    background: hoverFill ?? styles.background,
     borderRadius: styles.borderRadius,
     backdropFilter: styles.backdropFilter,
     WebkitBackdropFilter: styles.getPropertyValue('-webkit-backdrop-filter'),

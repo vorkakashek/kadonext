@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
 
 const sourceDir = resolve('content/locales')
+const serviceSourceDir = resolve('content/services')
 const outputDir = resolve('app/generated/locales')
 
 const shortServiceWords = [
@@ -44,6 +45,10 @@ const sources = Object.fromEntries(await Promise.all(
   files.map(async file => [file, JSON.parse(await readFile(resolve(sourceDir, file), 'utf8'))]),
 ))
 const reference = sources['ru.json'] ?? sources[files[0]]
+const serviceSources = Object.fromEntries(await Promise.all(
+  files.map(async file => [file, JSON.parse(await readFile(resolve(serviceSourceDir, file), 'utf8'))]),
+))
+const serviceReference = serviceSources['ru.json'] ?? serviceSources[files[0]]
 
 function assertSameShape(referenceValue, candidateValue, path, localeFile) {
   if (Array.isArray(referenceValue)) {
@@ -72,9 +77,13 @@ for (const file of files) {
   const source = sources[file]
   if (source !== reference) assertSameShape(reference, source, '$', file)
   const output = processLocale(source)
+  assertSameShape(serviceReference, serviceSources[file], '$.services', file)
+  const services = processLocale(serviceSources[file])
+  output.seo.services = Object.fromEntries(Object.entries(services.pages).map(([id, page]) => [id, page.seo]))
   const projectDetails = output.projects?.details
   if (output.projects) delete output.projects.details
   await writeFile(resolve(outputDir, file), `${JSON.stringify(output, null, 2)}\n`)
+  await writeFile(resolve(outputDir, `${basename(file, '.json')}.services.json`), `${JSON.stringify(services, null, 2)}\n`)
   if (projectDetails) {
     const code = basename(file, '.json')
     await writeFile(
@@ -95,6 +104,9 @@ const loaderLines = localeCodes.map(code => (
 const projectDetailLoaderLines = localeCodes.map(code => (
   `  ${JSON.stringify(code)}: () => import('./${code}.project-details.json').then(module => module.default),`
 ))
+const servicePageLoaderLines = localeCodes.map(code => (
+  `  ${JSON.stringify(code)}: () => import('./${code}.services.json').then(module => module.default),`
+))
 const manifest = [
   `import defaultMessages from './${defaultLocale}.json'`,
   '',
@@ -105,6 +117,9 @@ const manifest = [
   '} as const',
   'export const projectDetailLocaleLoaders = {',
   ...projectDetailLoaderLines,
+  '} as const',
+  'export const servicePageLocaleLoaders = {',
+  ...servicePageLoaderLines,
   '} as const',
   'export type LocaleCode = keyof typeof localeLoaders',
   '',

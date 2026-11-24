@@ -2,7 +2,7 @@
 /**
  * Home — «Кадо́ — путь цветов.»
  * Grid: empty col 1 & 12 · photo cols 2–6 · text cols 7–11.
- * Body: line-by-line ash→ink fill on scroll (1.5× type).
+ * Body: line-by-line ash→ink fill on scroll (1.275× type on mobile).
  * Mobile surface waypoints: stone → term → Kado word → center square
  * (square hop starts when Kado hits top 20%).
  */
@@ -31,6 +31,9 @@ const bodyEl = ref<HTMLElement | null>(null)
 
 const { canvasMotionPaused, open: pageCanvasOpen, busy: pageCanvasBusy, surfaceOn, heroGlRevealBusy } = usePageCanvas()
 const heroIntroSettled = useState('home-hero-intro-settled', () => false)
+const initialHomeDocument = useState<boolean>('initial-home-document', () => false)
+const homeFullFontReady = useState<boolean>('home-full-font-ready', () => false)
+const homeKadoMotionReady = useState<boolean>('home-kado-motion-ready', () => false)
 
 defineExpose({
   section,
@@ -88,6 +91,23 @@ async function waitForEnhancementIdle() {
     } else {
       window.setTimeout(resolve, 120)
     }
+  })
+}
+
+async function waitForFullFont(maxMs = 8000) {
+  if (homeFullFontReady.value) return
+  await new Promise<void>((resolve) => {
+    let done = false
+    let stop = () => {}
+    const finish = () => {
+      if (done) return
+      done = true
+      stop()
+      window.clearTimeout(safety)
+      resolve()
+    }
+    stop = watch(homeFullFontReady, ready => ready && finish())
+    const safety = window.setTimeout(finish, maxMs)
   })
 }
 
@@ -599,6 +619,21 @@ onMounted(async () => {
   // enhancement. Start it before Hero/idle-gated text work so a fast visitor
   // never sees the stone begin floating halfway through the Kado section.
   void setupStoneLevitation()
+  const coldDesktopEntry = initialHomeDocument.value
+    && window.innerWidth >= 768
+    && !window.matchMedia('(pointer: coarse)').matches
+  if (coldDesktopEntry) {
+    // This DOM line measurement forces layout. Pay it under the same startup
+    // lock as Three/PMREM, with final font metrics, instead of in the first
+    // post-intro idle slot where it can collide with wheel input.
+    await waitForFullFont()
+    if (componentUnmounted) return
+    await setupLineFill(true)
+    if (componentUnmounted) return
+    homeKadoMotionReady.value = true
+  } else {
+    homeKadoMotionReady.value = true
+  }
   await waitForHeroIntro()
   await waitForEnhancementIdle()
   if (componentUnmounted) return
@@ -884,7 +919,7 @@ onUnmounted(() => {
 }
 
 .kado-body {
-  font-size: calc(var(--type-slogan) * 1.5);
+  font-size: calc(var(--type-slogan) * 1.275);
   font-weight: 400;
   letter-spacing: -0.02em;
   line-height: 1.25;

@@ -354,7 +354,7 @@ defineExpose({ rootEl, surfaceEl, fieldsEl, taskInputEl })
   }
 
   .home-contact__intro h2 {
-    font-size: clamp(2rem, 9.5vw, 3.25rem);
+    font-size: clamp(1.8rem, 8.55vw, 2.925rem);
   }
 
   .home-contact__intro p {

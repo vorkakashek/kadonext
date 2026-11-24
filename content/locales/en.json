@@ -1,13 +1,13 @@
 {
   "seo": {
     "defaultTitle": "KADO — bespoke website design and development",
-    "defaultDescription": "KADO is an author-led website design and development studio. I create distinctive sites for brands and service businesses, from structure and visual direction to launch.",
+    "defaultDescription": "KADO is an author-led design and development studio. I create end-to-end websites for businesses and SaaS products, from structure to launch and support.",
     "caseTitle": "{title} — KADO",
     "imageAlt": "KADO — an author-led website design and development studio",
     "caseImageAlt": "{title} — a website design case study in the KADO portfolio",
     "home": {
       "title": "KADO — bespoke website design and development",
-      "description": "KADO websites with character for brands and service businesses: structure, web design, development and launch."
+      "description": "KADO creates end-to-end websites for businesses and SaaS products: structure, design, development, launch and support."
     },
     "projects": {
       "title": "Projects — website design and development portfolio | KADO",
@@ -37,7 +37,15 @@
       "schmidt": {
         "title": "SCHMIDT — brand website design and development | KADO",
         "description": "SCHMIDT case study in collaboration with PAIR GROUP: art direction, web design, front-end development and interactive animation. A brand story told through a horizontal website composition."
+      },
+      "sidequest": {
+        "title": "SIDEQUEST — an interactive interface concept — KADO",
+        "description": "A companion explores a website, avoids text, presses buttons and tunes a radio. The idea and mechanics of a KADO concept."
       }
+    },
+    "sidequestInteractive": {
+      "title": "SIDEQUEST — try the interactive scene — KADO",
+      "description": "Guide a character with your cursor: press buttons, play the radio and turn book pages. A desktop interaction concept by KADO."
     }
   },
   "common": {
@@ -62,9 +70,9 @@
     "canvasLabel": "Site navigation",
     "pagesLabel": "Pages",
     "header": {
-      "projects": "work",
+      "projects": "projects",
       "services": "services",
-      "contact": "contact"
+      "contact": "get in touch"
     },
     "frames": {
       "home": {
@@ -91,6 +99,14 @@
         "label": "contact",
         "blurb": "Discuss a project"
       }
+    },
+    "locationLabel": "Current location",
+    "backToProjects": "All projects",
+    "backToSelected": "Selected work",
+    "servicePages": {
+      "redesign": "Redesign",
+      "corporate": "Company website",
+      "landing": "Landing page"
     }
   },
   "home": {
@@ -105,19 +121,24 @@
         "business"
       ],
       "descriptionLines": [
-        "KADŌ designs and builds websites for restaurants,",
-        "local brands and service businesses."
+        "I create end-to-end websites for businesses and SaaS products —",
+        "from structure to launch."
+      ],
+      "mobileDescriptionLines": [
+        "I create end-to-end websites",
+        "for businesses and SaaS products —",
+        "from structure to launch."
       ],
       "sloganLines": [
         "freedom of form.",
-        "order in the process"
+        "order in the process."
       ]
     },
     "kado": {
       "imageAlt": "Stone",
-      "title": "Kadō — the way of flowers.",
+      "title": "Kadō — the way of flowers",
       "definition": "The Japanese art of composition, where the freedom of natural forms finds precise order.",
-      "body": "KADO connects a brand's character with the purpose of its website: a distinct visual idea takes shape through clear structure and careful execution."
+      "body": "KADO keeps design and development in one process. I lead each project myself from structure to launch, so the visual idea does not get lost in handoffs. After launch, I continue to support the site with updates, new sections and technical maintenance."
     },
     "cases": {
       "title": "Projects",
@@ -130,33 +151,33 @@
       "gestureDismiss": "Tap to dismiss this hint."
     },
     "formats": {
-      "title": "Ways to work\ntogether.",
-      "intro": "Bring an idea, a finished design or an existing website.",
+      "title": "Where we can start",
+      "intro": "I shape the work around what already exists: an idea, a finished design or a live website.",
       "items": [
         {
-          "title": "End-to-end website",
-          "description": "For a new site from start to finish: structure, visual direction, design, development and launch.",
+          "title": "Website from scratch",
+          "description": "I clarify the task, shape the structure and visual direction, then take the site through to launch.",
           "preview": "/home/work/001-960.webp",
           "previewAvif": "/home/work/001-960.avif",
           "alt": "Japanese restaurant homepage displayed on a tablet"
         },
         {
-          "title": "Design and art direction",
-          "description": "For a product that needs its own visual language and a coherent interface system.",
+          "title": "Redesign and art direction",
+          "description": "I rethink the message, interface and visual system when a business has outgrown its current site.",
           "preview": "/home/work/002-960.webp",
           "previewAvif": "/home/work/002-960.avif",
           "alt": "Branded packaging for the Kitaycheck UI kit"
         },
         {
-          "title": "Development and motion",
-          "description": "For a finished design: responsive development and motion that supports the content.",
+          "title": "Development from finished designs",
+          "description": "I turn approved designs into a fast responsive site without losing their character.",
           "preview": "/home/work/003-960.webp",
           "previewAvif": "/home/work/003-960.avif",
           "alt": "Mobile interface for a medical website on a smartphone"
         },
         {
           "title": "Post-launch growth",
-          "description": "For a live website: new sections, updates and support as the project grows.",
+          "description": "I maintain the site, release updates and add new journeys as the business develops.",
           "preview": "/home/work/004-960.webp",
           "previewAvif": "/home/work/004-960.avif",
           "alt": "Digital product dashboard in a dark 3D composition"
@@ -164,7 +185,7 @@
       ]
     },
     "projectFormats": {
-      "title": "Project formats.",
+      "title": "Project formats",
       "intro": "Three scales, from a focused launch to a complex digital product.",
       "priceLabel": "investment",
       "durationLabel": "timeline",
@@ -206,21 +227,24 @@
       ]
     },
     "about": {
-      "titleLines": ["A personal perspective.", "One coherent result."],
+      "titleLines": [
+        "A personal perspective",
+        "One coherent result"
+      ],
       "portraitAlt": "Anton, founder of KADO",
       "roles": "art direction  ·  UX/UI  ·  development  ·  motion",
       "location": "moscow  ·  worldwide",
       "heading": "About me",
       "paragraphs": [
-        "I'm Anton, a designer, developer and founder of KADO. I lead the key stages myself: understanding the brief, shaping the structure, setting the visual direction and making sure the idea becomes a working website. When a project needs a photographer, copywriter or 3D specialist, I bring them in for that task and make their roles clear.",
-        "Form matters, but a site also needs clear structure, an easy path to the right information and reliable behaviour across screens. The work moves from the brief and concept through design and development to checks before launch. I can stay involved with updates and further development afterwards."
+        "I'm Anton, a designer, developer and founder of KADO. I have worked on the web for more than ten years and lead the key stages myself, from structure and art direction to development.",
+        "Clients work directly with the person making the decisions and taking responsibility for the result. When a project needs a photographer, copywriter or 3D specialist, I bring them in for that specific task and keep the work coherent. After launch, I stay involved: maintaining the site, releasing updates and developing it alongside the business."
       ],
       "socialsLabel": "Social media"
     },
     "contact": {
       "label": "Discuss a project",
-      "title": "Let's start a project.",
-      "personal": "Tell me what you are working on. I'll read your message myself and suggest where to start.",
+      "title": "Let's start a project",
+      "personal": "Tell me what you are launching or want to change. I'll read your message myself, ask the right questions and suggest the next step.",
       "taskLabel": "What do you need?",
       "clearTask": "Clear project type",
       "suggestionsLabel": "Suggestions",
@@ -237,7 +261,14 @@
   "projects": {
     "catalog": {
       "title": "Projects",
-      "description": "KADO case studies: the brief, key decisions and my role in each project."
+      "description": "KADO case studies: the brief, key decisions and my role in each project.",
+      "filterLabel": "Project type",
+      "resultCount": "Projects: {count}",
+      "filters": {
+        "all": "All",
+        "commercial": "Commercial",
+        "concept": "Concepts"
+      }
     },
     "detail": {
       "notFound": "Case study not found",
@@ -331,13 +362,34 @@
         "media": {
           "alt": "SCHMIDT homepage with a still-life composition on a monitor"
         }
+      },
+      {
+        "label": "SIDEQUEST",
+        "title": "SIDEQUEST",
+        "client": "An independent KADO concept",
+        "blurb": "A single screen becomes a playable scene. A companion navigates the interface, presses buttons and finds small distractions.",
+        "projectLabel": "Try the interactive scene",
+        "focusTags": [
+          "character",
+          "playable scene",
+          "interaction"
+        ],
+        "roleTags": [
+          "concept",
+          "web design",
+          "development",
+          "animation"
+        ],
+        "media": {
+          "alt": "SIDEQUEST — a character-driven interface concept on a green playing field"
+        }
       }
     ],
     "details": {
       "audience": {
         "blocks": [
           {
-            "title": "A space,<br>assembled into one<br>digital system.",
+            "title": "A space,<br>assembled into one<br>digital system",
             "paragraphs": [
               "For Audience, I carried the character of its interior and visual language into the structure of the site. This case study follows the composition, navigation and content-management decisions.",
               "The challenge was to bring the concept, interior, cuisine and service together in one clear digital experience."
@@ -352,7 +404,7 @@
             ]
           },
           {
-            "title": "Visual language as part of navigation.",
+            "title": "Visual language as part of navigation",
             "paragraphs": [
               "The visual system avoids decorative imitation of Eastern aesthetics. It is built on depth, natural textures, the contrast of light and shadow, open space and a restrained pace of interaction. These principles run consistently through every part of the website.",
               "Navigation ties the concept, interior, menu and service together. The same structure supports three languages: Russian, English and Chinese."
@@ -392,7 +444,7 @@
             ]
           },
           {
-            "title": "Motion as part of<br>navigation.",
+            "title": "Motion as part of<br>navigation",
             "paragraphs": [
               "Animation connects screens, marks transitions between sections and supports the reading order without turning into a spectacle."
             ],
@@ -403,7 +455,7 @@
             ]
           },
           {
-            "title": "A living website,<br>not a one-off<br>launch.",
+            "title": "A living website,<br>not a one-off<br>launch",
             "text": "The project was built as an evolving content system. Menus and seasonal items can be updated, news published, imagery changed and sections kept current without rebuilding the website by hand.",
             "media": [
               {
@@ -425,7 +477,7 @@
       "keys-store": {
         "blocks": [
           {
-            "title": "One store,<br>several business<br>models.",
+            "title": "One store,<br>several business<br>models",
             "paragraphs": [
               "Keys Store brings together Steam and PlayStation games, digital subscriptions, and the buying and selling of Steam items. Behind one brand are different product types, selection rules, payment methods and user expectations."
             ],
@@ -440,7 +492,7 @@
             "statement": "The task was not to make yet another catalog. It was to create a commerce system where people immediately understand what they are buying, which platform it works on and how to complete the transaction."
           },
           {
-            "title": "A shared language<br>for every catalog.",
+            "title": "A shared language<br>for every catalog",
             "paragraphs": [
               "I created one language for every catalog: a shared grid, cards, filters, typographic hierarchy, statuses and price treatment. Across each section, the logic stays familiar.",
               "The system adapts to the product: a game shows platform and delivery method, a subscription its term and contents, and a Steam item its availability, purchase price and sale price."
@@ -450,7 +502,7 @@
             }
           },
           {
-            "title": "The differences remain visible.<br>The system stays coherent.",
+            "title": "The differences remain visible.<br>The system stays coherent",
             "paragraphs": [
               "A shared style does not mean identical interfaces. Each catalog gets its own emphasis and only the information needed to make a decision in that specific journey."
             ],
@@ -471,7 +523,7 @@
             "statement": "Product complexity is not hidden behind decorative uniformity; it is translated into clear decision-making criteria."
           },
           {
-            "title": "A path to purchase<br>without needless decisions.",
+            "title": "A path to purchase<br>without needless decisions",
             "paragraphs": [
               "Buying a digital product can involve platform, region, edition, payment method and delivery method. I turned these choices into a clear sequence, with the next step and final terms visible before confirmation.",
               "Different checkout options do not turn the process into a maze of technical forks. The interface reveals available actions in sequence and keeps the order clear."
@@ -481,7 +533,7 @@
             }
           },
           {
-            "title": "Trust is built<br>into the interface.",
+            "title": "Trust is built<br>into the interface",
             "paragraphs": [
               "The design explains how each transaction works, shows availability and timing, tracks order status and makes the terms transparent, from choosing a product to receiving a game or a payout for a sale."
             ],
@@ -495,7 +547,7 @@
             ]
           },
           {
-            "title": "Identity is<br>part of the product.",
+            "title": "Identity is<br>part of the product",
             "paragraphs": [
               "The logo and visual language bring diverse areas together in one recognizable product. Vibrant game imagery distinguishes the categories, while the interface shell maintains a common rhythm.",
               "Identity does not exist apart from UX: it helps people recognize areas, platforms and service types more quickly."
@@ -513,13 +565,13 @@
         }
       },
       "baltika": {
-        "summary": "How I designed the interface and 3D system for a brand website.",
+        "summary": "How I designed the interface and 3D system for a brand website",
         "headerMedia": {
           "alt": "Baltika Brew — 3D bottle model in Blender"
         },
         "blocks": [
           {
-            "title": "The challenge and<br>the central object.",
+            "title": "The challenge and<br>the central object",
             "paragraphs": [
               "For Baltika Brew, I developed the brand website structure, visual concept and a set of 3D scenes. This case study follows the key decisions behind the digital interface.",
               "The bottle model became the central object. It set the rules for composition, materials and interface behavior across the site.",
@@ -538,7 +590,7 @@
             }
           },
           {
-            "title": "The label as part of<br>the visual system.",
+            "title": "The label as part of<br>the visual system",
             "paragraphs": [
               "I integrated the label artwork into the 3D model and connected it to the background scenes. This created a shared way to present the range.",
               "Products were distinguished through color, imagery and scene parameters, while the navigation and page structure remained consistent."
@@ -548,7 +600,7 @@
             }
           },
           {
-            "title": "Original imagery<br>for every product.",
+            "title": "Original imagery<br>for every product",
             "paragraphs": [
               "For each product, I selected an original photograph and built an individual scene. Color, texture and scale distinguish the screens, while the overall composition keeps the stories connected."
             ],
@@ -572,7 +624,7 @@
             }
           },
           {
-            "title": "Motion as part of<br>the interface.",
+            "title": "Motion as part of<br>the interface",
             "paragraphs": [
               "Animation moves between states of the 3D scene and sequences the appearance of information. It supports navigation and guides attention through the composition."
             ],
@@ -583,7 +635,7 @@
             ]
           },
           {
-            "title": "Reference material<br>without visual noise.",
+            "title": "Reference material<br>without visual noise",
             "paragraphs": [
               "For a large body of reference material, I developed a clear typographic hierarchy and compact information modules.",
               "Content follows a clear visual hierarchy, keeping the screen readable without competing with the main 3D scene."
@@ -593,7 +645,7 @@
             }
           },
           {
-            "title": "Editorial and<br>reference sections.",
+            "title": "Editorial and<br>reference sections",
             "paragraphs": [
               "News and reference material share a common navigation system and a repeatable page structure. This case study treats the section as part of the website's information architecture."
             ],
@@ -607,7 +659,7 @@
             }
           },
           {
-            "title": "Responsive<br>composition.",
+            "title": "Responsive<br>composition",
             "paragraphs": [
               "Wide screens use a horizontal composition with text and graphic elements distributed across the canvas.",
               "On mobile, the same material becomes a sequential vertical structure while retaining its reading order."
@@ -630,7 +682,7 @@
         },
         "blocks": [
           {
-            "title": "A brand story<br>in a horizontal rhythm.",
+            "title": "A brand story<br>in a horizontal rhythm",
             "paragraphs": [
               "Instead of the familiar downward movement, users travel through the SCHMIDT website from left to right. Brand identity, editorial blocks and interface scenes become one continuous sequence."
             ],
@@ -642,7 +694,7 @@
             "statement": "The horizontal route sets the pace of discovery and turns the landing page into a continuous trajectory. It is not an effect for effect's sake."
           },
           {
-            "title": "Clarity in a still-life<br>composition.",
+            "title": "Clarity in a still-life<br>composition",
             "paragraphs": [
               "Clear glass, grain, pearls and a fine golden line shape the website's visual vocabulary. Contrasting objects connect individual screens into one visual system.",
               "Large typography and white space keep the composition clear and composed without making it sterile."
@@ -652,7 +704,7 @@
             }
           },
           {
-            "title": "The brand story<br>as the next scene.",
+            "title": "The brand story<br>as the next scene",
             "paragraphs": [
               "Family history, heritage and values do not sit on a separate text page. They become part of the same spatial sequence, giving each fact weight and rhythm without interrupting the movement."
             ],
@@ -666,7 +718,7 @@
             ]
           },
           {
-            "title": "Production as<br>a transparent process.",
+            "title": "Production as<br>a transparent process",
             "paragraphs": [
               "The section is divided into four numbered scenes. I developed a distinct object image for each while keeping the grid, typography and motion consistent."
             ],
@@ -687,7 +739,7 @@
             "statement": "Four distinct images become one continuous visual journey."
           },
           {
-            "title": "The range continues<br>through distinct journeys.",
+            "title": "The range continues<br>through distinct journeys",
             "paragraphs": [
               "Every product receives its own screen with an individual composition, color accent and arrangement of content.",
               "Shared grid and typographic rules hold the sections together, while varied layouts prevent mechanical repetition."
@@ -697,7 +749,7 @@
             }
           },
           {
-            "title": "One rhythm.<br>Different screens.",
+            "title": "One rhythm.<br>Different screens",
             "paragraphs": [
               "On a wide screen, the story unfolds as a long horizontal composition. On narrow screens, the order of scenes remains while guidance becomes more explicit.",
               "Responsive design is not about shrinking blocks, but about preserving the same rhythm of discovering the brand."
@@ -713,7 +765,95 @@
         "closing": {
           "alt": "Horizontal SCHMIDT homepage on an ultrawide monitor"
         }
+      },
+      "sidequest": {
+        "summary": "An interface with a playful companion",
+        "headerMedia": {
+          "alt": "SIDEQUEST scene diagram with typography, props and a companion"
+        },
+        "blocks": [
+          {
+            "title": "One screen.<br>A small companion",
+            "paragraphs": [
+              "I took a familiar first screen: a logo, navigation, headline, description and buttons. I arranged them as objects on a playing field and added one character. Cursor movement now has a visible consequence.",
+              "The companion follows the cursor and navigates around text and objects. Hovering invites it over. A click commits the action: it arrives, grips an edge and presses the button."
+            ],
+            "media": [
+              {
+                "alt": "SIDEQUEST scene diagram with typography, props and a companion"
+              }
+            ]
+          },
+          {
+            "title": "Finding a way through",
+            "paragraphs": [
+              "Text and objects have collision boundaries that follow their rotation and rounded corners. Empty container space and cast shadows do not block movement. Clearance allows for the character body and a small gap.",
+              "A visibility graph connects possible passages. A* finds a short route around obstacles. For interactions, routes to all four sides are compared. The character chooses an accessible edge, turns towards it and keeps both hands clear of the corners. The demo can display this map."
+            ],
+            "media": {
+              "alt": "Diagram of a collision-free route around interface text"
+            }
+          },
+          {
+            "title": "Buttons with<br>a physical response",
+            "paragraphs": [
+              "The cursor indicates a goal; the character carries out the action. After a click it keeps its task even when the mouse moves away. The button moves into its hard shadow, making the press visible.",
+              "The radio on the left follows the same rule. Click its body and the character switches on a quiet music loop with hiss and subtle pitch wobble. Click again to turn it off. Sound starts only after interaction."
+            ],
+            "media": [
+              {
+                "alt": "Diagram of a character gripping and pressing a button"
+              },
+              {
+                "alt": "Diagram of the SIDEQUEST radio and its on/off interaction"
+              }
+            ]
+          },
+          {
+            "title": "A little room<br>for distraction",
+            "paragraphs": [
+              "The orange book on the right opens in place. The next two clicks turn its spreads; one more click closes it. It offers a small discovery without leaving the first screen.",
+              "A scrap of paper and two banana peels form a small litter pile. Run through it and the character trips, falls, gets up and resumes its route. When it is busy, a reply appears in a speech bubble above its head."
+            ],
+            "media": [
+              {
+                "alt": "SIDEQUEST book diagram: open, turn twice, close"
+              },
+              {
+                "alt": "Diagram of the companion tripping and recovering its route"
+              }
+            ]
+          },
+          {
+            "title": "Where the idea<br>could fit",
+            "paragraphs": [
+              "The mechanic could support a game launch page, event microsite or personal portfolio. The character gives visitors a reason to explore; objects could reveal a schedule, selected work, a brand story or supporting material.",
+              "Each application needs to test whether this pace helps its main task. This concept delays a click until the character arrives. For registration, payment or urgent actions I would keep a direct path. The current scene is designed for a desktop mouse; touch interaction needs its own solution."
+            ],
+            "media": {
+              "alt": "Diagram of potential applications for games, events and portfolios"
+            }
+          },
+          {
+            "text": "Take it for a walk",
+            "description": "Open the scene on a computer with a mouse. Hover over a button, switch on the radio and turn the book pages. Try to avoid the litter.",
+            "action": {
+              "label": "Open interactive scene"
+            }
+          }
+        ],
+        "closing": {
+          "alt": "SIDEQUEST scene diagram with typography, props and a companion"
+        }
       }
+    },
+    "interactive": {
+      "title": "Take it for a walk",
+      "description": "Open the scene on a computer with a mouse. Hover over a button, switch on the radio and turn the book pages. Try to avoid the litter.",
+      "open": "Open interactive scene",
+      "back": "Back to the case study",
+      "hint": "Desktop · mouse · click for sound",
+      "frameTitle": "SIDEQUEST interactive scene"
     }
   },
   "pages": {
@@ -735,13 +875,12 @@
   },
   "cookieNotice": {
     "titleLines": [
-      "this website remembers",
-      "a few things too 🍪"
+      "this website remembers a few things too 🍪"
     ],
-    "text": "Essential cookies remember settings. The first-party counter uses no cookies and records the date, page, country, browser family and referrer category.",
-    "note": "The counter stores no IP address, full User-Agent or referrer URL.",
-    "details": "What exactly?",
-    "accept": "got it"
+    "text": "By staying on this site, you accept the data processing and cookie terms.",
+    "details": "Learn more",
+    "accept": "Got it",
+    "acceptMobile": "Got it"
   },
   "contactForm": {
     "addVoice": "Add another voice message",
@@ -756,7 +895,7 @@
     "clearDescription": "Clear project description",
     "descriptionHint": "What are you creating, and for whom? What should visitors understand or do on the site?<br>A few sentences or a voice message are enough.",
     "contactLabel": "how can I reach you?",
-    "contactTitle": "Enter the contact details I should use to reach you.",
+    "contactTitle": "Enter the contact details I should use to reach you",
     "contactHint": "name, Telegram or email",
     "clearContact": "Clear contact details",
     "consentBefore": "I give",
@@ -768,7 +907,7 @@
     "sendingLabel": "Sending message",
     "submit": "Send",
     "emailLead": "Or email me directly:",
-    "successTitle": "Thank you<br>for reaching out.",
+    "successTitle": "Thank you<br>for reaching out",
     "successBody": "I've got your message. I will read through the details{voice} and reply soon.",
     "successVoice": ", listen to your voice messages"
   },

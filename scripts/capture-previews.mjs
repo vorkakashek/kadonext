@@ -36,7 +36,7 @@ const locales = selectedLocales ?? supportedLocales
 const allPages = [
   { id: 'home', path: '/', selector: '.hero-swarm canvas' },
   { id: 'projects', path: '/projects', selector: '.projects-catalog__title' },
-  { id: 'services', path: '/#services', selector: '#services' },
+  { id: 'services', path: '/services', selector: '.service-hero__title' },
   { id: 'prices', path: '/', selector: '#project-formats', section: true },
   {
     id: 'about',

@@ -1,5 +1,6 @@
 import { canonicalPath, isSiteIndexable, serializeJsonLd, siteUrl, SITE_EMAIL, SITE_NAME, SITE_PATHS, SITE_ROBOTS, SITE_URL } from '~/utils/siteSeo'
 import { localizedPath } from '~/utils/localeRouting'
+import serviceRoutes from '~/data/serviceRoutes.json'
 
 type SeoCopy = { title: string; description: string }
 type JsonLdNode = Record<string, unknown>
@@ -11,11 +12,14 @@ export function useSiteSeo() {
   const { locale, t, tm } = useI18n()
   const cases = useHomeCases()
   const path = computed(() => canonicalPath(route.path))
+  const interactive = computed(() => path.value === '/projects/sidequest/interactive')
   const item = computed(() => cases.value.find(project => `/projects/${project.id}` === path.value))
+  const service = computed(() => serviceRoutes.find(entry => entry.path === path.value))
   const knownPage = computed(() => SITE_PATHS.includes(path.value))
   const indexable = computed(() => isSiteIndexable(config.public.siteIndexable) && knownPage.value)
   const copy = computed<SeoCopy>(() => {
-    const key = item.value ? `seo.cases.${item.value.id}` : ({
+    if (interactive.value) return tm('seo.sidequestInteractive') as SeoCopy
+    const key = service.value ? `seo.services.${service.value.id}` : item.value ? `seo.cases.${item.value.id}` : ({
       '/': 'seo.home', '/projects': 'seo.projects', '/privacy': 'seo.privacy', '/consent': 'seo.consent',
     } as Record<string, string>)[path.value]
     return key ? tm(key) as SeoCopy : { title: t('seo.defaultTitle'), description: t('seo.defaultDescription') }
@@ -28,12 +32,15 @@ export function useSiteSeo() {
   ))
   const localizedUrl = (targetPath: string) => siteUrl(localizedPath(targetPath, locale.value))
   const image = computed(() => {
-    const assetBase = String(config.public.assetCdnUrl || config.app?.cdnURL || '').trim().replace(/\/+$/, '')
-    const card = item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')
+    const ogOrigin = String(config.public.ogCdnUrl || '').trim().replace(/\/+$/, '')
+    const card = interactive.value ? 'sidequest' : item.value?.id ?? (path.value === '/projects' ? 'projects' : 'home')
     const assetPath = path.value === '/' && locale.value === 'ru'
-      ? '/og/ru/home.jpg'
-      : `/og/${card}.jpg`
-    return siteUrl(`${assetBase}${assetPath}`)
+      ? '/og/v2/ru/home.jpg'
+      : path.value === '/' && card === 'home'
+        ? '/og/v2/home.jpg'
+      : `/og/v2/${card}.jpg`
+    // Social cards share the canonical VPS origin with the rest of the assets.
+    return `${ogOrigin || SITE_URL}${assetPath}`
   })
   const imageAlt = computed(() => item.value
     ? t('seo.caseImageAlt', { title: item.value.title })
@@ -50,7 +57,7 @@ export function useSiteSeo() {
     ogDescription: () => description.value,
     ogUrl: () => canonical.value,
     ogImage: () => image.value,
-    ogImageType: 'image/jpeg',
+    ogImageType: () => image.value.endsWith('.png') ? 'image/png' : 'image/jpeg',
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageAlt: () => imageAlt.value,
@@ -89,6 +96,7 @@ export function useSiteSeo() {
     if (path.value !== '/') {
       const crumbs = [{ name: SITE_NAME, url: localizedUrl('/') }]
       if (item.value) crumbs.push({ name: t('projects.catalog.title'), url: localizedUrl('/projects') })
+      if (service.value && service.value.id !== 'index') crumbs.push({ name: t('navigation.frames.services.label'), url: localizedUrl('/services') })
       crumbs.push({ name: item.value?.title ?? title.value.replace(' — KADO', ''), url: canonical.value })
       nodes.push({
         '@type': 'BreadcrumbList', '@id': `${canonical.value}#breadcrumbs`,
@@ -113,6 +121,13 @@ export function useSiteSeo() {
         })),
       })
     }
+    if (service.value) {
+      nodes.push({
+        '@type': 'Service', '@id': `${canonical.value}#service`, name: title.value,
+        description: description.value, url: canonical.value,
+        provider: { '@id': organizationId }, mainEntityOfPage: { '@id': pageId },
+      })
+    }
     if (path.value === '/') {
       const formats = tm('home.formats.items') as Array<{ title: string; description: string }>
       nodes.push(...formats.map((format, index) => ({
@@ -125,7 +140,7 @@ export function useSiteSeo() {
 
   useHead(() => ({
     htmlAttrs: { lang: locale.value },
-    link: knownPage.value ? [
+    link: knownPage.value || interactive.value ? [
       { key: 'canonical', rel: 'canonical', href: canonical.value },
       { key: 'alternate-ru', rel: 'alternate', hreflang: 'ru', href: siteUrl(localizedPath(path.value, 'ru')) },
       { key: 'alternate-en', rel: 'alternate', hreflang: 'en', href: siteUrl(localizedPath(path.value, 'en')) },

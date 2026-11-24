@@ -66,10 +66,22 @@ test('the cold surface corridor never boots inside the first desktop wheel input
   const scheduleEnd = source.indexOf('/** Mobile corridor state */', scheduleStart)
   const schedule = source.slice(scheduleStart, scheduleEnd)
 
-  assert.match(schedule, /motionBootTimer = window\.setTimeout/)
-  assert.match(schedule, /void bootMotionEngine\(\)[\s\S]*?, 160\)/)
+  assert.match(schedule, /void bootMotionEngine\(\)/)
+  assert.doesNotMatch(schedule, /motionBootTimer = window\.setTimeout/)
   assert.doesNotMatch(schedule, /(?:window\.)?requestIdleCallback\s*\(/)
   assert.doesNotMatch(schedule, /addEventListener\(['"]wheel['"]/)
+})
+
+test('desktop cold start warms the runtime without locking document input', () => {
+  const app = readFileSync(new URL('../app/app.vue', import.meta.url), 'utf8')
+  const kado = readComponent('HomeKado')
+  const lenis = readFileSync(new URL('../app/plugins/lenis.client.ts', import.meta.url), 'utf8')
+
+  assert.match(app, /if \(plainColdEntry && !mobile\) preloadHomeSceneAssets\('desktop'\)/)
+  assert.doesNotMatch(app, /home-cold-runtime-lock|COLD_RUNTIME_LOCK/)
+  assert.match(kado, /await waitForFullFont\(\)[\s\S]*?await setupLineFill\(true\)[\s\S]*?homeKadoMotionReady\.value = true/)
+  assert.doesNotMatch(lenis, /home-cold-runtime-lock/)
+  assert.match(lenis, /if \(!keepTickerWarm && lenis\.isScrolling === false/)
 })
 
 test('the mobile cold scene moves WebGL startup off the main thread', () => {
@@ -102,14 +114,13 @@ test('the mobile cold scene moves WebGL startup off the main thread', () => {
   assert.match(support, /typeof HTMLCanvasElement\.prototype\.transferControlToOffscreen === 'function'/)
 })
 
-test('critical app assets and public media share the configured CDN', () => {
+test('critical app assets and public media use the site origin', () => {
   const source = readFileSync(
     new URL('../nuxt.config.ts', import.meta.url),
     'utf8',
   )
 
-  assert.match(source, /assetCdnUrl: publicAssetCdnUrl/)
-  assert.match(source, /cdnURL: appAssetCdnUrl/)
-  assert.match(source, /process\.env\.KADO_APP_ASSET_CDN_URL \?\? publicAssetCdnUrl/)
+  assert.match(source, /assetCdnUrl: ''/)
+  assert.match(source, /cdnURL: ''/)
   assert.match(source, /href: fontAssetUrl\('FixelCritical\.woff2'\)/)
 })

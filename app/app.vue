@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { PLAIN_COLD_HOME } from '~/utils/introExperiment'
+import { preloadHomeSceneAssets } from '~/utils/preloadHomeMotion'
 
 const enhancementsReady = ref(false)
 const route = useRoute()
 const basePath = computed(() => baseRoutePath(route.path))
+const standaloneScene = computed(() => basePath.value === '/projects/sidequest/interactive')
 // Capture the initial document route. Later SPA navigation keeps using the
 // dedicated page/case transitions and should not be treated as a cold load.
 const initialHomeDocument = basePath.value === '/'
@@ -19,6 +21,7 @@ const criticalFontReady = useState<boolean>(
 )
 const heroWebglBooted = useState<boolean>('home-hero-webgl-booted', () => false)
 const heroIntroPending = useState<boolean>('home-hero-intro-pending', () => true)
+const homeFullFontReady = useState<boolean>('home-full-font-ready', () => !initialHomeDocument)
 const cursorReady = computed(
   () => enhancementsReady.value && (!initialHomeDocument || heroWebglBooted.value),
 )
@@ -42,6 +45,11 @@ onMounted(async () => {
   appUnmounted = false
   const mobile = window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches
   const plainColdEntry = PLAIN_COLD_HOME && initialHomeDocument
+
+  // Start the expensive desktop runtime early, but never hold document input
+  // behind WebGL, font or motion readiness. The prerendered Hero remains a
+  // valid progressive fallback while those systems finish warming.
+  if (plainColdEntry && !mobile) preloadHomeSceneAssets('desktop')
 
   if (plainColdEntry) homeIntroGate.unlock()
   else homeIntroGate.start(initialHomeDocument)
@@ -105,13 +113,16 @@ onMounted(async () => {
         document.fonts.load('400 1rem "Fixel"'),
       ])
     }
-    if (!appUnmounted) document.documentElement.classList.add('fonts-enhanced')
+    if (!appUnmounted) {
+      document.documentElement.classList.add('fonts-enhanced')
+      homeFullFontReady.value = true
+    }
   }
 
   // Hero and header use Fixel Critical explicitly. Fetch the complete family
   // only after the authored entrance has had time to start, so it cannot
   // compete with the face that gates the first visible text.
-  if (initialHomeDocument) {
+  if (initialHomeDocument && mobile) {
     fullFontFallbackTimer = window.setTimeout(() => {
       fullFontFallbackTimer = 0
       if (typeof window.requestIdleCallback === 'function') {
@@ -120,8 +131,13 @@ onMounted(async () => {
         void enableFullFonts()
       }
     }, mobile ? 2200 : 1400)
+  } else if (initialHomeDocument) {
+    // Desktop line measurement and ScrollTrigger geometry must use final font
+    // metrics before scrolling is enabled. Start the full face immediately.
+    void enableFullFonts()
   } else {
     document.documentElement.classList.add('fonts-enhanced')
+    homeFullFontReady.value = true
   }
 
   if (initialHomeDocument) {
@@ -163,7 +179,11 @@ onMounted(async () => {
   // Closed overlays and decorative controls are not part of the first frame.
   // Load them during the first idle window, with a bounded fallback so the
   // menu and route transitions are ready before a typical first interaction.
-  if (mobile) {
+  if (plainColdEntry && !mobile) {
+    // Parse/mount route chrome during the eager warmup. Waking this work from
+    // requestIdleCallback during the first scroll would create a late spike.
+    mountEnhancements()
+  } else if (mobile) {
     // Never turn the user's first tap into a synchronous mount burst: it can
     // contend with the cold-home entrance and used to leave the menu busy if
     // its lazy component had not mounted yet.
@@ -218,12 +238,12 @@ watch(
         </div>
       </div>
     </div>
-    <SiteHeader />
+    <SiteHeader v-if="!standaloneScene" />
     <!-- Keep first-visit consent in the static document. A head script adds
          `cookie-notice-seen` before paint for returning visitors, while the
          component removes its SSR node after hydration. -->
-    <CookieNotice />
-    <ClientOnly>
+    <CookieNotice v-if="!standaloneScene" />
+    <ClientOnly v-if="!standaloneScene">
       <LazyCaseDetailTransition v-if="enhancementsReady" />
       <LazyPageCanvas v-if="pageCanvasMountReady" />
       <LazyPageIris v-if="enhancementsReady" />

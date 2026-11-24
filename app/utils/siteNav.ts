@@ -2,7 +2,7 @@
 
 import type { LocaleCode } from '~/generated/locales/manifest'
 import type { HomeSectionId } from './homeSections'
-import { stripLocalePrefix } from './localeRouting'
+import { baseRoutePath } from './localeRouting'
 
 export type SiteNavFrameKind = 'page'
 
@@ -37,7 +37,7 @@ export interface SiteNavFrame {
 /** Header shortcuts (subset). */
 export const headerLinks = [
   { labelKey: 'navigation.header.projects', to: '/projects' },
-  { labelKey: 'navigation.header.services', to: '/', section: 'services' },
+  { labelKey: 'navigation.header.services', to: '/services' },
   { labelKey: 'navigation.header.contact', to: '/', section: 'contact' },
 ] as const
 
@@ -66,8 +66,7 @@ export const canvasFrames: SiteNavFrame[] = [
   {
     id: 'services',
     kind: 'page',
-    to: '/',
-    section: 'services',
+    to: '/services',
     labelKey: 'navigation.frames.services.label',
     blurbKey: 'navigation.frames.services.blurb',
     index: '03',
@@ -124,7 +123,7 @@ function previewSet(id: string, mobileId = id): Record<LocaleCode, SiteNavPrevie
 }
 
 export function matchFramePath(path: string): string {
-  const clean = stripLocalePrefix(path).split('#', 1)[0]?.replace(/\/+$/, '') || '/'
+  const clean = baseRoutePath(path)
   const exact = canvasFrames.find((f) => !f.section && clean === f.to)
   if (exact) return exact.id
   if (clean === '/') return 'home'
@@ -132,7 +131,7 @@ export function matchFramePath(path: string): string {
   const hit = canvasFrames.find((f) => (
     !f.to.includes('#')
     && f.to !== '/'
-    && pathOnly.startsWith(f.to)
+    && pathOnly.startsWith(`${f.to}/`)
   ))
   return hit?.id ?? 'home'
 }
